@@ -1,0 +1,84 @@
+namespace AgentDefinition
+
+features
+	AgentDefinition {abstract true}
+		mandatory
+			BaseAgent {abstract true}
+				mandatory
+					AgentType {abstract true}
+						alternative
+							LlmAgent {abstract true}
+							SequentialAgent {abstract true}
+							ParallelAgent {abstract true}
+							LoopAgent {abstract true}
+							CustomAgent {abstract true}
+							RemoteA2AAgent {abstract true}
+								mandatory
+									AgentCardReference {abstract true}
+										alternative
+											AgentCardURL {abstract true}
+											AgentCardJSON {abstract true}
+					Name {abstract true}
+				optional
+					Description {abstract true}
+					SubAgents {abstract true}
+					Constraints {abstract true}
+		optional
+			LLMAgentConfig {abstract true}
+				mandatory
+					Model {abstract true}
+				optional
+					GenerateContentConfig {abstract true}
+						optional
+							Temperature {abstract true}
+							MaxOutputTokens {abstract true}
+							TopP {abstract true}
+							TopK {abstract true}
+							SafetySettings {abstract true}
+			Configurations {abstract true}
+				mandatory
+					Instruction {abstract true}
+				optional
+					Tools {abstract true}
+						or
+							ThirdPartyTools {abstract true}
+							FunctionTools {abstract true}
+							MCPTools {abstract true}
+							AgentTool {abstract true}
+							BaseTools {abstract true}
+								or
+									GeminiTools {abstract true}
+									GoogleCloudTools {abstract true}
+					DataStructure {abstract true}
+						optional
+							OutputKey {abstract true}
+							InputSchema {abstract true}
+							OutputSchema {abstract true}
+					IncludeContents {abstract true}
+						alternative
+							Default
+							None
+					Planner {abstract true}
+						optional
+							BuiltInPlanner {abstract true}
+								optional
+									ThinkingConfig {abstract true}
+										or
+											IncludeThoughts
+											ThinkingBudget
+							PlanReactPlanner
+					CodeExecutor {abstract true}
+			Guardrails {abstract true}
+				optional
+					AgentLifecycle {abstract true}
+						or
+							BeforeAgentCallback {abstract true}
+							AfterAgentCallback {abstract true}
+					ModelInteraction {abstract true}
+						or
+							BeforeModelCallback {abstract true}
+							AfterModelCallback {abstract true}
+					ToolExecution {abstract true}
+						or
+							BeforeToolCallback {abstract true}
+							AfterToolCallback {abstract true}

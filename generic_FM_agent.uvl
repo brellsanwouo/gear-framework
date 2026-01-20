@@ -1,0 +1,182 @@
+namespace GenericAgent
+
+features
+	GenericAgent {abstract true}
+		mandatory
+			AgentIdentity {abstract true}
+				mandatory
+					Name {abstract true}
+					Purpose {abstract true}
+				optional
+					ContextDescription {abstract true}
+
+			AgentType {abstract true}
+				alternative
+					SingleAgent
+					MultiAgent {abstract true}
+						alternative
+							SequentialAgent
+							ParallelAgent
+							LoopAgent
+							CustomAgent
+
+			LLMConfiguration {abstract true}
+				mandatory
+					Model {abstract true}
+				optional
+					ModelParameters {abstract true}
+						optional
+							Temperature {abstract true}
+							MaxTokens {abstract true}
+							TopP {abstract true}
+							StopSequences {abstract true}
+							AdditionalParams {abstract true}
+								optional
+									TopK {abstract true}
+									FrequencyPenalty {abstract true}
+									PresencePenalty {abstract true}
+									Seed {abstract true}
+					APIConfiguration {abstract true}
+						optional
+							APIKey {abstract true}
+							Timeout {abstract true}
+							MaxRetries {abstract true}
+					SafetyConfiguration {abstract true}
+
+			InstructionDefinition {abstract true}
+				mandatory
+					TaskSpecification {abstract true}
+						mandatory
+							TaskName {abstract true}
+							TaskDescription {abstract true}
+						optional
+							ExpectedOutput {abstract true}
+							AssignedAgent {abstract true}
+
+		optional
+			Tools {abstract true}
+				optional
+					ToolScope {abstract true}
+						or
+							AgentLevelTools {abstract true}
+							TaskLevelTools {abstract true}
+					ToolTypes {abstract true}
+						or
+							FunctionBasedTools {abstract true}
+							ThirdPartyIntegrations {abstract true}
+							MCPTools {abstract true}
+							BuiltInTools {abstract true}
+							AgentAsToolReference {abstract true}
+
+			ExecutionControl {abstract true}
+				optional
+					DelegationControl {abstract true}
+						alternative
+							EnableDelegation
+							DisableDelegation
+					CodeExecutionControl {abstract true}
+						alternative
+							EnableCodeExecution
+							DisableCodeExecution
+					AsyncExecutionControl {abstract true}
+						alternative
+							EnableAsync
+							DisableAsync
+					HumanInteractionControl {abstract true}
+						alternative
+							EnableHumanInput
+							DisableHumanInput
+					VerbosityControl {abstract true}
+						alternative
+							EnableVerbose
+							DisableVerbose
+					CachingControl {abstract true}
+						alternative
+							EnableCache
+							DisableCache
+
+			MemorySystem {abstract true}
+				alternative
+					EnableMemory {abstract true}
+						or
+							ShortTermMemory {abstract true}
+							LongTermMemory {abstract true}
+							EntityMemory {abstract true}
+							ContextualMemory {abstract true}
+					DisableMemory
+
+			PlanningCapability {abstract true}
+				optional
+					PlanningStrategy {abstract true}
+						alternative
+							BuiltInPlanner
+							ReActPlanner
+							CustomPlanner
+					ThinkingConfiguration {abstract true}
+						or
+							IncludeThoughts
+							ThinkingBudget
+
+			DataFlow {abstract true}
+				optional
+					InputDefinition {abstract true}
+						optional
+							InputSchema {abstract true}
+							ContextSources {abstract true}
+					OutputDefinition {abstract true}
+						optional
+							OutputSchema {abstract true}
+							OutputFormat {abstract true}
+								alternative
+									FileOutput {abstract true}
+										optional
+											CreateDirectory {abstract true}
+												alternative
+													EnableCreateDir
+													DisableCreateDir
+									JSONOutput
+									StructuredOutput
+									MarkdownOutput {abstract true}
+										optional
+											EnableMarkdown
+											DisableMarkdown
+							OutputCallbacks {abstract true}
+
+			GuardrailsAndValidation {abstract true}
+				optional
+					ValidationRules {abstract true}
+						optional
+							GuardrailMaxRetries {abstract true}
+							ValidationStrategy {abstract true}
+								alternative
+									FunctionBasedValidation
+									LLMBasedValidation
+					LifecycleHooks {abstract true}
+						or
+							BeforeAgentExecution {abstract true}
+							AfterAgentExecution {abstract true}
+							BeforeModelCall {abstract true}
+							AfterModelCall {abstract true}
+							BeforeToolCall {abstract true}
+							AfterToolCall {abstract true}
+
+			AgentComposition {abstract true}
+				optional
+					SubAgents {abstract true}
+					ExecutionConstraints {abstract true}
+					KnowledgeIntegration {abstract true}
+						optional
+							IntegrationLevel {abstract true}
+								alternative
+									AgentLevel
+									SystemLevel
+							SupportedFormats {abstract true}
+								or
+									TextBased
+									StructuredData
+							StorageConfiguration {abstract true}
+
+constraints
+	EnableMemory => (ShortTermMemory | LongTermMemory | EntityMemory | ContextualMemory)
+	MultiAgent => SubAgents
+	FileOutput => OutputSchema

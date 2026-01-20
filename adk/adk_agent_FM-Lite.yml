@@ -1,0 +1,219 @@
+# Google ADK Agent Feature Model in YAML
+# Converted from UVL format with type preservation
+
+namespace: AgentDefinition
+
+features:
+  AgentDefinition:
+    abstract: true
+    type: root
+    children:
+      # ========================================================================
+      # MANDATORY FEATURES
+      # ========================================================================
+      BaseAgent:
+        abstract: true
+        type: mandatory
+        children:
+          AgentType:
+            abstract: true
+            type: mandatory
+            group_type: alternative
+            children:
+              LlmAgent:
+                abstract: true
+                type: alternative_option
+              SequentialAgent:
+                abstract: true
+                type: alternative_option
+              ParallelAgent:
+                abstract: true
+                type: alternative_option
+              LoopAgent:
+                abstract: true
+                type: alternative_option
+              CustomAgent:
+                abstract: true
+                type: alternative_option
+              RemoteA2AAgent:
+                abstract: true
+                type: alternative_option
+                children:
+                  AgentCardReference:
+                    abstract: true
+                    type: mandatory
+                    group_type: alternative
+                    children:
+                      AgentCardURL:
+                        abstract: true
+                        type: alternative_option
+                      AgentCardJSON:
+                        abstract: true
+                        type: alternative_option
+          Name:
+            abstract: true
+            type: mandatory
+          Description:
+            abstract: true
+            type: optional
+          SubAgents:
+            abstract: true
+            type: optional
+          Constraints:
+            abstract: true
+            type: optional
+
+      # ========================================================================
+      # OPTIONAL FEATURES
+      # ========================================================================
+      LLMAgentConfig:
+        abstract: true
+        type: optional
+        children:
+          Model:
+            abstract: true
+            type: mandatory
+          GenerateContentConfig:
+            abstract: true
+            type: optional
+            children:
+              Temperature:
+                abstract: true
+                type: optional
+              MaxOutputTokens:
+                abstract: true
+                type: optional
+              TopP:
+                abstract: true
+                type: optional
+              TopK:
+                abstract: true
+                type: optional
+              SafetySettings:
+                abstract: true
+                type: optional
+
+      Configurations:
+        abstract: true
+        type: optional
+        children:
+          Instruction:
+            abstract: true
+            type: mandatory
+          Tools:
+            abstract: true
+            type: optional
+            group_type: or
+            children:
+              ThirdPartyTools:
+                abstract: true
+                type: or_option
+              FunctionTools:
+                abstract: true
+                type: or_option
+              MCPTools:
+                abstract: true
+                type: or_option
+              AgentTool:
+                abstract: true
+                type: or_option
+              BaseTools:
+                abstract: true
+                type: or_option
+                group_type: or
+                children:
+                  GeminiTools:
+                    abstract: true
+                    type: or_option
+                  GoogleCloudTools:
+                    abstract: true
+                    type: or_option
+          DataStructure:
+            abstract: true
+            type: optional
+            children:
+              OutputKey:
+                abstract: true
+                type: optional
+              InputSchema:
+                abstract: true
+                type: optional
+              OutputSchema:
+                abstract: true
+                type: optional
+          IncludeContents:
+            abstract: true
+            type: optional
+            group_type: alternative
+            children:
+              Default:
+                abstract: false
+                type: alternative_option
+              None:
+                abstract: false
+                type: alternative_option
+          Planner:
+            abstract: true
+            type: optional
+            children:
+              BuiltInPlanner:
+                abstract: true
+                type: optional
+                children:
+                  ThinkingConfig:
+                    abstract: true
+                    type: optional
+                    group_type: or
+                    children:
+                      IncludeThoughts:
+                        abstract: false
+                        type: or_option
+                      ThinkingBudget:
+                        abstract: false
+                        type: or_option
+              PlanReactPlanner:
+                abstract: false
+                type: optional
+          CodeExecutor:
+            abstract: true
+            type: optional
+
+      Guardrails:
+        abstract: true
+        type: optional
+        children:
+          AgentLifecycle:
+            abstract: true
+            type: optional
+            group_type: or
+            children:
+              BeforeAgentCallback:
+                abstract: true
+                type: or_option
+              AfterAgentCallback:
+                abstract: true
+                type: or_option
+          ModelInteraction:
+            abstract: true
+            type: optional
+            group_type: or
+            children:
+              BeforeModelCallback:
+                abstract: true
+                type: or_option
+              AfterModelCallback:
+                abstract: true
+                type: or_option
+          ToolExecution:
+            abstract: true
+            type: optional
+            group_type: or
+            children:
+              BeforeToolCallback:
+                abstract: true
+                type: or_option
+              AfterToolCallback:
+                abstract: true
+                type: or_option
+
+constraints: []

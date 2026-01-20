@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generic YAML to CrewAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='flow/flow.css') }}">
+</head>
+<body>
+    <div class="hero">
+        <div class="hero-inner">
+            <p class="eyebrow">Generic Agent Config</p>
+            <h1>Generic YAML -> CrewAI YAML</h1>
+            <p class="subtitle">Definis ton agent generique en YAML, convertis-le en CrewAI en un clic.</p>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="controls">
+            <button id="loadExample" class="btn btn-secondary">Charger un exemple</button>
+            <button id="convert" class="btn btn-primary">Convertir</button>
+            <button id="clearAll" class="btn btn-ghost">Effacer</button>
+            <span id="status" class="status">Pret</span>
+        </div>
+
+        <section class="panels">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Generic YAML</h2>
+                    <button class="btn btn-mini" id="copyInput">Copier</button>
+                </div>
+                <textarea id="yamlInput" class="editor" spellcheck="false"></textarea>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>CrewAI YAML</h2>
+                    <div class="panel-actions">
+                        <button class="btn btn-mini" id="copyOutput">Copier</button>
+                    </div>
+                </div>
+                <textarea id="yamlOutput" class="editor" spellcheck="false" readonly></textarea>
+            </div>
+        </section>
+
+        <section class="flow-section">
+            <div class="panel flow-panel">
+                <div class="panel-header">
+                    <h2>Agent Flow</h2>
+                </div>
+                <div id="flow-root" class="flow-root"></div>
+            </div>
+        </section>
+
+        <section class="notes">
+            <div class="note-card">
+                <h3>Comment ca marche</h3>
+                <ol>
+                    <li>Colle ton YAML generique dans le panneau de gauche.</li>
+                    <li>Clique sur Convertir.</li>
+                    <li>Recupere le YAML CrewAI dans le panneau de droite.</li>
+                </ol>
+            </div>
+            <div class="note-card">
+                <h3>Champs pris en charge</h3>
+                <p>Identity, LLM configuration, tools, execution control, memory, planning.</p>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='flow/flow.js') }}"></script>
+</body>
+</html>

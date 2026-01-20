@@ -1,0 +1,113 @@
+namespace CrewAgent
+
+features
+	CrewAgent {abstract true}
+		mandatory
+			Identity {abstract true}
+				mandatory
+					Role {abstract true}
+					Goal {abstract true}
+					Backstory {abstract true}
+			LLMConfiguration {abstract true}
+				mandatory
+					Model {abstract true}
+					API_KEY {abstract true}
+				optional
+					Advanced_configs {abstract true}
+						optional
+							Temperature {abstract true}
+							MaxTokens {abstract true}
+							Top_p {abstract true}
+							FrequencyPenalty {abstract true}
+							PresencePenalty {abstract true}
+							Seed {abstract true}
+							Stop {abstract true}
+							Timeout {abstract true}
+							MaxRetries {abstract true}
+			Task {abstract true}
+				mandatory
+					Essential {abstract true}
+						mandatory
+							Name {abstract true}
+							Description {abstract true}
+							This_Agent {abstract true}
+						optional
+							ExpectedOutput {abstract true}
+				optional
+					Execution {abstract true}
+						optional
+							Task_Tools {abstract true}
+							Context {abstract true}
+							AsyncExecution {abstract true}
+								alternative
+									False_AsyncExec
+									True_AsyncExec
+							HumanInput {abstract true}
+								alternative
+									True_HumanInput
+									False_HumanInput
+							Markdown {abstract true}
+								optional
+									False_Markdown
+									True_Markdown
+					Output {abstract true}
+						optional
+							OutputFile {abstract true}
+							CreateDirectory {abstract true}
+								alternative
+									False_CreateDir
+									True_CreateDir
+							OutputJson {abstract true}
+							OutputPydantic {abstract true}
+							Task_Callback {abstract true}
+							Config {abstract true}
+					ValidationAndSafety {abstract true}
+						optional
+							Guardrail {abstract true}
+							Guardrails {abstract true}
+							GuardrailMaxRetries {abstract true}
+							GuardrailTypes {abstract true}
+								alternative
+									FunctionBased
+									LLMBased
+		optional
+			Agent_Tools {abstract true}
+			BehavioralControls {abstract true}
+				optional
+					AllowDelegation {abstract true}
+						alternative
+							True_AllowedDelegation
+							False_AllowedDelegation
+					AllowCodeExecution {abstract true}
+						alternative
+							True_AllowCode
+							False_AllowCode
+					Verbose {abstract true}
+						alternative
+							True_Verbose
+							False_Verbose
+					Cache {abstract true}
+						alternative
+							True_Cache
+							False_Cache
+			Memory {abstract true}
+				alternative
+					True_Memory
+						mandatory
+							ShortTermMemory {abstract true}
+							EntityMemory {abstract true}
+							ContextualMemory {abstract true}
+							LongTermMemory {abstract true}
+					False_Memory
+			Reasoning {abstract true}
+			KnowledgeSources {abstract true}
+				optional
+					IntegrationLevel {abstract true}
+						alternative
+							AgentLevel
+							CrewLevel
+					SupportedFormats {abstract true}
+						or
+							TextBased
+							StructuredData
+					Storage {abstract true}

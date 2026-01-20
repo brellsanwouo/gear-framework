@@ -1,0 +1,229 @@
+multi_agent_system:
+  agent:
+    base:
+      type:
+        alternatives: [LlmAgent, SequentialAgent, ParallelAgent, LoopAgent, CustomAgent, RemoteA2AAgent]
+      name:
+        required: true
+        type: string
+      description:
+        type: string
+      sub_agents:
+        type: list[agent]
+        constraints:
+          collection: [single_parent_rule, automatic_parent_assignment]
+      hierarchy_navigation:
+        options: [agent.parent_agent, agent.find_agent]
+      language_variants:
+        sub_agents_parameter:
+          alternatives: [sub_agents, subAgents]
+
+    llm_agent_config:
+      model:
+        type: string
+      instruction:
+        type: string_or_function
+      tools:
+        type: list[tool]
+        tool_types:
+          collection: [gemini_tools, google_cloud_tools, third_party_tools, function_tools, mcp_tools, agent_tool]
+      output_key:
+        type: string
+      autoflow:
+        default: true
+      allow_transfer:
+        default: true
+      transfer_controls:
+        options: [disallow_transfer_to_parent, disallow_transfer_to_peers]
+
+    sequential_agent_config:
+      sub_agents:
+        required: true
+        type: list[agent]
+      execution:
+        order: sequential
+        method: run_async_per_sub_agent
+      context_sharing:
+        options: [shared_invocation_context]
+      state_sharing:
+        options: [shared_session_state]
+
+    parallel_agent_config:
+      sub_agents:
+        required: true
+        type: list[agent]
+      execution:
+        order: concurrent
+        method: run_async_concurrent
+        result_collection: true
+        execution_order: non_deterministic
+      context_branching:
+        options: [invocation_context_branch]
+      state_sharing:
+        options: [shared_session_state]
+
+    loop_agent_config:
+      sub_agents:
+        required: true
+        type: list[agent]
+      execution:
+        order: sequential_loop
+        method: run_async_per_sub_agent
+      context_sharing:
+        options: [shared_invocation_context]
+      state_sharing:
+        options: [shared_session_state]
+      max_iterations:
+        type: integer
+      termination_conditions:
+        options: [max_iterations_reached, event_actions_escalate_true, exit_loop_tool, tool_context_actions_escalate]
+
+    custom_agent_config:
+      implementation:
+        collection: [BaseAgent]
+      required_method:
+        collection: [run_async]
+
+    remote_a2a_agent_config:
+      agent_card_reference:
+        alternatives: [agent_card_url, agent_card_json]
+
+  orchestration:
+    shared_session_state:
+      state_scopes:
+        alternatives: [session_scoped, user_scoped, app_scoped, temp_scoped]
+      access_methods:
+        context_objects:
+          collection: [context.state, tool_context.state, callback_context.state]
+        templating:
+          syntax: "{key}"
+      update_methods:
+        options: [output_key, event_actions_state_delta, context_state_write]
+
+    llm_driven_delegation:
+      transfer_mechanism:
+        function: transfer_to_agent
+        parameters:
+          collection: [agent_name]
+      autoflow:
+        enabled_by_default: true
+        resolution_method: root_agent.find_agent
+      transfer_scope:
+        options: [to_parent, to_sub_agents, to_peers]
+      requirements:
+        collection: [clear_descriptions, explicit_delegation_instructions, structured_hierarchy]
+
+    explicit_agent_tool:
+      mechanism:
+        options: [wrapping, function_declaration, tools_list_registration]
+      execution:
+        method: agent_tool.run_async
+        control: synchronous
+        forwarding:
+          collection: [state, artifacts]
+        result: tool_result
+
+    agent_to_agent_protocol:
+      when_to_use:
+        local_sub_agents:
+          collection: [internal_organization, performance_critical, shared_memory]
+        remote_agents:
+          collection: [external_services, different_teams, cross_language, formal_contract]
+      exposing:
+        methods:
+          options: [to_a2a, api_server, A2AServer, uvicorn]
+        agent_card:
+          generation: automatic
+          format: [agent.json, agent-card.json]
+      consuming:
+        agent_type: RemoteA2AAgent
+        reference:
+          alternatives: [agent_card_url, agent_card_json]
+
+  patterns:
+    coordinator_dispatcher:
+      delegation_methods:
+        options: [llm_transfer, explicit_tool]
+      primitives:
+        collection: [llm_driven_delegation, explicit_agent_tool, shared_session_state]
+
+    sequential_pipeline:
+      primitives:
+        collection: [sequential_agent, shared_session_state, output_key]
+
+    parallel_fan_out_gather:
+      primitives:
+        collection: [parallel_agent, sequential_agent, shared_session_state, output_key]
+
+    hierarchical_decomposition:
+      primitives:
+        collection: [parent_sub_agents_hierarchy, llm_driven_delegation, agent_tool]
+
+    generator_critic_review:
+      primitives:
+        collection: [sequential_agent, shared_session_state, output_key]
+
+    iterative_refinement:
+      primitives:
+        collection: [loop_agent, shared_session_state, max_iterations, event_actions_escalate_true]
+
+    human_in_the_loop:
+      primitives:
+        collection: [custom_human_input_tool, callbacks, session_state]
+      with_policy:
+        components:
+          collection: [security_plugin, policy_engine, user_confirmation_flow]
+
+  infrastructure:
+    runner:
+      required: true
+      configuration:
+        required_parameters:
+          collection: [agent, session_service]
+        optional_parameters:
+          collection: [memory_service, artifact_service]
+      execution_methods:
+        options: [call_agent_async, run_async]
+
+    session_service:
+      implementations:
+        collection: [InMemorySessionService, DatabaseSessionService, VertexAiSessionService]
+      operations:
+        collection: [create_session, get_session, append_event, list_sessions, delete_session]
+
+    memory_service:
+      implementations:
+        collection: [InMemoryMemoryService, VertexAiMemoryBankService]
+      operations:
+        collection: [add_session_to_memory, search_memory]
+      integration_tools:
+        collection: [preload_memory, load_memory]
+
+    artifact_service:
+      implementations:
+        collection: [InMemoryArtifactService, GcsArtifactService]
+      operations:
+        collection: [save_artifact, load_artifact, list_artifacts]
+      scoping:
+        options: [session_scoped, user_scoped]
+      versioning:
+        options: [automatic]
+
+  callbacks:
+    agent_lifecycle:
+      collection: [before_agent_callback, after_agent_callback]
+    model_interaction:
+      collection: [before_model_callback, after_model_callback]
+    tool_execution:
+      collection: [before_tool_callback, after_tool_callback]
+    callback_context:
+      contents:
+        collection: [execution_state, invocation_details, session_state, service_references]
+
+  events:
+    storage:
+      options: [session.events]
+    event_types:
+      collection: [user_message, agent_response, tool_call, tool_result, state_change, agent_transfer]
+    event_actions:
+      options: [state_delta, escalate]

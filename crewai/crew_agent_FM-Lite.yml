@@ -1,0 +1,141 @@
+# CrewAI Agent Feature Model in YAML
+# Converted from UVL format with type preservation
+
+namespace: CrewAgent
+
+features:
+  CrewAgent:
+    children:
+      # ========================================================================
+      # MANDATORY FEATURES
+      # ========================================================================
+      Identity:
+        children:
+          Role:
+            type: str
+          Goal:
+            type: str
+          Backstory:
+            type: str
+
+      LLMConfiguration:
+        children:
+          Model:
+            type: Union[str, LLM, Any]
+          API_KEY:
+            type: Optional[str]
+          Advanced_configs:
+            children:
+              Temperature:
+                type: Optional[float]
+              MaxTokens:
+                type: Optional[int]
+              Top_p:
+                type: Optional[float]
+              FrequencyPenalty:
+                type: Optional[float]
+              PresencePenalty:
+                type: Optional[float]
+              Seed:
+                type: Optional[int]
+              Stop:
+                type: Optional[List[str]]
+              Timeout:
+                type: Optional[int]
+              MaxRetries:
+                type: Optional[int]
+
+      Task:
+        children:
+          Essential:
+            children:
+              Name:
+                type: Optional[str]
+              Description:
+                type: str
+              This_Agent:
+                type: Optional[BaseAgent]
+              ExpectedOutput:
+                type: str
+
+          Execution:
+            children:
+              Task_Tools:
+                type: List[BaseTool]
+              Context:
+                type: Optional[List[Task]]
+              AsyncExecution:
+                type: Optional[bool]
+              HumanInput:
+                type: Optional[bool]
+              Markdown:
+                type: Optional[bool]
+          Output:
+            children:
+              OutputFile:
+                type: Optional[str]
+              CreateDirectory:
+                type: Optional[bool]
+              OutputJson:
+                type: Optional[Type[BaseModel]]
+              OutputPydantic:
+                type: Optional[Type[BaseModel]]
+              Task_Callback:
+                type: Optional[Any]
+              Config:
+                type: Optional[Dict[str, Any]]
+
+          ValidationAndSafety:
+            children:
+              Guardrail:
+                type: Optional[Callable]
+              Guardrails:
+                type: 'Optional[List[Callable] | List[str]]'
+              GuardrailMaxRetries:
+                type: Optional[int]
+              GuardrailTypes:
+                type: 'Literal["FunctionBased", "LLMBased"]'
+                children:
+                  FunctionBased:
+                  LLMBased:
+
+      # ========================================================================
+      # OPTIONAL FEATURES
+      # ========================================================================
+      Agent_Tools:
+        type: List[BaseTool]
+
+      BehavioralControls:
+        children:
+          AllowDelegation:
+            type: bool
+          AllowCodeExecution:
+            type: Optional[bool]
+            children:
+          Verbose:
+            type: bool
+            children:
+          Cache:
+            type: bool
+
+      Memory:
+        type: bool
+
+      Reasoning:
+        type: bool
+
+      KnowledgeSources:
+        type: Optional[List[BaseKnowledgeSource]]
+        children:
+          IntegrationLevel:
+            children:
+              AgentLevel:
+              CrewLevel:
+          SupportedFormats:
+            group_type: or
+            children:
+              TextBased:
+              StructuredData:
+          Storage:
+
+constraints: []

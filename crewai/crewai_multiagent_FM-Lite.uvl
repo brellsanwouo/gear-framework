@@ -1,0 +1,56 @@
+namespace CrewAIMultiAgent
+
+features
+	CrewAIMultiAgent {abstract true}
+		mandatory
+			Crew {abstract true}
+				mandatory
+					EssentialComponents {abstract true}
+						mandatory
+							Tasks {abstract true}
+							Agents {abstract true}
+						optional
+							Process {abstract true}
+								alternative
+									Sequential
+									Hierarchical
+									Consensual
+				optional
+					ConfigurationAndControl {abstract true}
+						optional
+							Verbose {abstract true}
+								alternative
+									True_Verbose
+									False_Verbose
+							ManagerLLM {abstract true}
+							FunctionCallingLLM {abstract true}
+							Config {abstract true}
+							MaxRPM {abstract true}
+					MemoryAndPerformance {abstract true}
+						optional
+							Memory {abstract true}
+								alternative
+									True_Memory
+									False_Memory
+							EmbedderProviders {abstract true}
+							Cache {abstract true}
+								alternative
+									True_Cache
+									False_Cache
+					ExecutionAndOutput {abstract true}
+						optional
+							StepCallback {abstract true}
+							TaskCallback {abstract true}
+							OutputLogFile {abstract true}
+							Stream {abstract true}
+					OutputLogFileFormat {abstract true}
+					AdvancedFeatures {abstract true}
+						optional
+							ManagerAgent {abstract true}
+							PromptFile {abstract true}
+							Planning {abstract true}
+							PlanningLLM {abstract true}
+							KnowledgeSources {abstract true}
+
+constraints
+	Hierarchical => ManagerLLM

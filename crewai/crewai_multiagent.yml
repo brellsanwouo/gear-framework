@@ -1,0 +1,229 @@
+ multi_agent_orchestration:
+  crew:
+    essential_components:
+      tasks:
+        required: true
+      agents:
+        required: true
+      process:
+        alternatives: [sequential, hierarchical, consensual]
+        default: sequential
+    configuration_and_control:
+      collection: [verbose, manager_llm, function_calling_llm, config, max_rpm]
+    memory_and_performance:
+      memory_types:
+        collection: [short_term, long_term, entity, contextual]
+      storage_locations:
+        macos: ~/Library/Application Support/CrewAI/{project_name}/
+        linux: ~/.local/share/CrewAI/{project_name}/
+        windows: C:\Users\{username}\AppData\Local\CrewAI\{project_name}\
+      embedder_providers:
+        collection: [OpenAI, Ollama, Azure OpenAI, Google AI, Vertex AI, Cohere, VoyageAI, AWS Bedrock, Hugging Face, IBM Watson, Mem0]
+      cache: true
+    execution_and_output:
+      collection: [step_callback, task_callback, output_log_file, stream]
+    output_log_file_formats:
+      alternatives: [JSON, TXT]
+    advanced_features:
+      manager_agent: {}
+      prompt_file: {}
+      planning: {}
+      planning_llm: {}
+      knowledge_sources:
+        supported_formats:
+          text_based:
+            collection: [Raw strings, .txt, PDF, Web content]
+          structured_data:
+            collection: [CSV, .xlsx, JSON]
+      share_crew: {}
+    kickoff_methods:
+      options: [kickoff, kickoff_for_each, akickoff, akickoff_for_each, kickoff_async, kickoff_for_each_async]
+    output_structure:
+      attributes:
+        collection: [raw, pydantic, json_dict, tasks_output, token_usage]
+      access_methods:
+        options: [output.json, output.to_dict, str]
+
+  processes:
+    alternatives: [sequential, hierarchical, consensual]
+    hierarchical_requirements:
+      alternatives: [manager_llm, manager_agent]
+    configuration_parameter: process
+
+  collaboration:
+    delegation:
+      allow_delegation: true
+      tools:
+        delegate_work_tool:
+          parameters:
+            collection: [task, context, target_coworker]
+        ask_question_tool:
+          parameters:
+            collection: [question, context]
+    patterns:
+      alternatives: [research_write_edit, collaborative_single_task]
+    team_structures:
+      alternatives: [flat_collaboration, hierarchical_structure]
+    context_sharing:
+      collection: [task_outputs, memory, knowledge_sources]
+
+  tasks:
+    essential_properties:
+      expected_output:
+        required: true
+      agent: {}
+      name: {}
+    execution_configuration:
+      options: [tools, context, async_execution, human_input, markdown]
+    output_management:
+      options: [output_file, create_directory, output_json, output_pydantic, callback, config]
+    validation_and_safety:
+      guardrail: {}
+      guardrails: {}
+      guardrail_max_retries: {}
+      guardrail_types:
+        alternatives: [function_based, llm_based]
+    output_structure:
+      attributes:
+        collection: [raw, pydantic, json_dict, summary, agent, messages]
+      access_patterns:
+        options: [dict_indexing, property_access, to_dict, string_representation]
+    definition_methods:
+      alternatives: [yaml_configuration, direct_code_definition]
+    execution_models:
+      alternatives: [sequential, hierarchical]
+    conditional_tasks:
+      alternatives: [flows]
+
+  flows:
+    decorators:
+      options: [start, listen, router, human_feedback, persist]
+    state_management:
+      alternatives: [unstructured_state, structured_state]
+    flow_control:
+      options: [or_operator, and_operator, conditional_branching]
+    execution_and_integration:
+      alternatives: [direct_agent_execution, crew_orchestration, hybrid]
+
+  planning:
+    enablement:
+      options: [planning]
+    configuration:
+      options: [planning, planning_llm]
+
+  knowledge:
+    crew_level:
+      parameter: knowledge_sources
+      supported_formats:
+        text_based:
+          collection: [Raw strings, .txt, PDF, Web content]
+        structured_data:
+          collection: [CSV, .xlsx, JSON]
+    retrieval:
+      options: [results_limit, score_threshold, query_rewriting, automatic_access]
+    events:
+      collection:
+        - KnowledgeRetrievalStartedEvent
+        - KnowledgeRetrievalCompletedEvent
+        - KnowledgeQueryStartedEvent
+        - KnowledgeQueryCompletedEvent
+        - KnowledgeQueryFailedEvent
+
+  testing:
+    command: crewai test
+    parameters:
+      options: [n_iterations, model]
+    metrics:
+      collection: [task_scores, average_scores, agent_assignments, crew_summary, execution_time]
+
+  training:
+    methods:
+      alternatives: [cli_based, programmatic]
+    data_flow:
+      collection: [initial_output, human_feedback, improved_output]
+    persistence: trained_agents_data.pkl
+    model_recommendations:
+      collection: [Mistral 7B, Claude 3 Sonnet, GPT-4o]
+    requirements:
+      options: [interactive, n_iterations, filename_pkl]
+
+  observability:
+    event_listeners:
+      collection: [execution_hooks, llm_hooks]
+    supported_platforms:
+      collection: [Arize Phoenix, Braintrust, Datadog, LangFuse, Langchain integrations, Weave, OpenLit]
+    tracing:
+      collection: [execution_tracking, performance_metrics, error_tracking, replay]
+    logging:
+      alternatives: [JSON, TXT]
+    streaming:
+      collection: [CrewStreamingOutput]
+    enterprise:
+      collection: [traces, webhook_streaming, hallucination_guardrails]
+
+  human_in_the_loop:
+    features:
+      collection: [human_input, human_feedback]
+    integration_points:
+      collection: [task_level, flow_level, enterprise]
+    use_cases:
+      collection: [quality_assurance, approval_workflows, training_data_collection, error_correction, policy_compliance]
+    communication_integrations:
+      collection: [Gmail, Slack, Salesforce, Webhook_automation, Other_integrations]
+
+  production_architecture:
+    project_structure:
+      config:
+        collection: [agents.yaml, tasks.yaml]
+      implementation:
+        collection: [crew.py, CrewBase]
+      tools:
+        collection: [tools/]
+      main:
+        collection: [main.py]
+    cli_commands:
+      collection: [run, test, train, reset_memories, replay]
+    deployment_features:
+      collection: [guardrails, memory, knowledge, observability]
+
+  advanced_patterns:
+    extensibility:
+      collection: [custom_components, custom_processes, custom_tools]
+    hybrid_approaches:
+      collection: [flows_plus_crews, mixed_processes]
+    performance_optimization:
+      collection: [parallel_execution, caching, batching]
+
+  configuration_management:
+    yaml_configuration:
+      collection: [agents.yaml, tasks.yaml]
+    programmatic_configuration:
+      collection: [python_code]
+    variable_substitution:
+      options: [crew.kickoff(inputs)]
+
+  error_handling:
+    agent_level:
+      collection: [retry, fallback]
+    crew_level:
+      collection: [task_retry, crew_retry]
+    validation:
+      collection: [guardrails]
+
+  memory_and_state:
+    crew_memory:
+      collection: [short_term, long_term, entity, contextual]
+    flow_state:
+      alternatives: [structured_state, unstructured_state]
+    knowledge_state:
+      collection: [crew_level_knowledge]
+    management:
+      collection: [reset_memories]
+
+  performance:
+    metrics:
+      collection: [latency, throughput, cost, token_usage]
+    optimization_strategies:
+      collection: [rate_limiting, caching, batching]
+    monitoring:
+      collection: [usage_tracking]

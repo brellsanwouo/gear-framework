@@ -1,0 +1,405 @@
+features
+    CrewAIMultiAgent { abstract }
+        mandatory
+            Crew { abstract }
+                mandatory
+                    EssentialComponents { abstract }
+                        mandatory
+                            Tasks
+                            Agents
+                        optional
+                            Process { abstract }
+                                alternative
+                                    Sequential_
+                                    Hierarchical_
+                                    Consensual
+                optional
+                    ConfigurationAndControl { abstract }
+                        or
+                            Verbose
+                            ManagerLLM_
+                            FunctionCallingLLM
+                            Config_
+                            MaxRPM_
+                    MemoryAndPerformance { abstract }
+                        optional
+                            MemoryTypes { abstract }
+                                or
+                                    ShortTerm
+                                    LongTerm
+                                    Entity
+                                    Contextual
+                            EmbedderProviders { abstract }
+                                or
+                                    OpenAI
+                                    Ollama
+                                    AzureOpenAI
+                                    GoogleAI
+                                    VertexAI
+                                    Cohere
+                                    VoyageAI
+                                    AWSBedrock
+                                    HuggingFace
+                                    IBMWatson
+                                    Mem0
+                            Cache
+                    ExecutionAndOutput { abstract }
+                        or
+                            StepCallback
+                            TaskCallback
+                            OutputLogFile
+                            Stream
+                    OutputLogFileFormat { abstract }
+                        alternative
+                            JSON_
+                            TXT
+                    AdvancedFeatures { abstract }
+                        optional
+                            ManagerAgent_
+                            PromptFile
+                            Planning__
+                            PlanningLLM_
+                            KnowledgeSources_
+                            ShareCrew
+                    KickoffMethods { abstract }
+                        or
+                            Kickoff
+                            KickoffForEach
+                            AKickoff
+                            AKickoffForEach
+                            KickoffAsync
+                            KickoffForEachAsync
+                    OutputStructure_ { abstract }
+                        optional
+                            Attributes_ { abstract }
+                                or
+                                    Raw
+                                    Pydantic_
+                                    JsonDict
+                                    TasksOutput
+                                    TokenUsage
+                            AccessMethods { abstract }
+                                or
+                                    OutputJson_
+                                    OutputToDict
+                                    StringCast
+            Processes { abstract }
+                alternative
+                    Sequential__
+                    Hierarchical__
+                    Consensual_
+                optional
+                    HierarchicalRequirements { abstract }
+                        alternative
+                            ManagerLLM
+                            ManagerAgent
+            Collaboration { abstract }
+                optional
+                    Delegation { abstract }
+                        optional
+                            AllowDelegation
+                            Tools__ { abstract }
+                                or
+                                    DelegateWorkTool
+                                    AskQuestionTool
+                    Patterns { abstract }
+                        alternative
+                            ResearchWriteEdit
+                            CollaborativeSingleTask
+                    TeamStructures { abstract }
+                        alternative
+                            FlatCollaboration
+                            HierarchicalStructure
+                    ContextSharing { abstract }
+                        or
+                            TaskOutputs
+                            Memory_
+                            KnowledgeSources
+            Tasks_ { abstract }
+                optional
+                    EssentialProperties { abstract }
+                        mandatory
+                            ExpectedOutput
+                        optional
+                            Agent
+                            Name
+                    ExecutionConfiguration { abstract }
+                        or
+                            Tools_
+                            Context
+                            AsyncExecution
+                            HumanInput
+                            Markdown
+                    OutputManagement { abstract }
+                        or
+                            OutputFile
+                            CreateDirectory
+                            OutputJson
+                            OutputPydantic
+                            Callback
+                            Config__
+                    ValidationAndSafety { abstract }
+                        optional
+                            Guardrail
+                            Guardrails__
+                            GuardrailMaxRetries
+                            GuardrailTypes { abstract }
+                                alternative
+                                    FunctionBased
+                                    LLMBased
+                    OutputStructure { abstract }
+                        optional
+                            Attributes { abstract }
+                                or
+                                    Raw_
+                                    Pydantic
+                                    JsonDict_
+                                    Summary
+                                    Agent_
+                                    Messages
+                            AccessPatterns { abstract }
+                                or
+                                    DictIndexing
+                                    PropertyAccess
+                                    ToDict
+                                    StringRepresentation
+                    DefinitionMethods { abstract }
+                        alternative
+                            YAMLConfiguration_
+                            DirectCodeDefinition
+                    ExecutionModels { abstract }
+                        alternative
+                            Sequential
+                            Hierarchical
+                    ConditionalTasks { abstract }
+                        alternative
+                            Flows_
+        optional
+            Flows { abstract }
+                optional
+                    Decorators { abstract }
+                        or
+                            Start
+                            Listen
+                            Router
+                            HumanFeedback
+                            Persist
+                    StateManagement { abstract }
+                        alternative
+                            UnstructuredState
+                            StructuredState_
+                    FlowControl { abstract }
+                        or
+                            OrOperator
+                            AndOperator
+                            ConditionalBranching
+                    ExecutionAndIntegration { abstract }
+                        alternative
+                            DirectAgentExecution
+                            CrewOrchestration
+                            Hybrid
+            Planning { abstract }
+                or
+                    Planning_
+                    PlanningLLM
+            Knowledge { abstract }
+                optional
+                    SupportedFormats { abstract }
+                        or
+                            TextBased
+                            StructuredData
+                    Retrieval { abstract }
+                        or
+                            ResultsLimit
+                            ScoreThreshold
+                            QueryRewriting
+                            AutomaticAccess
+                    Events
+            Testing { abstract }
+                optional
+                    Parameters { abstract }
+                        or
+                            NIterations_
+                            Model
+                    Metrics_ { abstract }
+                        or
+                            TaskScores
+                            AverageScores
+                            AgentAssignments
+                            CrewSummary
+                            ExecutionTime
+            Training { abstract }
+                optional
+                    Methods { abstract }
+                        alternative
+                            CLIBased
+                            Programmatic
+                    DataFlow { abstract }
+                        or
+                            InitialOutput
+                            HumanFeedback__
+                            ImprovedOutput
+                    ModelRecommendations { abstract }
+                        or
+                            Mistral7B
+                            Claude3Sonnet
+                            GPT4o
+                    Requirements { abstract }
+                        or
+                            Interactive
+                            NIterations
+                            FilenamePKL
+            Observability_ { abstract }
+                optional
+                    EventListeners { abstract }
+                        or
+                            ExecutionHooks
+                            LLMHooks
+                    SupportedPlatforms { abstract }
+                        or
+                            ArizePhoenix
+                            Braintrust
+                            Datadog
+                            LangFuse
+                            LangchainIntegrations
+                            Weave
+                            OpenLit
+                    Tracing { abstract }
+                        or
+                            ExecutionTracking
+                            PerformanceMetrics
+                            ErrorTracking
+                            Replay_
+                    Logging { abstract }
+                        alternative
+                            JSON
+                            TXT_
+                    Streaming
+                    Enterprise { abstract }
+                        or
+                            Traces
+                            WebhookStreaming
+                            HallucinationGuardrails
+            HumanInTheLoop { abstract }
+                optional
+                    Features { abstract }
+                        or
+                            HumanInput_
+                            HumanFeedback_
+                    IntegrationPoints { abstract }
+                        or
+                            TaskLevel
+                            FlowLevel
+                            Enterprise_
+                    UseCases { abstract }
+                        or
+                            QualityAssurance
+                            ApprovalWorkflows
+                            TrainingDataCollection
+                            ErrorCorrection
+                            PolicyCompliance
+                    CommunicationIntegrations { abstract }
+                        or
+                            Gmail
+                            Slack
+                            Salesforce
+                            WebhookAutomation
+                            OtherIntegrations
+            ProductionArchitecture { abstract }
+                optional
+                    ProjectStructure { abstract }
+                        optional
+                            Config { abstract }
+                                or
+                                    AgentsYaml_
+                                    TasksYaml_
+                            Implementation { abstract }
+                                or
+                                    CrewPy
+                                    CrewBase
+                            Tools
+                            Main
+                    CLICommands { abstract }
+                        or
+                            Run
+                            Test
+                            Train
+                            ResetMemories_
+                            Replay
+                    DeploymentFeatures { abstract }
+                        or
+                            Guardrails_
+                            Memory
+                            Knowledge_
+                            Observability
+            AdvancedPatterns { abstract }
+                optional
+                    Extensibility { abstract }
+                        or
+                            CustomComponents
+                            CustomProcesses
+                            CustomTools
+                    HybridApproaches { abstract }
+                        or
+                            FlowsPlusCrews
+                            MixedProcesses
+                    PerformanceOptimization { abstract }
+                        or
+                            ParallelExecution
+                            Caching_
+                            Batching_
+            ConfigurationManagement { abstract }
+                optional
+                    YAMLConfiguration { abstract }
+                        or
+                            AgentsYaml
+                            TasksYaml
+                    ProgrammaticConfiguration { abstract }
+                        or
+                            PythonCode
+                    VariableSubstitution
+            ErrorHandling { abstract }
+                optional
+                    AgentLevel { abstract }
+                        or
+                            Retry
+                            Fallback
+                    CrewLevel { abstract }
+                        or
+                            TaskRetry
+                            CrewRetry
+                    Validation { abstract }
+                        or
+                            Guardrails
+            MemoryAndState { abstract }
+                optional
+                    CrewMemory { abstract }
+                        or
+                            ShortTerm_
+                            LongTerm_
+                            Entity_
+                            Contextual_
+                    FlowState { abstract }
+                        alternative
+                            StructuredState
+                            UnstructuredState_
+                    KnowledgeState
+                    Management { abstract }
+                        or
+                            ResetMemories
+            Performance { abstract }
+                optional
+                    Metrics { abstract }
+                        or
+                            Latency
+                            Throughput
+                            Cost
+                            TokenUsage_
+                    OptimizationStrategies { abstract }
+                        or
+                            RateLimiting
+                            Caching
+                            Batching
+                    Monitoring { abstract }
+                        or
+                            UsageTracking

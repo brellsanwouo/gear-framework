@@ -1,0 +1,503 @@
+# ================================================================================
+# Binding Table: Generic Agent Feature Model ↔ Framework-Specific Implementations
+# ================================================================================
+# This table provides bidirectional mappings between the generic agent model
+# and framework-specific implementations (CrewAI and Google ADK).
+#
+# Structure:
+#   generic_feature:
+#     crewai: <path_in_crewai_fm>
+#     adk: <path_in_adk_fm>
+#     notes: <conversion guidance>
+# ================================================================================
+
+metadata:
+  version: "1.0"
+  frameworks:
+    crewai: "CrewAI Agent Framework"
+    adk: "Google Agent Development Kit (ADK)"
+  last_updated: "2026-01-14"
+
+# ================================================================================
+# 1. AGENT IDENTITY
+# ================================================================================
+agent_identity:
+  name:
+    crewai: "Identity.Role"
+    adk: "BaseAgent.Name"
+    notes: "CrewAI uses 'Role' as the agent identifier, ADK uses 'Name'"
+
+  purpose:
+    crewai: "Identity.Goal"
+    adk: "Configurations.Instruction"
+    notes: "CrewAI separates goal from task, ADK combines them in instruction"
+
+  context_description:
+    crewai: "Identity.Backstory"
+    adk: "BaseAgent.Description"
+    notes: "CrewAI's backstory provides persona context, ADK uses description"
+
+# ================================================================================
+# 2. AGENT TYPE
+# ================================================================================
+agent_type:
+  single_agent:
+    crewai: "Implicit (default agent behavior)"
+    adk: "BaseAgent.AgentType.LlmAgent"
+    notes: "CrewAI agents are single by default, ADK requires explicit type"
+
+  sequential_agent:
+    crewai: "Crew-level orchestration with Task.Execution.Context"
+    adk: "BaseAgent.AgentType.SequentialAgent"
+    notes: "CrewAI implements at crew level, ADK has built-in sequential type"
+
+  parallel_agent:
+    crewai: "Crew-level with Task.Execution.AsyncExecution"
+    adk: "BaseAgent.AgentType.ParallelAgent"
+    notes: "CrewAI uses async tasks, ADK has dedicated parallel agent type"
+
+  loop_agent:
+    crewai: "Custom implementation with task repetition"
+    adk: "BaseAgent.AgentType.LoopAgent"
+    notes: "CrewAI requires custom logic, ADK provides built-in loop agent"
+
+  custom_agent:
+    crewai: "Custom agent class extending BaseAgent"
+    adk: "BaseAgent.AgentType.CustomAgent"
+    notes: "Both support custom implementations through extension"
+
+# ================================================================================
+# 3. LLM CONFIGURATION
+# ================================================================================
+llm_configuration:
+  model:
+    crewai: "LLMConfiguration.Model"
+    adk: "LLMAgentConfig.Model"
+    notes: "Direct mapping for model specification"
+
+  # Model Parameters
+  model_parameters:
+    temperature:
+      crewai: "LLMConfiguration.Advanced_configs.Temperature"
+      adk: "LLMAgentConfig.GenerateContentConfig.Temperature"
+      notes: "Direct mapping, both use same parameter concept"
+
+    max_tokens:
+      crewai: "LLMConfiguration.Advanced_configs.MaxTokens"
+      adk: "LLMAgentConfig.GenerateContentConfig.MaxOutputTokens"
+      notes: "Different names but same functionality"
+
+    top_p:
+      crewai: "LLMConfiguration.Advanced_configs.Top_p"
+      adk: "LLMAgentConfig.GenerateContentConfig.TopP"
+      notes: "Direct mapping for nucleus sampling parameter"
+
+    stop_sequences:
+      crewai: "LLMConfiguration.Advanced_configs.Stop"
+      adk: "Model-level configuration (provider-specific)"
+      notes: "CrewAI explicit, ADK handled at model provider level"
+
+    # Additional Parameters (optional)
+    top_k:
+      crewai: "Use default value (not exposed in CrewAI)"
+      adk: "LLMAgentConfig.GenerateContentConfig.TopK"
+      notes: "ADK-specific, omitted when converting to CrewAI"
+
+    frequency_penalty:
+      crewai: "LLMConfiguration.Advanced_configs.FrequencyPenalty"
+      adk: "Use default value (not exposed in ADK)"
+      notes: "CrewAI-specific, omitted when converting to ADK"
+
+    presence_penalty:
+      crewai: "LLMConfiguration.Advanced_configs.PresencePenalty"
+      adk: "Use default value (not exposed in ADK)"
+      notes: "CrewAI-specific, omitted when converting to ADK"
+
+    seed:
+      crewai: "LLMConfiguration.Advanced_configs.Seed"
+      adk: "Use default value (determinism via config)"
+      notes: "CrewAI explicit seed, ADK uses other mechanisms"
+
+  # API Configuration
+  api_configuration:
+    api_key:
+      crewai: "LLMConfiguration.API_KEY"
+      adk: "Project-level environment configuration"
+      notes: "CrewAI per-agent, ADK at project level"
+
+    timeout:
+      crewai: "LLMConfiguration.Advanced_configs.Timeout"
+      adk: "System-level timeout (not agent-specific)"
+      notes: "CrewAI per-agent timeout, ADK uses system defaults"
+
+    max_retries:
+      crewai: "LLMConfiguration.Advanced_configs.MaxRetries"
+      adk: "Retry logic in guardrails or system config"
+      notes: "CrewAI explicit, ADK implements via error handling"
+
+  # Safety Configuration
+  safety_configuration:
+    crewai: "Task.ValidationAndSafety.Guardrail"
+    adk: "LLMAgentConfig.GenerateContentConfig.SafetySettings"
+    notes: "Different approaches: CrewAI task-level, ADK model-level"
+
+# ================================================================================
+# 4. INSTRUCTION DEFINITION
+# ================================================================================
+instruction_definition:
+  task_specification:
+    task_name:
+      crewai: "Task.Essential.Name"
+      adk: "BaseAgent.Name (agent-level)"
+      notes: "CrewAI has explicit tasks, ADK tasks are agent-level"
+
+    task_description:
+      crewai: "Task.Essential.Description"
+      adk: "Configurations.Instruction"
+      notes: "CrewAI separates description, ADK combines in instruction"
+
+    expected_output:
+      crewai: "Task.Essential.ExpectedOutput"
+      adk: "Configurations.DataStructure.OutputSchema"
+      notes: "CrewAI text description, ADK structured schema"
+
+    assigned_agent:
+      crewai: "Task.Essential.This_Agent"
+      adk: "BaseAgent reference (implicit in agent definition)"
+      notes: "CrewAI explicit assignment, ADK implicit in structure"
+
+# ================================================================================
+# 5. TOOLS
+# ================================================================================
+tools:
+  tool_scope:
+    agent_level_tools:
+      crewai: "Agent_Tools"
+      adk: "Configurations.Tools"
+      notes: "CrewAI separates agent and task tools, ADK unified"
+
+    task_level_tools:
+      crewai: "Task.Execution.Task_Tools"
+      adk: "Configurations.Tools (same as agent-level)"
+      notes: "CrewAI task-specific tools, ADK all tools at agent level"
+
+  tool_types:
+    function_based_tools:
+      crewai: "Agent_Tools or Task.Execution.Task_Tools"
+      adk: "Configurations.Tools.FunctionTools"
+      notes: "Both support function declarations"
+
+    third_party_integrations:
+      crewai: "Agent_Tools (external tool integrations)"
+      adk: "Configurations.Tools.ThirdPartyTools"
+      notes: "Both support external tool integrations"
+
+    mcp_tools:
+      crewai: "Agent_Tools (via MCP protocol support)"
+      adk: "Configurations.Tools.MCPTools"
+      notes: "ADK has explicit MCP support, CrewAI via integration"
+
+    builtin_tools:
+      crewai: "Agent_Tools (framework-provided tools)"
+      adk: "Configurations.Tools.BaseTools (GeminiTools, GoogleCloudTools)"
+      notes: "Platform-specific built-in tools"
+
+    agent_as_tool:
+      crewai: "BehavioralControls.AllowDelegation (delegation mechanism)"
+      adk: "Configurations.Tools.AgentTool"
+      notes: "CrewAI uses delegation, ADK treats agents as callable tools"
+
+# ================================================================================
+# 6. EXECUTION CONTROL
+# ================================================================================
+execution_control:
+  delegation_control:
+    crewai: "BehavioralControls.AllowDelegation"
+    adk: "BaseAgent.SubAgents (implicit delegation)"
+    notes: "CrewAI explicit flag, ADK via agent composition"
+
+  code_execution_control:
+    crewai: "BehavioralControls.AllowCodeExecution"
+    adk: "Configurations.CodeExecutor"
+    notes: "Both support code execution with different mechanisms"
+
+  async_execution_control:
+    crewai: "Task.Execution.AsyncExecution"
+    adk: "BaseAgent.AgentType (ParallelAgent or async tools)"
+    notes: "CrewAI task-level async, ADK agent-type based"
+
+  human_interaction_control:
+    crewai: "Task.Execution.HumanInput"
+    adk: "Custom function tool for human input"
+    notes: "CrewAI built-in, ADK via custom tool implementation"
+
+  verbosity_control:
+    crewai: "BehavioralControls.Verbose"
+    adk: "Logging configuration (system-level)"
+    notes: "CrewAI per-agent verbosity, ADK system-wide logging"
+
+  caching_control:
+    crewai: "BehavioralControls.Cache"
+    adk: "System-level caching (not exposed at agent level)"
+    notes: "CrewAI explicit cache control, ADK automatic caching"
+
+# ================================================================================
+# 7. MEMORY SYSTEM
+# ================================================================================
+memory_system:
+  short_term_memory:
+    crewai: "Memory.True_Memory.ShortTermMemory"
+    adk: "State management within agent execution (implicit)"
+    notes: "CrewAI explicit memory types, ADK via state management"
+
+  long_term_memory:
+    crewai: "Memory.True_Memory.LongTermMemory"
+    adk: "External storage or KnowledgeSources integration"
+    notes: "CrewAI built-in, ADK requires external implementation"
+
+  entity_memory:
+    crewai: "Memory.True_Memory.EntityMemory"
+    adk: "State tracking with custom logic"
+    notes: "CrewAI specific entity tracking, ADK custom implementation"
+
+  contextual_memory:
+    crewai: "Memory.True_Memory.ContextualMemory"
+    adk: "Configurations.IncludeContents (conversation history)"
+    notes: "CrewAI memory system, ADK context inclusion"
+
+# ================================================================================
+# 8. PLANNING CAPABILITY
+# ================================================================================
+planning_capability:
+  planning_strategy:
+    builtin_planner:
+      crewai: "Reasoning (implicit planning)"
+      adk: "Configurations.Planner.BuiltInPlanner"
+      notes: "ADK explicit planner, CrewAI implicit in reasoning"
+
+    react_planner:
+      crewai: "Reasoning with tool usage pattern"
+      adk: "Configurations.Planner.PlanReactPlanner"
+      notes: "ADK explicit ReAct, CrewAI via reasoning pattern"
+
+    custom_planner:
+      crewai: "Custom reasoning implementation"
+      adk: "Custom planner implementation"
+      notes: "Both support custom planning logic"
+
+  thinking_configuration:
+    include_thoughts:
+      crewai: "Implicit in agent reasoning output"
+      adk: "Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts"
+      notes: "ADK explicit thinking output, CrewAI implicit"
+
+    thinking_budget:
+      crewai: "Token budget via LLMConfiguration.Advanced_configs.MaxTokens"
+      adk: "Configurations.Planner.BuiltInPlanner.ThinkingConfig.ThinkingBudget"
+      notes: "Different mechanisms for controlling thinking depth"
+
+# ================================================================================
+# 9. DATA FLOW
+# ================================================================================
+data_flow:
+  input_definition:
+    input_schema:
+      crewai: "Task context and parameters (implicit structure)"
+      adk: "Configurations.DataStructure.InputSchema"
+      notes: "ADK explicit schema, CrewAI implicit via task setup"
+
+    context_sources:
+      crewai: "Task.Execution.Context (references to other tasks)"
+      adk: "Configurations.IncludeContents (conversation history)"
+      notes: "Different context mechanisms"
+
+  output_definition:
+    output_schema:
+      crewai: "Task.Output.OutputJson or Task.Output.OutputPydantic"
+      adk: "Configurations.DataStructure.OutputSchema"
+      notes: "Both support structured output schemas"
+
+    output_format:
+      file_output:
+        crewai: "Task.Output.OutputFile"
+        adk: "Custom function tool for file writing"
+        notes: "CrewAI built-in, ADK via custom tool"
+
+      json_output:
+        crewai: "Task.Output.OutputJson"
+        adk: "Configurations.DataStructure.OutputSchema (JSON format)"
+        notes: "Both support JSON output"
+
+      structured_output:
+        crewai: "Task.Output.OutputPydantic"
+        adk: "Configurations.DataStructure.OutputSchema"
+        notes: "CrewAI uses Pydantic, ADK uses schema definitions"
+
+      markdown_output:
+        crewai: "Task.Execution.Markdown"
+        adk: "Post-processing with output formatting"
+        notes: "CrewAI explicit markdown, ADK via output processing"
+
+      create_directory:
+        crewai: "Task.Output.CreateDirectory"
+        adk: "Function tool with filesystem operations"
+        notes: "CrewAI built-in, ADK via custom tool"
+
+    output_callbacks:
+      crewai: "Task.Output.Task_Callback"
+      adk: "Guardrails.AgentLifecycle.AfterAgentCallback"
+      notes: "Different callback mechanisms for output handling"
+
+# ================================================================================
+# 10. GUARDRAILS AND VALIDATION
+# ================================================================================
+guardrails_and_validation:
+  validation_rules:
+    guardrail_max_retries:
+      crewai: "Task.ValidationAndSafety.GuardrailMaxRetries"
+      adk: "Custom retry logic in callbacks"
+      notes: "CrewAI explicit retries, ADK via callback logic"
+
+    validation_strategy:
+      function_based_validation:
+        crewai: "Task.ValidationAndSafety.GuardrailTypes.FunctionBased"
+        adk: "Guardrails.ToolExecution.BeforeToolCallback"
+        notes: "Both support function-based validation"
+
+      llm_based_validation:
+        crewai: "Task.ValidationAndSafety.GuardrailTypes.LLMBased"
+        adk: "Guardrails.ModelInteraction.BeforeModelCallback"
+        notes: "Both support LLM-based validation"
+
+  lifecycle_hooks:
+    before_agent_execution:
+      crewai: "Custom implementation (framework extension)"
+      adk: "Guardrails.AgentLifecycle.BeforeAgentCallback"
+      notes: "ADK explicit hook, CrewAI via custom implementation"
+
+    after_agent_execution:
+      crewai: "Task.Output.Task_Callback"
+      adk: "Guardrails.AgentLifecycle.AfterAgentCallback"
+      notes: "Both support post-execution callbacks"
+
+    before_model_call:
+      crewai: "Custom implementation via LLM wrapper"
+      adk: "Guardrails.ModelInteraction.BeforeModelCallback"
+      notes: "ADK explicit, CrewAI requires custom LLM integration"
+
+    after_model_call:
+      crewai: "Custom implementation via LLM wrapper"
+      adk: "Guardrails.ModelInteraction.AfterModelCallback"
+      notes: "ADK explicit, CrewAI requires custom LLM integration"
+
+    before_tool_call:
+      crewai: "Task.ValidationAndSafety.Guardrail"
+      adk: "Guardrails.ToolExecution.BeforeToolCallback"
+      notes: "Both support pre-tool validation"
+
+    after_tool_call:
+      crewai: "Task.ValidationAndSafety.Guardrail"
+      adk: "Guardrails.ToolExecution.AfterToolCallback"
+      notes: "Both support post-tool validation"
+
+# ================================================================================
+# 11. AGENT COMPOSITION
+# ================================================================================
+agent_composition:
+  sub_agents:
+    crewai: "Task.Execution.Context (task dependencies imply agent relationships)"
+    adk: "BaseAgent.SubAgents"
+    notes: "ADK explicit sub-agents, CrewAI via task orchestration"
+
+  execution_constraints:
+    crewai: "Task dependencies and Context references"
+    adk: "BaseAgent.Constraints"
+    notes: "Different constraint mechanisms"
+
+  knowledge_integration:
+    integration_level:
+      crewai: "KnowledgeSources.IntegrationLevel (AgentLevel or CrewLevel)"
+      adk: "Agent-level vs system-level tool configuration"
+      notes: "Both support different scopes of knowledge integration"
+
+    supported_formats:
+      crewai: "KnowledgeSources.SupportedFormats (TextBased, StructuredData)"
+      adk: "Configurations.DataStructure schemas and tool capabilities"
+      notes: "Both handle multiple data formats"
+
+    storage_configuration:
+      crewai: "KnowledgeSources.Storage"
+      adk: "External storage via custom tools or third-party integrations"
+      notes: "Different storage integration approaches"
+
+# ================================================================================
+# CONVERSION GUIDELINES
+# ================================================================================
+conversion_guidelines:
+  generic_to_crewai:
+    - "Map agent identity to Role, Goal, Backstory trinity"
+    - "Convert single instruction to Task with Name, Description, ExpectedOutput"
+    - "Use Agent_Tools for agent-level tools, Task_Tools for task-specific"
+    - "Enable Memory features explicitly (False_Memory by default)"
+    - "Map lifecycle hooks to Task_Callback (limited hooks available)"
+    - "Use Context for agent composition and task dependencies"
+
+  generic_to_adk:
+    - "Map identity to Name and Description, embed goal in Instruction"
+    - "Select appropriate AgentType (LlmAgent for single agents)"
+    - "All tools go into Configurations.Tools (no agent/task distinction)"
+    - "Use IncludeContents for context management (replaces explicit memory)"
+    - "Leverage comprehensive Guardrails for lifecycle management"
+    - "Use SubAgents for explicit agent composition"
+
+  crewai_to_generic:
+    - "Combine Role, Goal, Backstory into structured identity"
+    - "Extract Task structure into instruction definition"
+    - "Merge Agent_Tools and Task_Tools into unified tool system"
+    - "Map Memory features to generic memory system"
+    - "Extract behavioral controls to execution control flags"
+
+  adk_to_generic:
+    - "Extract Name and Description into identity components"
+    - "Convert Instruction to structured task specification"
+    - "Map AgentType to generic agent type (SingleAgent or MultiAgent)"
+    - "Convert Guardrails callbacks to lifecycle hooks"
+    - "Map DataStructure schemas to input/output definitions"
+
+# ================================================================================
+# SPECIAL CASES AND CONSIDERATIONS
+# ================================================================================
+special_cases:
+  framework_specific_features:
+    crewai_only:
+      - "Entity-specific memory (EntityMemory)"
+      - "Explicit cache control per agent"
+      - "Backstory for rich agent personas"
+      - "Task-level markdown output control"
+
+    adk_only:
+      - "Extended thinking mode with budget"
+      - "Comprehensive lifecycle callbacks"
+      - "RemoteA2AAgent for distributed agents"
+      - "SafetySettings at model level"
+      - "TopK parameter for sampling"
+
+  default_behaviors:
+    when_converting_to_crewai:
+      - "Set Memory to False_Memory unless explicitly enabled"
+      - "Set AllowDelegation to False unless multi-agent"
+      - "Set Verbose to False by default"
+      - "Set Cache to True for performance"
+
+    when_converting_to_adk:
+      - "Use LlmAgent as default AgentType"
+      - "Set IncludeContents to Default"
+      - "Omit Planner unless explicit planning needed"
+      - "Use system-level configurations for API keys"
+
+  lossy_conversions:
+    - "CrewAI's rich memory types → ADK's simpler state management"
+    - "ADK's comprehensive callbacks → CrewAI's limited hooks"
+    - "CrewAI's per-agent caching → ADK's system-level caching"
+    - "ADK's extended thinking → CrewAI's implicit reasoning"
+    - "Framework-specific parameters (TopK, FrequencyPenalty, etc.)"
