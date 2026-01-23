@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Générateur CrewAI & ADK à partir du Feature Model</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <h1>Générateur CrewAI & ADK</h1>
+        <p>Interface de génération multi-agents basée sur le feature model générique et la binding table.</p>
+      </div>
+      <div class="header-actions">
+        <button id="copyCrewai" type="button" class="secondary">Copier CrewAI</button>
+        <button id="downloadCrewai" type="button">Télécharger CrewAI</button>
+        <button id="copyAdk" type="button" class="secondary">Copier ADK</button>
+        <button id="downloadAdk" type="button">Télécharger ADK</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <div class="panel">
+        <div class="agent-actions">
+          <div>
+            <h2>Agents configurés</h2>
+            <p class="hint">Ajoutez autant d’agents que nécessaire. Chaque agent est configuré via un accordéon.</p>
+          </div>
+          <button id="addAgent" type="button">Ajouter un agent</button>
+        </div>
+        <div id="agentsContainer" class="agents-container"></div>
+      </div>
+
+      <aside class="panel output-panel">
+        <div class="output-header">
+          <h2>YAML générés</h2>
+          <p>Le rendu suit les mappings CrewAI et Google ADK.</p>
+        </div>
+        <div class="output-grid">
+          <section class="output-block">
+            <h3>CrewAI</h3>
+            <pre id="outputCrewai"></pre>
+          </section>
+          <section class="output-block">
+            <h3>Google ADK</h3>
+            <pre id="outputAdk"></pre>
+          </section>
+        </div>
+        <details class="mapping-summary">
+          <summary>Résumé des mappings CrewAI / ADK</summary>
+          <ul id="mappingSummary"></ul>
+        </details>
+      </aside>
+    </main>
+
+    <template id="agentTemplate">
+      <details class="agent-card" open>
+        <summary>
+          <div>
+            Agent <span class="agent-index"></span>
+            <span class="agent-title">(nouvel agent)</span>
+          </div>
+          <div class="summary-actions">
+            <button type="button" class="remove-agent secondary">Supprimer</button>
+          </div>
+        </summary>
+        <div class="agent-form">
+          <section>
+            <h2>Identité de l’agent</h2>
+            <div class="field">
+              <label>
+                Rôle (Name)
+                <span class="mapping" data-mapping-key="agent_identity.name"></span>
+                <input data-field="role" type="text" placeholder="Ex: Data Analyst" required />
+              </label>
+            </div>
+            <div class="field">
+              <label>
+                Objectif (Purpose)
+                <span class="mapping" data-mapping-key="agent_identity.purpose"></span>
+                <input data-field="goal" type="text" placeholder="Ex: Synthétiser des rapports" required />
+              </label>
+            </div>
+            <div class="field">
+              <label>
+                Contexte (ContextDescription)
+                <span class="mapping" data-mapping-key="agent_identity.context_description"></span>
+                <textarea data-field="backstory" rows="3" placeholder="Ex: Spécialiste en analyse de données..."></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>Type d’agent</h2>
+            <div class="field">
+              <label>
+                Type
+                <span class="mapping" data-mapping-key="agent_type.single_agent"></span>
+                <select data-field="agentType">
+                  <option value="single">SingleAgent (par défaut)</option>
+                  <option value="sequential">SequentialAgent</option>
+                  <option value="parallel">ParallelAgent</option>
+                  <option value="loop">LoopAgent</option>
+                  <option value="custom">CustomAgent</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint">Pour CrewAI, l’orchestration multi-agents est gérée au niveau Crew/Tasks.</p>
+          </section>
+
+          <section>
+            <h2>Configuration LLM</h2>
+            <div class="grid">
+              <div class="field">
+                <label>
+                  Modèle
+                  <span class="mapping" data-mapping-key="llm_configuration.model"></span>
+                  <input data-field="model" type="text" placeholder="Ex: gpt-4o-mini" required />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Température
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.temperature"></span>
+                  <input data-field="temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Max tokens
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.max_tokens"></span>
+                  <input data-field="maxTokens" type="number" min="1" placeholder="1024" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Top P
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.top_p"></span>
+                  <input data-field="topP" type="number" step="0.05" min="0" max="1" placeholder="0.9" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Stop sequences
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.stop_sequences"></span>
+                  <input data-field="stop" type="text" placeholder="Ex: ###, END" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Frequency penalty
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.frequency_penalty"></span>
+                  <input data-field="frequencyPenalty" type="number" step="0.1" min="0" max="2" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Presence penalty
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.presence_penalty"></span>
+                  <input data-field="presencePenalty" type="number" step="0.1" min="0" max="2" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Seed
+                  <span class="mapping" data-mapping-key="llm_configuration.model_parameters.seed"></span>
+                  <input data-field="seed" type="number" min="0" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  API Key
+                  <span class="mapping" data-mapping-key="llm_configuration.api_configuration.api_key"></span>
+                  <input data-field="apiKey" type="text" placeholder="Env var ou clé" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Timeout (s)
+                  <span class="mapping" data-mapping-key="llm_configuration.api_configuration.timeout"></span>
+                  <input data-field="timeout" type="number" min="0" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Max retries
+                  <span class="mapping" data-mapping-key="llm_configuration.api_configuration.max_retries"></span>
+                  <input data-field="maxRetries" type="number" min="0" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Instruction & tâche</h2>
+            <div class="field">
+              <label>
+                Nom de la tâche
+                <span class="mapping" data-mapping-key="instruction_definition.task_specification.task_name"></span>
+                <input data-field="taskName" type="text" placeholder="Ex: Générer un résumé" required />
+              </label>
+            </div>
+            <div class="field">
+              <label>
+                Description de la tâche
+                <span class="mapping" data-mapping-key="instruction_definition.task_specification.task_description"></span>
+                <textarea data-field="taskDescription" rows="3" placeholder="Détaillez la mission..."></textarea>
+              </label>
+            </div>
+            <div class="field">
+              <label>
+                Sortie attendue
+                <span class="mapping" data-mapping-key="instruction_definition.task_specification.expected_output"></span>
+                <textarea data-field="expectedOutput" rows="2" placeholder="Ex: Résumé structuré en 5 points"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>Outils</h2>
+            <div class="grid">
+              <div class="field">
+                <label>
+                  Agent tools (liste)
+                  <span class="mapping" data-mapping-key="tools.tool_scope.agent_level_tools"></span>
+                  <input data-field="agentTools" type="text" placeholder="ToolA, ToolB" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Task tools (liste)
+                  <span class="mapping" data-mapping-key="tools.tool_scope.task_level_tools"></span>
+                  <input data-field="taskTools" type="text" placeholder="ToolX, ToolY" />
+                </label>
+              </div>
+            </div>
+            <div class="checkboxes">
+              <label><input data-field="allowDelegation" type="checkbox" /> Permettre la délégation</label>
+              <label><input data-field="allowCodeExecution" type="checkbox" /> Permettre l’exécution de code</label>
+            </div>
+          </section>
+
+          <section>
+            <h2>Exécution & mémoire</h2>
+            <div class="checkboxes">
+              <label><input data-field="asyncExecution" type="checkbox" /> Exécution asynchrone</label>
+              <label><input data-field="humanInput" type="checkbox" /> Interaction humaine</label>
+              <label><input data-field="verbose" type="checkbox" /> Verbose</label>
+              <label><input data-field="cache" type="checkbox" checked /> Cache</label>
+            </div>
+            <h3>Mémoire</h3>
+            <div class="checkboxes">
+              <label><input data-field="shortTermMemory" type="checkbox" /> Short-term</label>
+              <label><input data-field="longTermMemory" type="checkbox" /> Long-term</label>
+              <label><input data-field="entityMemory" type="checkbox" /> Entity</label>
+              <label><input data-field="contextualMemory" type="checkbox" /> Contextual</label>
+            </div>
+          </section>
+
+          <section>
+            <h2>Output</h2>
+            <div class="grid">
+              <div class="field">
+                <label>Format de sortie</label>
+                <select data-field="outputFormat">
+                  <option value="json">JSON</option>
+                  <option value="structured">Structured (Pydantic)</option>
+                  <option value="markdown">Markdown</option>
+                  <option value="file">File</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>
+                  Schéma de sortie (optionnel)
+                  <textarea data-field="outputSchema" rows="2" placeholder="JSON Schema ou description"></textarea>
+                </label>
+              </div>
+            </div>
+            <div class="checkboxes">
+              <label><input data-field="createDir" type="checkbox" /> Créer le répertoire de sortie</label>
+            </div>
+          </section>
+
+          <section>
+            <h2>Guardrails & validation</h2>
+            <div class="grid">
+              <div class="field">
+                <label>
+                  Guardrail
+                  <span class="mapping" data-mapping-key="llm_configuration.safety_configuration"></span>
+                  <input data-field="guardrail" type="text" placeholder="Ex: validation_custom" />
+                </label>
+              </div>
+              <div class="field">
+                <label>
+                  Max retries
+                  <span class="mapping" data-mapping-key="guardrails_and_validation.validation_rules.guardrail_max_retries"></span>
+                  <input data-field="guardrailMaxRetries" type="number" min="0" />
+                </label>
+              </div>
+            </div>
+            <div class="checkboxes">
+              <label><input data-field="validationFunction" type="checkbox" /> Validation function-based</label>
+              <label><input data-field="validationLLM" type="checkbox" /> Validation LLM-based</label>
+            </div>
+          </section>
+        </div>
+      </details>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

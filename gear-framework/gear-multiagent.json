@@ -1,0 +1,58 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "GearMultiAgent",
+	"type": "object",
+	"properties": {
+		"Agents": {
+			"type": "array",
+			"items": { "type": "object" }
+		},
+		"Orchestration": {
+			"type": "object",
+			"oneOf": [
+				{
+					"required": ["Sequential"],
+					"properties": {
+						"Sequential": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"required": ["Loop"],
+					"properties": {
+						"Loop": {
+							"type": "object",
+							"properties": {
+								"TurnCount": { "type": "integer" }
+							},
+							"required": ["TurnCount"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"required": ["Parallel"],
+					"properties": {
+						"Parallel": {
+							"type": "object",
+							"properties": {
+								"Aggregator": { "type": "string" }
+							},
+							"required": ["Aggregator"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			]
+		},
+		"RootAgent": { "type": "string" },
+		"Memory": { "type": "boolean" }
+	},
+	"required": ["Agents", "Orchestration"],
+	"additionalProperties": false
+}

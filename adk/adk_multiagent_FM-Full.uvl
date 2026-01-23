@@ -41,7 +41,7 @@ features
                                 optional
                                     SubAgentsParameter { abstract }
                                         alternative
-                                            SubAgents
+                                            SubAgents_
                                             SubAgentsCamel
                     LLMAgentConfig { abstract }
                         optional
@@ -116,7 +116,7 @@ features
                         optional
                             Implementation { abstract }
                                 or
-                                    BaseAgent
+                                    BaseAgent_
                             RequiredMethod { abstract }
                                 or
                                     RunAsync
@@ -386,7 +386,7 @@ features
                             UserMessage
                             AgentResponse
                             ToolCall
-                            ToolResult
+                            ToolResult_
                             StateChange
                             AgentTransfer
                     EventActions { abstract }

@@ -12,7 +12,6 @@ features
                                 alternative
                                     Sequential_
                                     Hierarchical_
-                                    Consensual
                 optional
                     ConfigurationAndControl { abstract }
                         or
@@ -87,7 +86,6 @@ features
                 alternative
                     Sequential__
                     Hierarchical__
-                    Consensual_
                 optional
                     HierarchicalRequirements { abstract }
                         alternative

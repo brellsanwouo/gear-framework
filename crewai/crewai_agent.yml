@@ -235,32 +235,6 @@ agent_characteristics:
     output_elements:
       collection: [task_comprehension, execution_steps, challenge_anticipation, tool_utilization, expected_deliverables, readiness_confirmation]
 
-  knowledge_sources:
-    parameter: knowledge_sources
-    integration_level:
-      alternatives: [agent_level, crew_level]
-    supported_formats:
-      text_based:
-        collection: [StringKnowledgeSource, .txt, PDF, CrewDoclingSource]
-      structured_data:
-        collection: [CSV, .xlsx, JSON]
-    storage:
-      technology: ChromaDB
-      collections:
-        collection: [agent_knowledge, crew_knowledge]
-    retrieval_configuration:
-      results_limit: 3
-      score_threshold: 0.35
-    features:
-      collection: [query_rewriting, automatic_access, custom_sources]
-    events:
-      collection:
-        - KnowledgeRetrievalStartedEvent
-        - KnowledgeRetrievalCompletedEvent
-        - KnowledgeQueryStartedEvent
-        - KnowledgeQueryCompletedEvent
-        - KnowledgeQueryFailedEvent
-
   template_customization:
     templates:
       collection: [system_template, prompt_template, response_template]

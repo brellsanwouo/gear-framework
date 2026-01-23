@@ -1,0 +1,428 @@
+{
+  "metadata": {
+    "version": "1.4",
+    "source": "gear-framework/gear-agent.uvl, gear-framework/gear-agent.yml, gear-framework/gear-multiagent.uvl, gear-framework/gear-multiagent.yml",
+    "target": "crewai/crew_agent_FM-Lite.uvl, crewai/crew_agent_FM-Lite.yml, crewai/crewai_multiagent_FM-Lite.uvl, crewai/crewai_multiagent_FM-Lite.yml, adk/adk_agent_FM-Lite.uvl, adk/adk_agent_FM-Lite.yml, adk/adk_multiagent_FM-Lite.uvl, adk/adk_multiagent_FM-Lite.yml",
+    "last_updated": "2026-01-22"
+  },
+  "mapping": {
+    "AgentIdentity": {
+      "Name": {
+        "crewai": "Identity.Role",
+        "type": "equivalent",
+        "notes": "CrewAI utilise Role comme identifiant principal."
+      },
+      "Purpose": {
+        "crewai": "Identity.Goal",
+        "type": "equivalent",
+        "notes": "Objectif de l’agent."
+      },
+      "ContextDescription": {
+        "crewai": "Identity.Backstory",
+        "type": "equivalent",
+        "notes": "Contexte/persona de l’agent."
+      }
+    },
+    "LLMConfiguration": {
+      "Model": {
+        "crewai": "LLMConfiguration.Model",
+        "type": "direct",
+        "notes": "Nom du modèle."
+      },
+      "APIConfiguration": {
+        "APIKey": {
+          "crewai": "LLMConfiguration.API_KEY",
+          "type": "equivalent",
+          "notes": "Clé API côté CrewAI."
+        },
+        "Timeout": {
+          "crewai": "LLMConfiguration.Advanced_configs.Timeout",
+          "type": "direct",
+          "notes": "Délai d’appel."
+        },
+        "MaxRetries": {
+          "crewai": "LLMConfiguration.Advanced_configs.MaxRetries",
+          "type": "direct",
+          "notes": "Politique de retry."
+        }
+      },
+      "ModelParameters": {
+        "Temperature": {
+          "crewai": "LLMConfiguration.Advanced_configs.Temperature",
+          "type": "direct"
+        },
+        "MaxTokens": {
+          "crewai": "LLMConfiguration.Advanced_configs.MaxTokens",
+          "type": "direct"
+        },
+        "TopP": {
+          "crewai": "LLMConfiguration.Advanced_configs.Top_p",
+          "type": "equivalent",
+          "notes": "TopP → Top_p."
+        },
+        "StopSequences": {
+          "crewai": "LLMConfiguration.Advanced_configs.Stop",
+          "type": "equivalent"
+        },
+        "TopK": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "Non exposé dans CrewAI Lite."
+        },
+        "FrequencyPenalty": {
+          "crewai": "LLMConfiguration.Advanced_configs.FrequencyPenalty",
+          "type": "direct"
+        },
+        "PresencePenalty": {
+          "crewai": "LLMConfiguration.Advanced_configs.PresencePenalty",
+          "type": "direct"
+        },
+        "Seed": {
+          "crewai": "LLMConfiguration.Advanced_configs.Seed",
+          "type": "direct"
+        },
+        "AdditionalParams": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "À intégrer manuellement si nécessaire."
+        }
+      }
+    },
+    "TaskSpecification": {
+      "TaskName": {
+        "crewai": "Task.Essential.Name",
+        "type": "direct"
+      },
+      "TaskDescription": {
+        "crewai": "Task.Essential.Description",
+        "type": "direct"
+      },
+      "ExpectedOutput": {
+        "crewai": "Task.Essential.ExpectedOutput",
+        "type": "direct"
+      },
+      "AssignedAgent": {
+        "crewai": "Task.Essential.This_Agent",
+        "type": "equivalent"
+      }
+    },
+    "Tools": {
+      "AgentLevel": {
+        "crewai": "Agent_Tools",
+        "type": "partial",
+        "notes": "Par défaut outils au niveau agent."
+      },
+      "TaskLevel": {
+        "crewai": "Task.Execution.Task_Tools",
+        "type": "partial",
+        "notes": "Si outils spécifiques à la tâche."
+      }
+    },
+    "ExecutionControl": {
+      "DelegationControl": {
+        "crewai": "BehavioralControls.AllowDelegation",
+        "type": "equivalent"
+      },
+      "CodeExecutionControl": {
+        "crewai": "BehavioralControls.AllowCodeExecution",
+        "type": "equivalent"
+      },
+      "AsyncExecutionControl": {
+        "crewai": "Task.Execution.AsyncExecution",
+        "type": "equivalent"
+      },
+      "HumanInteractionControl": {
+        "crewai": "Task.Execution.HumanInput",
+        "type": "equivalent"
+      },
+      "VerbosityControl": {
+        "crewai": "BehavioralControls.Verbose",
+        "type": "equivalent"
+      },
+      "CachingControl": {
+        "crewai": "BehavioralControls.Cache",
+        "type": "equivalent"
+      }
+    },
+    "Capabilities": {
+      "Memory": {
+        "crewai": "Memory",
+        "type": "direct"
+      },
+      "Reasoning": {
+        "crewai": "Reasoning",
+        "type": "direct"
+      }
+    },
+    "CrewAI_only": {
+      "notes": "Champs CrewAI non couverts par GearAgent.",
+      "fields": [
+        "Task.Execution.Context",
+        "Task.Execution.Markdown",
+        "Task.Output.*",
+        "Task.ValidationAndSafety.*"
+      ]
+    },
+    "mapping_adk": {
+      "AgentIdentity": {
+        "Name": {
+          "adk": "BaseAgent.Name",
+          "type": "direct"
+        },
+        "Purpose": {
+          "adk": "BaseAgent.Description",
+          "type": "partial",
+          "notes": "ADK n’a pas de champ ‘Purpose’; concaténer si nécessaire."
+        },
+        "ContextDescription": {
+          "adk": "BaseAgent.Description",
+          "type": "partial",
+          "notes": "Contexte ajouté à la description si besoin."
+        }
+      },
+      "LLMConfiguration": {
+        "Model": {
+          "adk": "LLMAgentConfig.Model",
+          "type": "direct",
+          "notes": "Nom du modèle."
+        },
+        "APIConfiguration": {
+          "APIKey": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "API key gérée hors schéma ADK Lite."
+          },
+          "Timeout": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Timeout géré côté runtime."
+          },
+          "MaxRetries": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Retry géré côté runtime."
+          }
+        },
+        "ModelParameters": {
+          "Temperature": {
+            "adk": "LLMAgentConfig.GenerateContentConfig.Temperature",
+            "type": "direct"
+          },
+          "MaxTokens": {
+            "adk": "LLMAgentConfig.GenerateContentConfig.MaxOutputTokens",
+            "type": "equivalent",
+            "notes": "MaxTokens → MaxOutputTokens."
+          },
+          "TopP": {
+            "adk": "LLMAgentConfig.GenerateContentConfig.TopP",
+            "type": "direct"
+          },
+          "StopSequences": {
+            "adk": "LLMAgentConfig.GenerateContentConfig.SafetySettings",
+            "type": "partial",
+            "notes": "Pas d’équivalent direct; à adapter via SafetySettings."
+          },
+          "TopK": {
+            "adk": "LLMAgentConfig.GenerateContentConfig.TopK",
+            "type": "direct"
+          },
+          "FrequencyPenalty": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Non exposé dans ADK Lite."
+          },
+          "PresencePenalty": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Non exposé dans ADK Lite."
+          },
+          "Seed": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Non exposé dans ADK Lite."
+          },
+          "AdditionalParams": {
+            "adk": null,
+            "type": "not_mapped",
+            "notes": "Non exposé dans ADK Lite."
+          }
+        }
+      },
+      "TaskSpecification": {
+        "TaskName": {
+          "adk": "Configurations.DataStructure.OutputKey",
+          "type": "partial",
+          "notes": "Peut servir de clé de sortie."
+        },
+        "TaskDescription": {
+          "adk": "Configurations.Instruction",
+          "type": "direct"
+        },
+        "ExpectedOutput": {
+          "adk": "Configurations.DataStructure.OutputSchema",
+          "type": "partial",
+          "notes": "Utiliser un schéma de sortie si disponible."
+        },
+        "AssignedAgent": {
+          "adk": "BaseAgent.Name",
+          "type": "partial",
+          "notes": "Mono‑agent: peut surcharger le nom."
+        }
+      },
+      "Tools": {
+        "AgentLevel": {
+          "adk": "Configurations.Tools",
+          "type": "partial",
+          "notes": "Outils au niveau agent."
+        },
+        "TaskLevel": {
+          "adk": null,
+          "type": "not_mapped",
+          "notes": "Pas de séparation outils/tâche en ADK Lite."
+        }
+      },
+      "ExecutionControl": {
+        "DelegationControl": {
+          "adk": "BaseAgent.SubAgents",
+          "type": "partial",
+          "notes": "ADK expose SubAgents, pas un booléen."
+        },
+        "CodeExecutionControl": {
+          "adk": "Configurations.CodeExecutor",
+          "type": "equivalent"
+        },
+        "AsyncExecutionControl": {
+          "adk": null,
+          "type": "not_mapped",
+          "notes": "Pas de champ explicite en ADK Lite."
+        },
+        "HumanInteractionControl": {
+          "adk": "Guardrails.AgentLifecycle.BeforeAgentCallback",
+          "type": "partial",
+          "notes": "À gérer via callbacks."
+        },
+        "VerbosityControl": {
+          "adk": "Guardrails.AgentLifecycle.AfterAgentCallback",
+          "type": "partial",
+          "notes": "À gérer via callbacks/logging."
+        },
+        "CachingControl": {
+          "adk": "Guardrails.ModelInteraction.BeforeModelCallback",
+          "type": "partial",
+          "notes": "À gérer via middleware/runtime."
+        }
+      },
+      "Capabilities": {
+        "Memory": {
+          "adk": "Runner.memory_service + tools(load_memory/PreloadMemoryTool)",
+          "type": "partial",
+          "notes": "Dans ADK, la mémoire long-terme est fournie par un MemoryService (InMemoryMemoryService ou VertexAiMemoryBankService) attaché au Runner, et consommée via des tools (load_memory, PreloadMemoryTool). À distinguer de session.state (scratchpad) et session.events (historique)."
+        },
+        "Reasoning": {
+          "adk": "Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts",
+          "type": "partial",
+          "notes": "Activer la pensée explicite si supportée."
+        }
+      },
+      "ADK_only": {
+        "notes": "Champs ADK non couverts par GearAgent.",
+        "fields": [
+          "BaseAgent.AgentType",
+          "BaseAgent.AgentCardReference.*",
+          "Configurations.IncludeContents",
+          "Configurations.Planner.PlanReactPlanner",
+          "Configurations.DataStructure.InputSchema",
+          "Guardrails.*"
+        ]
+      },
+      "multiagent_mapping_adk": {
+        "Agents": {
+          "adk": "BaseAgent.SubAgents",
+          "type": "partial",
+          "notes": "Liste des sous-agents utilisée par Sequential/Parallel/Loop."
+        },
+        "Orchestration": {
+          "Sequential": {
+            "adk": "SequentialAgent.sub_agents",
+            "type": "equivalent",
+            "notes": "Pipeline déterministe (A -> B -> C)."
+          },
+          "Parallel": {
+            "adk": "ParallelAgent.sub_agents",
+            "type": "equivalent",
+            "notes": "Exécution concurrente (A | B | C)."
+          },
+          "Loop": {
+            "adk": "LoopAgent.sub_agents",
+            "type": "equivalent",
+            "notes": "Cycle de raffinement avec max_iterations."
+          },
+          "TurnCount": {
+            "adk": "LoopAgent.max_iterations",
+            "type": "equivalent"
+          },
+          "Aggregator": {
+            "adk": "SequentialAgent (après ParallelAgent)",
+            "type": "partial",
+            "notes": "Pattern: ParallelAgent -> AggregatorAgent."
+          }
+        },
+        "PatternSyntax": {
+          "Definition": {
+            "adk": "->, |, ()",
+            "type": "equivalent",
+            "notes": "'->' séquence, '|' parallèle, '(...)' boucle."
+          }
+        },
+        "Memory": {
+          "adk": "Runner.memory_service (shared) + tools(load_memory/PreloadMemoryTool)",
+          "type": "partial",
+          "notes": "Pour un système multi-agent, la mémoire Gear correspond typiquement à un MemoryService partagé par tout le workflow/team (même backend), accessible par le root agent et/ou les sub-agents."
+        }
+      }
+    },
+    "multiagent_mapping": {
+      "Agents": {
+        "crewai": "Crew.EssentialComponents.Agents",
+        "type": "direct",
+        "notes": "Liste d’agents multi‑agent."
+      },
+      "Orchestration": {
+        "Sequential": {
+          "crewai": "Crew.EssentialComponents.Process",
+          "type": "direct",
+          "notes": "Valeur: Sequential."
+        },
+        "Parallel": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "Pas d’équivalent direct dans CrewAI Lite."
+        },
+        "Loop": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "Pas d’équivalent direct dans CrewAI Lite."
+        },
+        "TurnCount": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "Aucun champ natif."
+        },
+        "Aggregator": {
+          "crewai": null,
+          "type": "not_mapped",
+          "notes": "Aucun champ natif."
+        }
+      },
+      "RootAgent": {
+        "crewai": "Crew.AdvancedFeatures.ManagerAgent",
+        "type": "partial",
+        "notes": "Approximatif (si orchestration hiérarchique)."
+      },
+      "Memory": {
+        "crewai": "Crew.MemoryAndPerformance.Memory",
+        "type": "equivalent"
+      }
+    }
+  }
+}

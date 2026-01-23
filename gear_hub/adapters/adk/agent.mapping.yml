@@ -1,0 +1,20 @@
+# Gear -> ADK (agent)
+# TODO: compléter avec une table Gear<->ADK.
+# Indication: voir adk/adk_agent.yml et adk/adk_agent_FM-Lite.*
+
+# Exemple minimal (à ajuster selon la structure ADK cible)
+- from: AgentIdentity.Name
+  to: agent.base.name
+  kind: partial
+
+- from: AgentIdentity.ContextDescription
+  to: agent.base.description
+  kind: partial
+
+- from: LLMConfiguration.Model
+  to: agent.llm_agent_config.model
+  kind: partial
+
+- from: TaskSpecification.TaskDescription
+  to: agent.llm_agent_config.instruction
+  kind: partial

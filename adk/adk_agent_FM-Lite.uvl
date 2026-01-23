@@ -1,84 +1,84 @@
 namespace AgentDefinition
 
 features
-	AgentDefinition {abstract true}
+	AgentDefinition {abstract}
 		mandatory
-			BaseAgent {abstract true}
+			BaseAgent {abstract}
 				mandatory
-					AgentType {abstract true}
+					AgentType {abstract}
 						alternative
-							LlmAgent {abstract true}
-							SequentialAgent {abstract true}
-							ParallelAgent {abstract true}
-							LoopAgent {abstract true}
-							CustomAgent {abstract true}
-							RemoteA2AAgent {abstract true}
+							LlmAgent {abstract}
+							SequentialAgent {abstract}
+							ParallelAgent {abstract}
+							LoopAgent {abstract}
+							CustomAgent {abstract}
+							RemoteA2AAgent {abstract}
 								mandatory
-									AgentCardReference {abstract true}
+									AgentCardReference {abstract}
 										alternative
-											AgentCardURL {abstract true}
-											AgentCardJSON {abstract true}
-					Name {abstract true}
+											AgentCardURL {abstract}
+											AgentCardJSON {abstract}
+					Name {abstract}
 				optional
-					Description {abstract true}
-					SubAgents {abstract true}
-					Constraints {abstract true}
+					Description {abstract}
+					SubAgents {abstract}
+					Constraints {abstract}
 		optional
-			LLMAgentConfig {abstract true}
+			LLMAgentConfig {abstract}
 				mandatory
-					Model {abstract true}
+					Model {abstract}
 				optional
-					GenerateContentConfig {abstract true}
+					GenerateContentConfig {abstract}
 						optional
-							Temperature {abstract true}
-							MaxOutputTokens {abstract true}
-							TopP {abstract true}
-							TopK {abstract true}
-							SafetySettings {abstract true}
-			Configurations {abstract true}
+							Temperature {abstract}
+							MaxOutputTokens {abstract}
+							TopP {abstract}
+							TopK {abstract}
+							SafetySettings {abstract}
+			Configurations {abstract}
 				mandatory
-					Instruction {abstract true}
+					Instruction {abstract}
 				optional
-					Tools {abstract true}
+					Tools {abstract}
 						or
-							ThirdPartyTools {abstract true}
-							FunctionTools {abstract true}
-							MCPTools {abstract true}
-							AgentTool {abstract true}
-							BaseTools {abstract true}
+							ThirdPartyTools {abstract}
+							FunctionTools {abstract}
+							MCPTools {abstract}
+							AgentTool {abstract}
+							BaseTools {abstract}
 								or
-									GeminiTools {abstract true}
-									GoogleCloudTools {abstract true}
-					DataStructure {abstract true}
+									GeminiTools {abstract}
+									GoogleCloudTools {abstract}
+					DataStructure {abstract}
 						optional
-							OutputKey {abstract true}
-							InputSchema {abstract true}
-							OutputSchema {abstract true}
-					IncludeContents {abstract true}
+							OutputKey {abstract}
+							InputSchema {abstract}
+							OutputSchema {abstract}
+					IncludeContents {abstract}
 						alternative
 							Default
 							None
-					Planner {abstract true}
+					Planner {abstract}
 						optional
-							BuiltInPlanner {abstract true}
+							BuiltInPlanner {abstract}
 								optional
-									ThinkingConfig {abstract true}
+									ThinkingConfig {abstract}
 										or
 											IncludeThoughts
 											ThinkingBudget
 							PlanReactPlanner
-					CodeExecutor {abstract true}
-			Guardrails {abstract true}
+					CodeExecutor {abstract}
+			Guardrails {abstract}
 				optional
-					AgentLifecycle {abstract true}
+					AgentLifecycle {abstract}
 						or
-							BeforeAgentCallback {abstract true}
-							AfterAgentCallback {abstract true}
-					ModelInteraction {abstract true}
+							BeforeAgentCallback {abstract}
+							AfterAgentCallback {abstract}
+					ModelInteraction {abstract}
 						or
-							BeforeModelCallback {abstract true}
-							AfterModelCallback {abstract true}
-					ToolExecution {abstract true}
+							BeforeModelCallback {abstract}
+							AfterModelCallback {abstract}
+					ToolExecution {abstract}
 						or
-							BeforeToolCallback {abstract true}
-							AfterToolCallback {abstract true}
+							BeforeToolCallback {abstract}
+							AfterToolCallback {abstract}

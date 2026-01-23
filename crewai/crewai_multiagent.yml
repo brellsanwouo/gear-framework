@@ -6,7 +6,7 @@
       agents:
         required: true
       process:
-        alternatives: [sequential, hierarchical, consensual]
+        alternatives: [sequential, hierarchical]
         default: sequential
     configuration_and_control:
       collection: [verbose, manager_llm, function_calling_llm, config, max_rpm]
@@ -45,7 +45,7 @@
         options: [output.json, output.to_dict, str]
 
   processes:
-    alternatives: [sequential, hierarchical, consensual]
+    alternatives: [sequential, hierarchical]
     hierarchical_requirements:
       alternatives: [manager_llm, manager_agent]
     configuration_parameter: process

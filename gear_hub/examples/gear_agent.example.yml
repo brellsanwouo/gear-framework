@@ -1,0 +1,17 @@
+AgentIdentity:
+  Name: GearAssistant
+  Purpose: "Écriture de poèmes techniques"
+  ContextDescription: "Assistant expert en écriture créative"
+
+LLMConfiguration:
+  Model: gpt-4o-mini
+  APIConfiguration:
+    Timeout: 60
+    MaxRetries: 2
+  ModelParameters:
+    Temperature: 0.7
+
+TaskSpecification:
+  TaskName: poem_task
+  TaskDescription: "Écrire un poème en français sur un {name}."
+  ExpectedOutput: "Texte du poème"

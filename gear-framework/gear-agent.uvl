@@ -1,0 +1,50 @@
+namespace GearAgent
+
+features
+	GearAgent {abstract}
+		mandatory
+			AgentIdentity {abstract}
+				mandatory
+					Name {abstract}
+					Purpose {abstract}
+				optional
+					ContextDescription {abstract}
+			LLMConfiguration {abstract}
+				mandatory
+					Model {abstract}
+				optional
+					APIConfiguration {abstract}
+						optional
+							APIKey {abstract}
+							Timeout {abstract}
+							MaxRetries {abstract}
+					ModelParameters {abstract}
+						optional
+							Temperature {abstract}
+							MaxTokens {abstract}
+							TopP {abstract}
+							StopSequences {abstract}
+							AdditionalParams {abstract}
+							TopK {abstract}
+							FrequencyPenalty {abstract}
+							PresencePenalty {abstract}
+							Seed {abstract}
+			TaskSpecification {abstract}
+				mandatory
+					TaskDescription {abstract}
+					ExpectedOutput {abstract}
+				optional
+					TaskName {abstract}                    
+					AssignedAgent {abstract}
+		optional
+			Tools {abstract}
+			ExecutionControl {abstract}
+				optional
+					DelegationControl {abstract}
+					CodeExecutionControl {abstract}
+					AsyncExecutionControl {abstract}
+					HumanInteractionControl {abstract}
+					VerbosityControl {abstract}
+					CachingControl {abstract}
+			Memory {abstract}
+			Reasoning {abstract}

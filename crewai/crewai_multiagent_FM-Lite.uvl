@@ -1,56 +1,46 @@
 namespace CrewAIMultiAgent
 
 features
-	CrewAIMultiAgent {abstract true}
+	CrewAIMultiAgent {abstract}
 		mandatory
-			Crew {abstract true}
+			Crew {abstract}
 				mandatory
-					EssentialComponents {abstract true}
+					EssentialComponents {abstract}
 						mandatory
-							Tasks {abstract true}
-							Agents {abstract true}
+							Tasks {abstract}
+							Agents {abstract}
 						optional
-							Process {abstract true}
+							Process {abstract}
 								alternative
 									Sequential
 									Hierarchical
-									Consensual
 				optional
-					ConfigurationAndControl {abstract true}
+					ConfigurationAndControl {abstract}
 						optional
-							Verbose {abstract true}
-								alternative
-									True_Verbose
-									False_Verbose
-							ManagerLLM {abstract true}
-							FunctionCallingLLM {abstract true}
-							Config {abstract true}
-							MaxRPM {abstract true}
-					MemoryAndPerformance {abstract true}
+							Verbose {abstract}
+							ManagerLLM {abstract}
+							FunctionCallingLLM {abstract}
+							Config {abstract}
+							MaxRPM {abstract}
+					MemoryAndPerformance {abstract}
 						optional
-							Memory {abstract true}
-								alternative
-									True_Memory
-									False_Memory
-							EmbedderProviders {abstract true}
-							Cache {abstract true}
-								alternative
-									True_Cache
-									False_Cache
-					ExecutionAndOutput {abstract true}
+							Memory {abstract}
+							EmbedderProviders {abstract}
+							Cache {abstract}
+					// ExecutionAndOutput {abstract}
+					// 	optional
+					// 		StepCallback {abstract}
+					// 		TaskCallback {abstract}
+					// 		OutputLogFile {abstract}
+					// 		Stream {abstract}
+					OutputLogFileFormat {abstract}
+					AdvancedFeatures {abstract}
 						optional
-							StepCallback {abstract true}
-							TaskCallback {abstract true}
-							OutputLogFile {abstract true}
-							Stream {abstract true}
-					OutputLogFileFormat {abstract true}
-					AdvancedFeatures {abstract true}
-						optional
-							ManagerAgent {abstract true}
-							PromptFile {abstract true}
-							Planning {abstract true}
-							PlanningLLM {abstract true}
-							KnowledgeSources {abstract true}
+							ManagerAgent {abstract}
+							PromptFile {abstract}
+							Planning {abstract}
+							PlanningLLM {abstract}
+							KnowledgeSources {abstract}
 
 constraints
 	Hierarchical => ManagerLLM

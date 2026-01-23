@@ -1,0 +1,14 @@
+Agents:
+  - AgentIdentity:
+      Name: A1
+      Purpose: "Demo"
+    LLMConfiguration:
+      Model: gpt-4o-mini
+    TaskSpecification:
+      TaskDescription: "Task 1"
+      ExpectedOutput: "Output 1"
+
+Orchestration:
+  Sequential: {}
+
+Memory: false

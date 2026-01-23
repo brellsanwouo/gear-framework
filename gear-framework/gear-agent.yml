@@ -1,0 +1,66 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "GearAgent"
+type: object
+properties:
+  AgentIdentity:
+    type: object
+    properties:
+      Name: { type: string }
+      Purpose: { type: string }
+      ContextDescription: { type: string }
+    required: [Name, Purpose]
+    additionalProperties: false
+  LLMConfiguration:
+    type: object
+    properties:
+      Model: { type: string }
+      APIConfiguration:
+        type: object
+        properties:
+          APIKey: { type: string }
+          Timeout: { type: integer }
+          MaxRetries: { type: integer }
+        additionalProperties: false
+      ModelParameters:
+        type: object
+        properties:
+          Temperature: { type: number }
+          MaxTokens: { type: integer }
+          TopP: { type: number }
+          StopSequences:
+            type: array
+            items: { type: string }
+          AdditionalParams: { type: object }
+          TopK: { type: integer }
+          FrequencyPenalty: { type: number }
+          PresencePenalty: { type: number }
+          Seed: { type: integer }
+        additionalProperties: false
+    required: [Model]
+    additionalProperties: false
+  TaskSpecification:
+    type: object
+    properties:
+      TaskDescription: { type: string }
+      ExpectedOutput: { type: string }
+      TaskName: { type: string }
+      AssignedAgent: { type: string }
+    required: [TaskDescription, ExpectedOutput]
+    additionalProperties: false
+  Tools:
+    type: array
+    items: { type: string }
+  ExecutionControl:
+    type: object
+    properties:
+      DelegationControl: { type: boolean }
+      CodeExecutionControl: { type: boolean }
+      AsyncExecutionControl: { type: boolean }
+      HumanInteractionControl: { type: boolean }
+      VerbosityControl: { type: boolean }
+      CachingControl: { type: boolean }
+    additionalProperties: false
+  Memory: { type: boolean }
+  Reasoning: { type: boolean }
+required: [AgentIdentity, LLMConfiguration, TaskSpecification]
+additionalProperties: false

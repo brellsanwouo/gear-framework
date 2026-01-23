@@ -1,0 +1,20 @@
+# Gear -> CrewAI (multiagent)
+
+- from: Agents
+  to: Crew.EssentialComponents.Agents
+  kind: direct
+  notes: Liste d’agents.
+
+- from: Orchestration.Sequential
+  to: Crew.EssentialComponents.Process
+  kind: partial
+  notes: Valeur attendue côté CrewAI: Sequential.
+
+- from: RootAgent
+  to: Crew.AdvancedFeatures.ManagerAgent
+  kind: partial
+  notes: Approximatif (surtout utile si orchestration hiérarchique).
+
+- from: Memory
+  to: Crew.MemoryAndPerformance.Memory
+  kind: partial

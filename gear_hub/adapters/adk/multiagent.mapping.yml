@@ -1,0 +1,6 @@
+# Gear -> ADK (multiagent)
+# TODO: compléter (orchestration ADK: SequentialAgent/ParallelAgent/LoopAgent etc.)
+
+- from: Agents
+  to: multi_agent_system.agent.base.sub_agents
+  kind: partial

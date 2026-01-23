@@ -1,113 +1,73 @@
 namespace CrewAgent
 
 features
-	CrewAgent {abstract true}
+	CrewAgent {abstract}
 		mandatory
-			Identity {abstract true}
+			Identity {abstract}
 				mandatory
-					Role {abstract true}
-					Goal {abstract true}
-					Backstory {abstract true}
-			LLMConfiguration {abstract true}
+					Role {abstract}
+					Goal {abstract}
+					Backstory {abstract}
+			LLMConfiguration {abstract}
 				mandatory
-					Model {abstract true}
-					API_KEY {abstract true}
+					Model {abstract}
+					API_KEY {abstract}
 				optional
-					Advanced_configs {abstract true}
+					Advanced_configs {abstract}
 						optional
-							Temperature {abstract true}
-							MaxTokens {abstract true}
-							Top_p {abstract true}
-							FrequencyPenalty {abstract true}
-							PresencePenalty {abstract true}
-							Seed {abstract true}
-							Stop {abstract true}
-							Timeout {abstract true}
-							MaxRetries {abstract true}
-			Task {abstract true}
+							Temperature {abstract}
+							MaxTokens {abstract}
+							Top_p {abstract}
+							FrequencyPenalty {abstract}
+							PresencePenalty {abstract}
+							Seed {abstract}
+							Stop {abstract}
+							Timeout {abstract}
+							MaxRetries {abstract}
+			Task {abstract}
 				mandatory
-					Essential {abstract true}
+					Essential {abstract}
 						mandatory
-							Name {abstract true}
-							Description {abstract true}
-							This_Agent {abstract true}
+							Name {abstract}
+							Description {abstract}
+							This_Agent {abstract}
 						optional
-							ExpectedOutput {abstract true}
+							ExpectedOutput {abstract}
 				optional
-					Execution {abstract true}
+					Execution {abstract}
 						optional
-							Task_Tools {abstract true}
-							Context {abstract true}
-							AsyncExecution {abstract true}
-								alternative
-									False_AsyncExec
-									True_AsyncExec
-							HumanInput {abstract true}
-								alternative
-									True_HumanInput
-									False_HumanInput
-							Markdown {abstract true}
-								optional
-									False_Markdown
-									True_Markdown
-					Output {abstract true}
+							Task_Tools {abstract}
+							Context {abstract}
+							AsyncExecution {abstract}
+							HumanInput {abstract}
+							Markdown {abstract}
+					Output {abstract}
 						optional
-							OutputFile {abstract true}
-							CreateDirectory {abstract true}
-								alternative
-									False_CreateDir
-									True_CreateDir
-							OutputJson {abstract true}
-							OutputPydantic {abstract true}
-							Task_Callback {abstract true}
-							Config {abstract true}
-					ValidationAndSafety {abstract true}
+							OutputFile {abstract}
+							CreateDirectory {abstract}
+							OutputJson {abstract}
+							OutputPydantic {abstract}
+							Task_Callback {abstract}
+							Config {abstract}
+					ValidationAndSafety {abstract}
 						optional
-							Guardrail {abstract true}
-							Guardrails {abstract true}
-							GuardrailMaxRetries {abstract true}
-							GuardrailTypes {abstract true}
+							Guardrail {abstract}
+							Guardrails {abstract}
+							GuardrailMaxRetries {abstract}
+							GuardrailTypes {abstract}
 								alternative
 									FunctionBased
 									LLMBased
 		optional
-			Agent_Tools {abstract true}
-			BehavioralControls {abstract true}
+			Agent_Tools {abstract}
+			BehavioralControls {abstract}
 				optional
-					AllowDelegation {abstract true}
+					AllowDelegation {abstract}
+					AllowCodeExecution {abstract}
+					Verbose {abstract}
+					Cache {abstract}
 						alternative
-							True_AllowedDelegation
-							False_AllowedDelegation
-					AllowCodeExecution {abstract true}
-						alternative
-							True_AllowCode
-							False_AllowCode
-					Verbose {abstract true}
-						alternative
-							True_Verbose
-							False_Verbose
-					Cache {abstract true}
-						alternative
-							True_Cache
-							False_Cache
-			Memory {abstract true}
-				alternative
-					True_Memory
-						mandatory
-							ShortTermMemory {abstract true}
-							EntityMemory {abstract true}
-							ContextualMemory {abstract true}
-							LongTermMemory {abstract true}
-					False_Memory
-			Reasoning {abstract true}
-			KnowledgeSources {abstract true}
-				optional
-					IntegrationLevel {abstract true}
-						alternative
-							AgentLevel
-							CrewLevel
-					SupportedFormats {abstract true}
-						or
-							TextBased
-							StructuredData
-					Storage {abstract true}
+			Memory {abstract}
+			Reasoning {abstract}
+			// KnowledgeSources {abstract}
+
