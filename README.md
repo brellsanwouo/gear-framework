@@ -80,3 +80,46 @@ Définir, comparer et exploiter les feature models des agents et des systèmes m
 - `adk/adk_multiagent_FM-Full.uvl` : feature model multi-agents complet (Google ADK)
 - `adk/adk_multiagent_FM-Lite.uvl` : feature model multi-agents simplifié (Google ADK)
 
+
+
+## Examples Yaml (Gear Agent)
+
+AgentIdentity:
+  Name: GearAssistant
+  Purpose: Résumer en deux phrase le poème
+  ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+LLMConfiguration:
+  Model: gemini:gemini-2.5-flash-lite
+TaskSpecification:
+  TaskName: tache1
+  TaskDescription: Ecrire le poème inspiré du nom DAN PASCAL
+  ExpectedOutput: un poème court
+ExecutionControl:
+  DelegationControl: false
+  CodeExecutionControl: false
+  AsyncExecutionControl: false
+  HumanInteractionControl: false
+  VerbosityControl: true
+  CachingControl: false
+Memory: false
+Reasoning: false
+
+AgentIdentity:
+  Name: GearAssistant2
+  Purpose: Résumer en deux phrase le poème
+  ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+LLMConfiguration:
+  Model: gemini:gemini-2.5-flash-lite
+TaskSpecification:
+  TaskName: tache2
+  TaskDescription: expliquer le poème
+  ExpectedOutput: une phrase maximum
+ExecutionControl:
+  DelegationControl: false
+  CodeExecutionControl: false
+  AsyncExecutionControl: false
+  HumanInteractionControl: false
+  VerbosityControl: true
+  CachingControl: false
+Memory: false
+Reasoning: false
