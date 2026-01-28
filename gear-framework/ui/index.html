@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gear Framework UI</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <h1>Gear Framework</h1>
+        <p class="hint">UI Gear + connecteurs extensibles.</p>
+      </div>
+    </header>
+
+    <main class="layout layout--split">
+      <div class="left-column">
+        <section class="panel section-panel">
+        <div class="panel-header">
+          <h2>Gear Agents</h2>
+          <!-- <p class="hint">Charge un UVL d’agent puis crée autant d’agents que nécessaire.</p> -->
+        </div>
+        <!--
+        <div class="import-grid">
+          <div class="import-block">
+            <h3>Importer un UVL d’agent</h3>
+            <div class="loader-controls">
+              <button id="loadDefault" type="button" class="secondary">Charger gear-agent.uvl</button>
+              <label class="file-input">
+                <span class="file-label">Charger un UVL d’agent</span>
+                <span class="file-name" data-file-name>Choisir un fichier</span>
+                <input id="uvlFileInput" type="file" accept=".uvl,.txt" />
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="agentStatus" class="status" role="status" aria-live="polite"></div>
+        -->
+
+        <div class="agent-actions">
+          <div>
+            <!-- <h3>Instances d’agents</h3>
+            <p class="hint">Chaque agent a son propre formulaire et son propre YAML.</p> -->
+          </div>
+          <button id="addAgent" type="button">Ajouter un agent</button>
+        </div>
+
+        <div id="agentsContainer" class="agents-container" aria-live="polite"></div>
+        </section>
+
+        <section class="panel section-panel">
+        <div class="panel-header">
+          <h2>Gear Orchestration</h2>
+          <!-- <p class="hint">Définis la structure multi-agent (nœuds, stratégies, liens).</p> -->
+        </div>
+        <!--
+        <div class="import-grid">
+          <div class="import-block">
+            <h3>Importer un UVL d’orchestration</h3>
+            <div class="loader-controls">
+              <button id="loadOrchestrationDefault" type="button" class="secondary">Charger gear-multiagent.uvl</button>
+              <label class="file-input">
+                <span class="file-label">Charger un UVL d’orchestration</span>
+                <span class="file-name" data-file-name>Choisir un fichier</span>
+                <input id="orchestrationUvlFileInput" type="file" accept=".uvl,.txt" />
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="orchestrationStatus" class="status" role="status" aria-live="polite"></div>
+        -->
+
+        <div class="agent-actions">
+          <div>
+            <!-- <h3>Instances d’orchestration</h3>
+            <p class="hint">Chaque orchestration a son propre formulaire et son propre YAML.</p> -->
+          </div>
+          <button id="addOrchestration" type="button">Ajouter une orchestration</button>
+        </div>
+        <div id="orchestrationContainer" class="agents-container" aria-live="polite"></div>
+        </section>
+
+        <section class="panel section-panel">
+          <div class="panel-header">
+            <h2>Connecteurs</h2>
+            <p class="hint">Frameworks branchables depuis <code>connectors/registry.yml</code>.</p>
+          </div>
+          <div id="connectorsStatus" class="status" role="status" aria-live="polite"></div>
+          <ul id="connectorsList" class="connector-list"></ul>
+        </section>
+      </div>
+
+      <aside class="panel output-panel">
+        <div class="output-header">
+          <h2>Traduction en YAML</h2>
+          <p>Le rendu suit la table de conversion sélectionnée.</p>
+          <div class="segmented tabs" role="tablist" aria-label="Cible de conversion">
+            <label class="segmented-item" role="tab" aria-selected="true" data-target-tab="crewai">
+              <input type="radio" name="targetTab" value="crewai" checked />
+              CrewAI
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false" data-target-tab="adk">
+              <input type="radio" name="targetTab" value="adk" />
+              Google ADK
+            </label>
+          </div>
+        </div>
+
+        <div class="target-panel is-active" data-target-panel="crewai">
+          <div class="segmented tabs" role="tablist" aria-label="Sortie CrewAI">
+            <label class="segmented-item" role="tab" aria-selected="true" data-output-tab="crewai-agents">
+              <input type="radio" name="crewaiOutputTab" value="agents" checked />
+              Agents
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false" data-output-tab="crewai-tasks">
+              <input type="radio" name="crewaiOutputTab" value="tasks" />
+              Tâches
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false" data-output-tab="crewai-orchestration">
+              <input type="radio" name="crewaiOutputTab" value="orchestration" />
+              Orchestration
+            </label>
+          </div>
+          <section class="output-block is-active" data-output-panel="crewai-agents">
+            <h3>Agents CrewAI</h3>
+            <div class="output-code">
+              <button type="button" class="icon-button" aria-label="Copier">
+                <span>⧉</span>
+              </button>
+              <pre class="code-sample" data-output="crewai-agents"># Ici apparaîtra le YAML CrewAI des agents</pre>
+            </div>
+          </section>
+          <section class="output-block" data-output-panel="crewai-tasks">
+            <h3>Tâches CrewAI</h3>
+            <div class="output-code">
+              <button type="button" class="icon-button" aria-label="Copier">
+                <span>⧉</span>
+              </button>
+              <pre class="code-sample" data-output="crewai-tasks"># Ici apparaîtra le YAML CrewAI des tâches</pre>
+            </div>
+          </section>
+          <section class="output-block" data-output-panel="crewai-orchestration">
+            <h3>Orchestration CrewAI</h3>
+            <div class="output-code">
+              <button type="button" class="icon-button" aria-label="Copier">
+                <span>⧉</span>
+              </button>
+              <pre class="code-sample" data-output="crewai-orchestration"># Ici apparaîtra l'orchestration CrewAI</pre>
+            </div>
+          </section>
+        </div>
+
+        <div class="target-panel" data-target-panel="adk">
+          <div class="segmented tabs" role="tablist" aria-label="Sortie Google ADK">
+            <label class="segmented-item" role="tab" aria-selected="true" data-output-tab="adk-agents">
+              <input type="radio" name="adkOutputTab" value="agents" checked />
+              Agents
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false" data-output-tab="adk-orchestration">
+              <input type="radio" name="adkOutputTab" value="orchestration" />
+              Orchestration
+            </label>
+          </div>
+          <section class="output-block is-active" data-output-panel="adk-agents">
+            <h3>Agents Google ADK</h3>
+            <div class="output-code">
+              <button type="button" class="icon-button" aria-label="Copier">
+                <span>⧉</span>
+              </button>
+              <pre class="code-sample" data-output="adk-agents"># Ici apparaîtra le YAML Google ADK</pre>
+            </div>
+          </section>
+          <section class="output-block" data-output-panel="adk-orchestration">
+            <h3>Orchestration Google ADK</h3>
+            <div class="output-code">
+              <button type="button" class="icon-button" aria-label="Copier">
+                <span>⧉</span>
+              </button>
+              <pre class="code-sample" data-output="adk-orchestration"># Ici apparaîtra l'orchestration Google ADK</pre>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <template id="agentTemplate">
+      <details class="agent-card" open>
+        <summary>
+          <div>
+            Agent : <span class="agent-title">(nouvel agent)</span>
+          </div>
+          <div class="summary-actions">
+            <span class="missing-badge" data-missing-badge hidden>Champ obligatoire manquant</span>
+            <button type="button" class="remove-agent secondary">Supprimer</button>
+          </div>
+        </summary>
+        <div class="agent-tabs">
+          <div class="segmented tabs" role="tablist" aria-label="Vue agent">
+            <label class="segmented-item" role="tab" aria-selected="true">
+              <input type="radio" name="agentTab" value="features" checked data-default-tab="features" />
+              Features
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false">
+              <input type="radio" name="agentTab" value="yaml" data-default-tab="yaml" />
+              Résumé YAML
+            </label>
+          </div>
+        </div>
+        <div class="agent-body">
+          <section class="agent-tab-panel" data-tab-panel="features">
+            <div class="agent-column">
+              <h3>Features</h3>
+              <div class="tree" data-agent-tree aria-label="Arbre des features"></div>
+            </div>
+          </section>
+          <section class="agent-tab-panel" data-tab-panel="yaml">
+            <div class="agent-column agent-column--summary">
+              <div class="summary-block">
+                <h3>Résumé YAML</h3>
+                <p class="hint">Coller un YAML ici met à jour instantanément l’agent.</p>
+                <div class="yaml-editor">
+                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># Aperçu YAML</pre>
+                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="Le YAML résumé apparaîtra ici..." spellcheck="false"></textarea>
+                </div>
+                <div class="yaml-actions">
+                  <button type="button" class="secondary" data-agent-copy-yaml>Copier</button>
+                  <button type="button" class="secondary" data-agent-download-yaml>Télécharger</button>
+                  <button type="button" data-agent-load-yaml>Charger le YAML</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+    </template>
+
+    <template id="orchestrationTemplate">
+      <details class="agent-card" open>
+        <summary>
+          <div>
+            Orchestration : <span class="agent-title">(nouvelle orchestration)</span>
+          </div>
+          <div class="summary-actions">
+            <button type="button" class="remove-agent secondary">Supprimer</button>
+          </div>
+        </summary>
+        <div class="agent-tabs">
+          <div class="segmented tabs" role="tablist" aria-label="Vue orchestration">
+            <label class="segmented-item" role="tab" aria-selected="true">
+              <input type="radio" name="orchestrationTab" value="features" checked data-default-tab="features" />
+              Features
+            </label>
+            <label class="segmented-item" role="tab" aria-selected="false">
+              <input type="radio" name="orchestrationTab" value="yaml" data-default-tab="yaml" />
+              Résumé YAML
+            </label>
+          </div>
+        </div>
+        <div class="agent-body">
+          <section class="agent-tab-panel" data-tab-panel="features">
+            <div class="agent-column">
+              <h3>Features</h3>
+              <div class="tree" data-agent-tree aria-label="Arbre des features"></div>
+              <div class="orchestration-builder" data-orchestration-builder>
+                <h4>Préparer l’orchestration</h4>
+                <!-- <p class="hint step-hint">
+                  <span class="step-badge">1</span> Sélectionne les agents
+                  <span class="step-badge">2</span> Crée les nodes
+                  <span class="step-badge">3</span> Ajoute les edges
+                </p> -->
+                <div class="builder-grid">
+                  <div class="builder-block">
+                <h5><span class="step-badge step-badge--red">1</span> Agents sélectionnés</h5>
+                    <div class="agent-select-list" data-orch-agents></div>
+                  </div>
+                  <div class="builder-block builder-block--node">
+                    <h5><span class="step-badge step-badge--red">2</span> Créer un node</h5>
+                    <div class="builder-field builder-field--inline" data-node-inline-type-agent>
+                      <label class="node-field node-field--type">
+                        Type
+                        <select data-node-type>
+                          <option value="agent">Agent node</option>
+                          <option value="orchestration">Orchestration node</option>
+                        </select>
+                      </label>
+                      <label class="node-field node-field--agent" data-node-agent-fields>
+                        Agent
+                        <select data-node-agent></select>
+                      </label>
+                    </div>
+                    <div class="builder-field builder-field--inline" data-node-inline-type-orch hidden>
+                      <label class="node-field node-field--type">
+                        Type
+                        <select data-node-type-clone>
+                          <option value="agent">Agent node</option>
+                          <option value="orchestration" selected>Orchestration node</option>
+                        </select>
+                      </label>
+                      <label class="node-field node-field--name">
+                        Nom
+                        <input type="text" placeholder="orchestration_alpha" data-node-orch-name />
+                      </label>
+                    </div>
+                    <div class="builder-field builder-field--grid" data-node-orch-fields hidden>
+                      <label class="node-field node-field--strategy">
+                        Stratégie
+                        <select data-node-strategy>
+                          <option value="Sequential">Sequential</option>
+                          <option value="Parallel">Parallel</option>
+                          <option value="Loop">Loop</option>
+                          <option value="custom">custom</option>
+                        </select>
+                      </label>
+                      <label class="node-field node-field--children">
+                        ChildNodes
+                        <div class="multi-select" data-node-children-select></div>
+                      </label>
+                    </div>
+                    <div class="builder-field builder-field--inline" data-node-inline-advanced hidden>
+                      <label class="node-field node-field--turncount" data-node-turncount hidden>
+                        TurnCount
+                        <input type="number" min="1" placeholder="3" data-node-turncount-input />
+                      </label>
+                      <label class="node-field node-field--aggregator" data-node-aggregator hidden>
+                        Aggregator
+                        <input type="text" placeholder="merge_results" data-node-aggregator-input />
+                      </label>
+                    </div>
+                    <button type="button" class="secondary" data-add-node>Ajouter le node</button>
+                  </div>
+                </div>
+                <div class="builder-grid">
+                  <div class="builder-block">
+                    <h5>Nodes</h5>
+                    <ul class="node-list" data-node-list></ul>
+                  </div>
+                  <div class="builder-block edge-block">
+                    <h5><span class="step-badge step-badge--red">3</span> Edges</h5>
+                    <div class="edge-controls">
+                      <select data-edge-from></select>
+                      <span class="edge-arrow">→</span>
+                      <select data-edge-to></select>
+                    </div>
+                    <div class="edge-controls-actions">
+                      <button type="button" class="secondary" data-add-edge>Ajouter edge</button>
+                      <button type="button" class="secondary" data-auto-chain>Auto-chaîner</button>
+                    </div>
+                    <ul class="edge-list" data-edge-list></ul>
+                  </div>
+                </div>
+                <div class="builder-block">
+                  <h5>Visuel</h5>
+                  <div class="graph-panel">
+                    <svg data-orch-graph viewBox="0 0 600 160" preserveAspectRatio="xMidYMid meet"></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="agent-tab-panel" data-tab-panel="yaml">
+            <div class="agent-column agent-column--summary">
+              <div class="summary-block">
+                <h3>Résumé YAML</h3>
+                <p class="hint">Coller un YAML ici met à jour instantanément l’orchestration.</p>
+                <div class="yaml-editor">
+                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># Aperçu YAML</pre>
+                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="Le YAML résumé apparaîtra ici..." spellcheck="false"></textarea>
+                </div>
+                <div class="yaml-actions">
+                  <button type="button" class="secondary" data-agent-copy-yaml>Copier</button>
+                  <button type="button" class="secondary" data-agent-download-yaml>Télécharger</button>
+                  <button type="button" data-agent-load-yaml>Charger le YAML</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </details>
+    </template>
+  </body>
+</html>

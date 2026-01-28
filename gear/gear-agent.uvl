@@ -11,13 +11,13 @@ features
 					ContextDescription {abstract}
 			LLMConfiguration {abstract}
 				mandatory
-					Model {abstract}
+					Provider {abstract}
+					Model {abstract}				
 				optional
-					APIConfiguration {abstract}
-						optional
-							APIKey {abstract}
-							Timeout {abstract}
-							MaxRetries {abstract}
+					APIKey {abstract}
+					BaseURL {abstract}
+					Timeout {abstract}
+					MaxRetries {abstract}
 					ModelParameters {abstract}
 						optional
 							Temperature {abstract}
@@ -38,6 +38,8 @@ features
 					AssignedAgent {abstract}
 		optional
 			Tools {abstract}
+			Memory {abstract}
+			Reasoning {abstract}
 			ExecutionControl {abstract}
 				optional
 					DelegationControl {abstract}
@@ -46,5 +48,3 @@ features
 					HumanInteractionControl {abstract}
 					VerbosityControl {abstract}
 					CachingControl {abstract}
-			Memory {abstract}
-			Reasoning {abstract}

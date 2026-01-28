@@ -1,0 +1,7 @@
+# Template mapping (agent)
+# Each entry maps a Gear path to a target path.
+
+- from: AgentIdentity.Name
+  to: Target.Identity.Name
+  kind: direct
+  notes: "Update to match the target schema."

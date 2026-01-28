@@ -1,0 +1,6 @@
+# Template mapping (multiagent)
+
+- from: Agents
+  to: Target.Agents
+  kind: direct
+  notes: "Update to match the target schema."

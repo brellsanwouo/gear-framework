@@ -83,43 +83,82 @@ Définir, comparer et exploiter les feature models des agents et des systèmes m
 
 
 ## Examples Yaml (Gear Agent)
+GearAgent:
+  AgentIdentity:
+    Name: GearAssistant
+    Purpose: Résumer en deux phrase le poème
+    ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+  LLMConfiguration:
+    Model: gemini:gemini-2.5-flash-lite
+  TaskSpecification:
+    TaskName: tache1
+    TaskDescription: Ecrire le poème inspiré du nom DAN PASCAL
+    ExpectedOutput: un poème court
+  ExecutionControl:
+    DelegationControl: false
+    CodeExecutionControl: false
+    AsyncExecutionControl: false
+    HumanInteractionControl: false
+    VerbosityControl: true
+    CachingControl: false
+  Memory: false
+  Reasoning: false
 
-AgentIdentity:
-  Name: GearAssistant
-  Purpose: Résumer en deux phrase le poème
-  ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
-LLMConfiguration:
-  Model: gemini:gemini-2.5-flash-lite
-TaskSpecification:
-  TaskName: tache1
-  TaskDescription: Ecrire le poème inspiré du nom DAN PASCAL
-  ExpectedOutput: un poème court
-ExecutionControl:
-  DelegationControl: false
-  CodeExecutionControl: false
-  AsyncExecutionControl: false
-  HumanInteractionControl: false
-  VerbosityControl: true
-  CachingControl: false
-Memory: false
-Reasoning: false
+GearAgent:
+  AgentIdentity:
+    Name: GearAssistant2
+    Purpose: Résumer en deux phrase le poème
+    ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+  LLMConfiguration:
+    Model: gemini:gemini-2.5-flash-lite
+  TaskSpecification:
+    TaskName: tache2
+    TaskDescription: expliquer le poème
+    ExpectedOutput: une phrase maximum
+  ExecutionControl:
+    DelegationControl: false
+    CodeExecutionControl: false
+    AsyncExecutionControl: false
+    HumanInteractionControl: false
+    VerbosityControl: true
+    CachingControl: false
+  Memory: false
+  Reasoning: false
 
-AgentIdentity:
-  Name: GearAssistant2
-  Purpose: Résumer en deux phrase le poème
-  ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
-LLMConfiguration:
-  Model: gemini:gemini-2.5-flash-lite
-TaskSpecification:
-  TaskName: tache2
-  TaskDescription: expliquer le poème
-  ExpectedOutput: une phrase maximum
-ExecutionControl:
-  DelegationControl: false
-  CodeExecutionControl: false
-  AsyncExecutionControl: false
-  HumanInteractionControl: false
-  VerbosityControl: true
-  CachingControl: false
-Memory: false
-Reasoning: false
+
+
+
+
+
+GearAgent:
+  AgentIdentity:
+    Name: GearAssistant
+    Purpose: Résumer en deux phrase le poème
+    ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+  LLMConfiguration:
+    Provider: gemini
+    Model: gemini-2.5-flash-lite
+  TaskSpecification:
+    TaskDescription: Ecrire le poème inspiré du nom DAN PASCAL
+    ExpectedOutput: un poème court
+    TaskName: tache1
+  ExecutionControl:
+    VerbosityControl: true
+
+
+
+
+  GearAgent:
+  AgentIdentity:
+    Name: GearAssistant2
+    Purpose: Résumer en deux phrase le poème
+    ContextDescription: Vous êtes un assistant expert en résumé de poèmes en français.
+  LLMConfiguration:
+    Provider: gemini
+    Model: gemini-2.5-flash-lite
+  TaskSpecification:
+    TaskDescription: expliquer le poème
+    ExpectedOutput: une phrase maximum
+    TaskName: tache2
+  ExecutionControl:
+    VerbosityControl: true

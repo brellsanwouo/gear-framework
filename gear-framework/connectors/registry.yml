@@ -1,0 +1,18 @@
+version: "1.0"
+frameworks:
+  - id: crewai
+    label: CrewAI
+    description: "Agents + taches + orchestration (Lite)"
+    mappings:
+      agent: frameworks/crewai/agent.mapping.yml
+      multiagent: frameworks/crewai/multiagent.mapping.yml
+  - id: adk
+    label: Google ADK
+    description: "Agents + orchestration (ADK)"
+    mappings:
+      agent: frameworks/adk/agent.mapping.yml
+      multiagent: frameworks/adk/multiagent.mapping.yml
+  - id: custom
+    label: "Autre framework"
+    description: "Ajoute un dossier dans frameworks/"
+    mappings: {}

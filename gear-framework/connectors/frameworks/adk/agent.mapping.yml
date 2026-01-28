@@ -1,0 +1,145 @@
+# Gear -> ADK (agent)
+# Source model: gear-framework/gear/gear-agent.yml
+# Target model: adk/adk_agent_FM-Lite.yml
+
+- from: AgentIdentity.Name
+  to: BaseAgent.Name
+  kind: direct
+
+- from: AgentIdentity.Purpose
+  to: BaseAgent.Description
+  kind: partial
+  notes: "Concatener Purpose/ContextDescription si besoin."
+
+- from: AgentIdentity.ContextDescription
+  to: BaseAgent.Description
+  kind: partial
+
+- from: LLMConfiguration.Model
+  to: LLMAgentConfig.Model
+  kind: direct
+
+- from: LLMConfiguration.Provider
+  to: null
+  kind: not_mapped
+  notes: "Provider implicite via le nom du modele."
+
+- from: LLMConfiguration.APIKey
+  to: null
+  kind: not_mapped
+  notes: "Cle API geree hors schema ADK."
+
+- from: LLMConfiguration.BaseURL
+  to: null
+  kind: not_mapped
+  notes: "BaseURL non expose dans le schema ADK."
+
+- from: LLMConfiguration.Timeout
+  to: null
+  kind: not_mapped
+  notes: "Timeout gere au runtime."
+
+- from: LLMConfiguration.MaxRetries
+  to: null
+  kind: not_mapped
+  notes: "Retry gere au runtime."
+
+- from: LLMConfiguration.ModelParameters.Temperature
+  to: LLMAgentConfig.GenerateContentConfig.Temperature
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.MaxTokens
+  to: LLMAgentConfig.GenerateContentConfig.MaxOutputTokens
+  kind: equivalent
+
+- from: LLMConfiguration.ModelParameters.TopP
+  to: LLMAgentConfig.GenerateContentConfig.TopP
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.TopK
+  to: LLMAgentConfig.GenerateContentConfig.TopK
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.StopSequences
+  to: LLMAgentConfig.GenerateContentConfig.SafetySettings
+  kind: partial
+  notes: "Adapter via SafetySettings."
+
+- from: LLMConfiguration.ModelParameters.AdditionalParams
+  to: null
+  kind: not_mapped
+  notes: "Non expose dans ADK Lite."
+
+- from: LLMConfiguration.ModelParameters.FrequencyPenalty
+  to: null
+  kind: not_mapped
+  notes: "Non expose dans ADK Lite."
+
+- from: LLMConfiguration.ModelParameters.PresencePenalty
+  to: null
+  kind: not_mapped
+  notes: "Non expose dans ADK Lite."
+
+- from: LLMConfiguration.ModelParameters.Seed
+  to: null
+  kind: not_mapped
+  notes: "Non expose dans ADK Lite."
+
+- from: TaskSpecification.TaskDescription
+  to: Configurations.Instruction
+  kind: direct
+
+- from: TaskSpecification.TaskName
+  to: Configurations.DataStructure.OutputKey
+  kind: partial
+
+- from: TaskSpecification.ExpectedOutput
+  to: Configurations.DataStructure.OutputSchema
+  kind: partial
+
+- from: TaskSpecification.AssignedAgent
+  to: null
+  kind: not_mapped
+  notes: "ADK Lite ne prevoit pas d'assignation par champ."
+
+- from: Tools
+  to: Configurations.Tools
+  kind: partial
+
+- from: ExecutionControl.DelegationControl
+  to: BaseAgent.SubAgents
+  kind: partial
+  notes: "SubAgents est une liste, pas un booleen."
+
+- from: ExecutionControl.CodeExecutionControl
+  to: Configurations.CodeExecutor
+  kind: equivalent
+
+- from: ExecutionControl.AsyncExecutionControl
+  to: null
+  kind: not_mapped
+  notes: "Pas d'equivalent direct dans ADK Lite."
+
+- from: ExecutionControl.HumanInteractionControl
+  to: Guardrails.AgentLifecycle.BeforeAgentCallback
+  kind: partial
+  notes: "Adapter via callbacks."
+
+- from: ExecutionControl.VerbosityControl
+  to: Guardrails.AgentLifecycle.AfterAgentCallback
+  kind: partial
+  notes: "Adapter via callbacks/logging."
+
+- from: ExecutionControl.CachingControl
+  to: Guardrails.ModelInteraction.BeforeModelCallback
+  kind: partial
+  notes: "Adapter via middleware/runtime."
+
+- from: Memory
+  to: null
+  kind: not_mapped
+  notes: "Memoire geree par le Runner, pas par l'agent."
+
+- from: Reasoning
+  to: Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts
+  kind: partial

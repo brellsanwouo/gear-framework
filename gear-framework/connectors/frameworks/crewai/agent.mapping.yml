@@ -1,0 +1,125 @@
+# Gear -> CrewAI (agent)
+# Source model: gear-framework/gear/gear-agent.yml
+# Target model: crewai/crew_agent_FM-Lite.yml
+
+- from: AgentIdentity.Name
+  to: Identity.Role
+  kind: equivalent
+  notes: CrewAI utilise Role comme identifiant principal.
+
+- from: AgentIdentity.Purpose
+  to: Identity.Goal
+  kind: equivalent
+  notes: Objectif de l'agent.
+
+- from: AgentIdentity.ContextDescription
+  to: Identity.Backstory
+  kind: equivalent
+  notes: Contexte/persona de l'agent.
+
+- from: LLMConfiguration.Provider
+  to: null
+  kind: not_mapped
+  notes: Le provider est implicite dans le nom du modele CrewAI.
+
+- from: LLMConfiguration.Model
+  to: LLMConfiguration.Model
+  kind: direct
+
+- from: LLMConfiguration.APIKey
+  to: LLMConfiguration.API_KEY
+  kind: equivalent
+
+- from: LLMConfiguration.BaseURL
+  to: null
+  kind: not_mapped
+  notes: CrewAI Lite ne propose pas BaseURL dans ce schema.
+
+- from: LLMConfiguration.Timeout
+  to: LLMConfiguration.Advanced_configs.Timeout
+  kind: direct
+
+- from: LLMConfiguration.MaxRetries
+  to: LLMConfiguration.Advanced_configs.MaxRetries
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.Temperature
+  to: LLMConfiguration.Advanced_configs.Temperature
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.MaxTokens
+  to: LLMConfiguration.Advanced_configs.MaxTokens
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.TopP
+  to: LLMConfiguration.Advanced_configs.Top_p
+  kind: equivalent
+
+- from: LLMConfiguration.ModelParameters.StopSequences
+  to: LLMConfiguration.Advanced_configs.Stop
+  kind: equivalent
+
+- from: LLMConfiguration.ModelParameters.FrequencyPenalty
+  to: LLMConfiguration.Advanced_configs.FrequencyPenalty
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.PresencePenalty
+  to: LLMConfiguration.Advanced_configs.PresencePenalty
+  kind: direct
+
+- from: LLMConfiguration.ModelParameters.Seed
+  to: LLMConfiguration.Advanced_configs.Seed
+  kind: direct
+
+- from: TaskSpecification.TaskName
+  to: Task.Essential.Name
+  kind: partial
+
+- from: TaskSpecification.TaskDescription
+  to: Task.Essential.Description
+  kind: direct
+
+- from: TaskSpecification.ExpectedOutput
+  to: Task.Essential.ExpectedOutput
+  kind: direct
+
+- from: TaskSpecification.AssignedAgent
+  to: Task.Essential.This_Agent
+  kind: partial
+
+- from: Tools
+  to: Agent_Tools
+  kind: partial
+  notes: Utiliser Task.Execution.Task_Tools si outils par tache.
+
+- from: ExecutionControl.DelegationControl
+  to: BehavioralControls.AllowDelegation
+  kind: partial
+
+- from: ExecutionControl.CodeExecutionControl
+  to: BehavioralControls.AllowCodeExecution
+  kind: partial
+
+- from: ExecutionControl.AsyncExecutionControl
+  to: Task.Execution.AsyncExecution
+  kind: partial
+
+- from: ExecutionControl.HumanInteractionControl
+  to: Task.Execution.HumanInput
+  kind: partial
+
+- from: ExecutionControl.VerbosityControl
+  to: BehavioralControls.Verbose
+  kind: partial
+
+- from: ExecutionControl.CachingControl
+  to: BehavioralControls.Cache
+  kind: partial
+
+- from: Reasoning
+  to: Reasoning
+  kind: partial
+
+- from: Memory
+  to: Memory
+  kind: partial

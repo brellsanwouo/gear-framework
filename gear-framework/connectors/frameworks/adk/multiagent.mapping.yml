@@ -1,0 +1,37 @@
+# Gear -> ADK (multiagent)
+# Source model: gear/gear-multiagent.yml
+# Target model: ADK multi-agent system (Lite)
+
+- from: Agents
+  to: SystemDefinition.Agents
+  kind: direct
+
+- from: RootAgent
+  to: SystemDefinition.RootAgent
+  kind: partial
+
+- from: Orchestration.Sequential
+  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.SequentialAgent
+  kind: equivalent
+
+- from: Orchestration.Parallel
+  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.ParallelAgent
+  kind: equivalent
+
+- from: Orchestration.Loop
+  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.LoopAgent
+  kind: equivalent
+
+- from: Orchestration.Loop.TurnCount
+  to: "LoopAgent.max_iterations"
+  kind: partial
+  notes: "ADK: map via LoopAgent config."
+
+- from: Orchestration.Parallel.Aggregator
+  to: "SequentialAgent (apres ParallelAgent)"
+  kind: partial
+  notes: "Pattern Parallel -> Aggregator."
+
+- from: Memory
+  to: Infrastructure.Runner.Configuration.OptionalParameters.MemoryService
+  kind: partial
