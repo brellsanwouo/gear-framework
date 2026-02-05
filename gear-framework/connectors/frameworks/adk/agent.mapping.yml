@@ -136,9 +136,9 @@
   notes: "Adapter via middleware/runtime."
 
 - from: Memory
-  to: null
-  kind: not_mapped
-  notes: "Memoire geree par le Runner, pas par l'agent."
+  to: Runtime.Memory.AgentEnabled
+  kind: partial
+  notes: "Active la memoire agent (outil memory) dans le code ADK genere."
 
 - from: Reasoning
   to: Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts

@@ -1,0 +1,34 @@
+# Gear Module -> ADK WorkflowAgents
+# Source model: gear-framework/gear/gear-module.uvl
+
+- from: ModuleName
+  to: Runtime.Module.Name
+  kind: direct
+
+- from: Strategy.Parallel
+  to: Runtime.Module.ADKAgentType.ParallelAgent
+  kind: equivalent
+  notes: "Si present, generer un ParallelAgent ADK."
+
+- from: Strategy.Parallel.ParallelAgents
+  to: Runtime.Module.Parallel.SubAgents
+  kind: direct
+
+- from: Strategy.Parallel.Aggregator
+  to: Runtime.Module.Parallel.Aggregator
+  kind: partial
+  notes: "Agent agregateur execute apres ParallelAgent (pipeline)."
+
+- from: Strategy.Loop
+  to: Runtime.Module.ADKAgentType.LoopAgent
+  kind: equivalent
+  notes: "Si present, generer un LoopAgent ADK."
+
+- from: Strategy.Loop.LoopAgents
+  to: Runtime.Module.Loop.SubAgents
+  kind: direct
+
+- from: Strategy.Loop.TurnCount
+  to: Runtime.Module.Loop.MaxIterations
+  kind: equivalent
+

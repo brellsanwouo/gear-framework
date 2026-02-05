@@ -1,10 +1,17 @@
+// UI entry points and shared state for the Gear web app.
 const agentStatusEl = document.getElementById("agentStatus");
+const moduleStatusEl = document.getElementById("moduleStatus");
 const orchestrationStatusEl = document.getElementById("orchestrationStatus");
 const loadDefaultButton = document.getElementById("loadDefault");
 const uvlFileInput = document.getElementById("uvlFileInput");
 const addAgentButton = document.getElementById("addAgent");
 const agentsContainer = document.getElementById("agentsContainer");
 const agentTemplate = document.getElementById("agentTemplate");
+const loadModuleDefaultButton = document.getElementById("loadModuleDefault");
+const moduleUvlFileInput = document.getElementById("moduleUvlFileInput");
+const addModuleButton = document.getElementById("addModule");
+const modulesContainer = document.getElementById("modulesContainer");
+const moduleTemplate = document.getElementById("moduleTemplate");
 const loadOrchestrationDefaultButton = document.getElementById("loadOrchestrationDefault");
 const addOrchestrationButton = document.getElementById("addOrchestration");
 const orchestrationUvlFileInput = document.getElementById("orchestrationUvlFileInput");
@@ -12,61 +19,113 @@ const orchestrationContainer = document.getElementById("orchestrationContainer")
 const orchestrationTemplate = document.getElementById("orchestrationTemplate");
 const connectorsStatusEl = document.getElementById("connectorsStatus");
 const connectorsListEl = document.getElementById("connectorsList");
-const targetTabLabels = document.querySelectorAll("[data-target-tab]");
-const targetPanels = document.querySelectorAll("[data-target-panel]");
-const outputTabLabels = document.querySelectorAll("[data-output-tab]");
-const outputBlocks = document.querySelectorAll("[data-output-panel]");
-const outputTextBlocks = document.querySelectorAll("[data-output]");
-const outputCopyButtons = document.querySelectorAll(".output-code .icon-button");
+const targetTabsEl = document.getElementById("targetTabs");
+const targetPanelsContainerEl = document.getElementById("targetPanelsContainer");
+let targetTabLabels = [];
+let targetPanels = [];
+let outputTabLabels = [];
+let outputBlocks = [];
+let outputTextBlocks = [];
+let outputCopyButtons = [];
+let connectorsRegistry = null;
+let runCrewaiWorkflowButton = null;
+let crewaiRunOutput = null;
+let stopCrewaiWorkflowButton = null;
+let runAdkWorkflowButton = null;
+let adkRunOutput = null;
+let stopAdkWorkflowButton = null;
+const CREWAI_RUN_ENDPOINT = "/api/run";
+let crewaiRunAborter = null;
+let adkRunAborter = null;
 
 const GROUP_KEYWORDS = new Set(["mandatory", "optional", "alternative"]);
 const DEFAULT_AGENT_UVL_PATH = "gear/gear-agent.uvl";
+const DEFAULT_MODULE_UVL_PATH = "gear/gear-module.uvl";
 const DEFAULT_ORCHESTRATION_UVL_PATH = "gear/gear-multiagent.uvl";
 const CONNECTORS_REGISTRY_PATH = "connectors/registry.yml";
+const ASSEMBLY_ENGINE_PATH = "SDK/gear_sdk/assembly-engine.js";
 const CREWAI_AGENT_MAPPING_PATH = "connectors/frameworks/crewai/agent.mapping.yml";
 const CREWAI_MULTI_MAPPING_PATH = "connectors/frameworks/crewai/multiagent.mapping.yml";
+const ADK_AGENT_MAPPING_PATH = "connectors/frameworks/adk/agent.mapping.yml";
+const ADK_MULTI_MAPPING_PATH = "connectors/frameworks/adk/multiagent.mapping.yml";
+const ADK_MODULE_MAPPING_PATH = "connectors/frameworks/adk/module.mapping.yml";
 
 let agentModel = null;
+let moduleModel = null;
 let orchestrationModel = null;
 let agentStates = [];
+let moduleStates = [];
 let orchestrationStates = [];
 let agentCounter = 0;
 let crewaiAgentMapping = null;
 let crewaiMultiMapping = null;
+let adkAgentMapping = null;
+let adkMultiMapping = null;
+let adkModuleMapping = null;
 
-const CREWAI_FALLBACK_MAPPING = [
-  { from: "AgentIdentity.Name", to: "Identity.Role", kind: "equivalent" },
-  { from: "AgentIdentity.Purpose", to: "Identity.Goal", kind: "equivalent" },
-  { from: "AgentIdentity.ContextDescription", to: "Identity.Backstory", kind: "equivalent" },
-  { from: "LLMConfiguration.Provider", to: null, kind: "not_mapped" },
-  { from: "LLMConfiguration.Model", to: "LLMConfiguration.Model", kind: "direct" },
-  { from: "LLMConfiguration.APIKey", to: "LLMConfiguration.API_KEY", kind: "equivalent" },
-  { from: "LLMConfiguration.BaseURL", to: null, kind: "not_mapped" },
-  { from: "LLMConfiguration.Timeout", to: "LLMConfiguration.Advanced_configs.Timeout", kind: "direct" },
-  { from: "LLMConfiguration.MaxRetries", to: "LLMConfiguration.Advanced_configs.MaxRetries", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.Temperature", to: "LLMConfiguration.Advanced_configs.Temperature", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.MaxTokens", to: "LLMConfiguration.Advanced_configs.MaxTokens", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.TopP", to: "LLMConfiguration.Advanced_configs.Top_p", kind: "equivalent" },
-  { from: "LLMConfiguration.ModelParameters.StopSequences", to: "LLMConfiguration.Advanced_configs.Stop", kind: "equivalent" },
-  { from: "LLMConfiguration.ModelParameters.TopK", to: null, kind: "not_mapped" },
-  { from: "LLMConfiguration.ModelParameters.FrequencyPenalty", to: "LLMConfiguration.Advanced_configs.FrequencyPenalty", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.PresencePenalty", to: "LLMConfiguration.Advanced_configs.PresencePenalty", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.Seed", to: "LLMConfiguration.Advanced_configs.Seed", kind: "direct" },
-  { from: "LLMConfiguration.ModelParameters.AdditionalParams", to: null, kind: "not_mapped" },
-  { from: "TaskSpecification.TaskName", to: "Task.Essential.Name", kind: "partial" },
-  { from: "TaskSpecification.TaskDescription", to: "Task.Essential.Description", kind: "direct" },
-  { from: "TaskSpecification.ExpectedOutput", to: "Task.Essential.ExpectedOutput", kind: "direct" },
-  { from: "TaskSpecification.AssignedAgent", to: "Task.Essential.This_Agent", kind: "partial" },
-  { from: "Tools", to: "Agent_Tools", kind: "partial" },
-  { from: "ExecutionControl.DelegationControl", to: "BehavioralControls.AllowDelegation", kind: "partial" },
-  { from: "ExecutionControl.CodeExecutionControl", to: "BehavioralControls.AllowCodeExecution", kind: "partial" },
-  { from: "ExecutionControl.AsyncExecutionControl", to: "Task.Execution.AsyncExecution", kind: "partial" },
-  { from: "ExecutionControl.HumanInteractionControl", to: "Task.Execution.HumanInput", kind: "partial" },
-  { from: "ExecutionControl.VerbosityControl", to: "BehavioralControls.Verbose", kind: "partial" },
-  { from: "ExecutionControl.CachingControl", to: "BehavioralControls.Cache", kind: "partial" },
-  { from: "Memory", to: "Memory", kind: "partial" },
-  { from: "Reasoning", to: "Reasoning", kind: "partial" },
-];
+const DEFAULT_MODULE_UVL_FALLBACK = `features
+  GearModule {abstract}
+    mandatory
+      ModuleName {abstract}
+      Strategy {abstract}
+        alternative
+          Parallel {abstract}
+            mandatory
+              ParallelAgents {abstract}
+              Aggregator {abstract}
+          Loop {abstract}
+            mandatory
+              TurnCount {abstract}
+              StopCondition {abstract}
+              LoopAgents {abstract}
+`;
+
+const ensureModuleTemplate = () => {
+  const existing = document.getElementById("moduleTemplate");
+  if (existing) {
+    return existing;
+  }
+  if (!agentTemplate) {
+    return null;
+  }
+  const template = document.createElement("template");
+  template.id = "moduleTemplate";
+  template.innerHTML = agentTemplate.innerHTML;
+  const summaryTitle = template.content.querySelector("summary > div");
+  if (summaryTitle) {
+    summaryTitle.innerHTML = 'Module : <span class="agent-title">(nouveau module)</span>';
+  }
+  const hint = template.content.querySelector(".summary-block .hint");
+  if (hint) {
+    hint.textContent = "Coller un YAML ici met à jour instantanément le module.";
+  }
+  const tabs = template.content.querySelector(".segmented.tabs");
+  if (tabs) {
+    tabs.setAttribute("aria-label", "Vue module");
+  }
+  document.body.appendChild(template);
+  return template;
+};
+
+const ensureModuleModel = () => {
+  if (moduleModel) {
+    return true;
+  }
+  try {
+    const parsed = parseUvl(DEFAULT_MODULE_UVL_FALLBACK);
+    if (!parsed.roots.length) {
+      return false;
+    }
+    parsed.featurePaths = buildPathIndex(parsed);
+    moduleModel = parsed;
+    resetModulesForModel();
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+};
+
 
 const indentOf = (line) => {
   const match = line.match(/^\s*/);
@@ -189,7 +248,12 @@ const parseUvl = (text) => {
 };
 
 const setStatus = (message, isError = false, target = "agent") => {
-  const el = target === "orchestration" ? orchestrationStatusEl : agentStatusEl;
+  const elMap = {
+    agent: agentStatusEl,
+    module: moduleStatusEl,
+    orchestration: orchestrationStatusEl,
+  };
+  const el = elMap[target] || agentStatusEl;
   if (!el) {
     return;
   }
@@ -198,7 +262,12 @@ const setStatus = (message, isError = false, target = "agent") => {
 };
 
 const setStatusForState = (state, message, isError = false) => {
-  const target = state.kind === "orchestration" ? "orchestration" : "agent";
+  let target = "agent";
+  if (state.kind === "orchestration") {
+    target = "orchestration";
+  } else if (state.kind === "module") {
+    target = "module";
+  }
   setStatus(message, isError, target);
 };
 
@@ -208,6 +277,115 @@ const setConnectorsStatus = (message, isError = false) => {
   }
   connectorsStatusEl.textContent = message;
   connectorsStatusEl.classList.toggle("error", isError);
+};
+
+const refreshOutputDomRefs = () => {
+  targetTabLabels = Array.from(document.querySelectorAll("[data-target-tab]"));
+  targetPanels = Array.from(document.querySelectorAll("[data-target-panel]"));
+  outputTabLabels = Array.from(document.querySelectorAll("[data-output-tab]"));
+  outputBlocks = Array.from(document.querySelectorAll("[data-output-panel]"));
+  outputTextBlocks = Array.from(document.querySelectorAll("[data-output]"));
+  outputCopyButtons = Array.from(document.querySelectorAll(".output-code .icon-button"));
+  runCrewaiWorkflowButton = document.getElementById("runCrewaiWorkflow");
+  crewaiRunOutput = document.getElementById("crewaiRunOutput");
+  stopCrewaiWorkflowButton = document.getElementById("stopCrewaiWorkflow");
+  runAdkWorkflowButton = document.getElementById("runAdkWorkflow");
+  adkRunOutput = document.getElementById("adkRunOutput");
+  stopAdkWorkflowButton = document.getElementById("stopAdkWorkflow");
+};
+
+const buildFrameworkOutputs = (framework) => {
+  const outputs = [];
+  const mappings = framework?.mappings || {};
+  if (mappings.agent) {
+    outputs.push({ key: "agents", label: "Agents", title: `Agents ${framework.label || framework.id}` });
+  }
+  if (framework.id === "crewai" && mappings.agent) {
+    outputs.push({ key: "tasks", label: "Tâches", title: `Tâches ${framework.label || framework.id}` });
+  }
+  if (mappings.multiagent) {
+    outputs.push({ key: "orchestration", label: "Workflow", title: `Workflow ${framework.label || framework.id}` });
+  }
+  return outputs;
+};
+
+const renderOutputLayoutFromRegistry = (registry) => {
+  if (!targetTabsEl || !targetPanelsContainerEl) {
+    return;
+  }
+  targetTabsEl.innerHTML = "";
+  targetPanelsContainerEl.innerHTML = "";
+  const frameworks = Array.isArray(registry?.frameworks) ? registry.frameworks : [];
+  const renderable = frameworks.filter((f) => f?.mappings && (f.mappings.agent || f.mappings.multiagent));
+  renderable.forEach((framework, fIndex) => {
+    const targetLabel = document.createElement("label");
+    targetLabel.className = "segmented-item";
+    targetLabel.setAttribute("role", "tab");
+    targetLabel.dataset.targetTab = framework.id;
+    targetLabel.setAttribute("aria-selected", fIndex === 0 ? "true" : "false");
+    const targetInput = document.createElement("input");
+    targetInput.type = "radio";
+    targetInput.name = "targetTab";
+    targetInput.value = framework.id;
+    targetInput.checked = fIndex === 0;
+    targetLabel.appendChild(targetInput);
+    targetLabel.appendChild(document.createTextNode(framework.label || framework.id));
+    targetTabsEl.appendChild(targetLabel);
+
+    const panel = document.createElement("div");
+    panel.className = `target-panel${fIndex === 0 ? " is-active" : ""}`;
+    panel.dataset.targetPanel = framework.id;
+    const outputTabs = document.createElement("div");
+    outputTabs.className = "segmented tabs";
+    outputTabs.setAttribute("role", "tablist");
+    outputTabs.setAttribute("aria-label", `Sortie ${framework.label || framework.id}`);
+    const outputs = buildFrameworkOutputs(framework);
+    outputs.forEach((out, oIndex) => {
+      const outputId = `${framework.id}-${out.key}`;
+      const tabLabel = document.createElement("label");
+      tabLabel.className = "segmented-item";
+      tabLabel.setAttribute("role", "tab");
+      tabLabel.dataset.outputTab = outputId;
+      tabLabel.setAttribute("aria-selected", oIndex === 0 ? "true" : "false");
+      const outInput = document.createElement("input");
+      outInput.type = "radio";
+      outInput.name = `${framework.id}OutputTab`;
+      outInput.value = out.key;
+      outInput.checked = oIndex === 0;
+      tabLabel.appendChild(outInput);
+      tabLabel.appendChild(document.createTextNode(out.label));
+      outputTabs.appendChild(tabLabel);
+
+      const section = document.createElement("section");
+      section.className = `output-block${oIndex === 0 ? " is-active" : ""}`;
+      section.dataset.outputPanel = outputId;
+      section.innerHTML = `
+        <h3>${out.title}</h3>
+        <div class="output-code">
+          <button type="button" class="icon-button" aria-label="Copier"><span>⧉</span></button>
+          <pre class="code-sample" data-output="${outputId}"># Ici apparaîtra le rendu ${framework.label || framework.id}</pre>
+        </div>
+      `;
+      if (out.key === "orchestration" && (framework.id === "crewai" || framework.id === "adk")) {
+        section.insertAdjacentHTML(
+          "beforeend",
+          `
+          <div class="run-panel">
+            <div class="run-actions">
+              <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">Exécuter le workflow</button>
+              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">Arrêter</button>
+            </div>
+            <pre class="code-sample run-output" id="${framework.id === "crewai" ? "crewaiRunOutput" : "adkRunOutput"}"># Résultat d'exécution</pre>
+          </div>
+        `,
+        );
+      }
+      panel.appendChild(section);
+    });
+    panel.prepend(outputTabs);
+    targetPanelsContainerEl.appendChild(panel);
+  });
+  refreshOutputDomRefs();
 };
 
 const setActiveTargetPanel = (target) => {
@@ -320,14 +498,53 @@ const loadYamlFromUrlCandidates = async (relativePath) => {
   throw lastError || new Error("Chargement impossible");
 };
 
+const loadScriptFromUrlCandidates = async (relativePath) => {
+  const urls = buildUrlCandidates(relativePath);
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = url;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Script introuvable: ${url}`));
+        document.head.appendChild(script);
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Chargement script impossible");
+};
+
+// Load CrewAI mappings used by the assembly plugins.
 const loadCrewaiMappings = async () => {
   try {
     crewaiAgentMapping = await loadYamlFromUrlCandidates(CREWAI_AGENT_MAPPING_PATH);
     crewaiMultiMapping = await loadYamlFromUrlCandidates(CREWAI_MULTI_MAPPING_PATH);
+    setConnectorsStatus("Connecteurs chargés.", false);
   } catch (error) {
     console.error(error);
-    crewaiAgentMapping = CREWAI_FALLBACK_MAPPING;
+    crewaiAgentMapping = null;
     crewaiMultiMapping = null;
+    setConnectorsStatus("Mappings CrewAI introuvables. Vérifie connectors/frameworks/crewai/.", true);
+  }
+};
+
+// Load ADK mappings used by the assembly plugins.
+const loadAdkMappings = async () => {
+  try {
+    adkAgentMapping = await loadYamlFromUrlCandidates(ADK_AGENT_MAPPING_PATH);
+    adkMultiMapping = await loadYamlFromUrlCandidates(ADK_MULTI_MAPPING_PATH);
+    adkModuleMapping = await loadYamlFromUrlCandidates(ADK_MODULE_MAPPING_PATH);
+  } catch (error) {
+    console.error(error);
+    adkAgentMapping = null;
+    adkMultiMapping = null;
+    adkModuleMapping = null;
+    setConnectorsStatus("Mappings ADK introuvables. Vérifie connectors/frameworks/adk/ (agent, multiagent, module).", true);
   }
 };
 
@@ -365,6 +582,7 @@ const renderConnectors = (registry) => {
   }
 };
 
+// Load registry, templates, and plugins, then build the output tabs/panels.
 const loadConnectorsRegistry = async () => {
   if (!connectorsStatusEl || !connectorsListEl) {
     return;
@@ -372,7 +590,35 @@ const loadConnectorsRegistry = async () => {
   setConnectorsStatus(`Chargement de ${CONNECTORS_REGISTRY_PATH}…`);
   try {
     const registry = await loadYamlFromUrlCandidates(CONNECTORS_REGISTRY_PATH);
+    connectorsRegistry = registry;
     renderConnectors(registry);
+    renderOutputLayoutFromRegistry(registry);
+    if (!window.GearAssemblyEngine?.assemble) {
+      try {
+        await loadScriptFromUrlCandidates(ASSEMBLY_ENGINE_PATH);
+      } catch (error) {
+        console.error(error);
+        setConnectorsStatus("Moteur d'assemblage indisponible.", true);
+      }
+    }
+    if (window.GearAssemblyEngine?.loadTemplates) {
+      try {
+        await window.GearAssemblyEngine.loadTemplates(BASE_PREFIX, registry);
+      } catch (error) {
+        console.error(error);
+        setConnectorsStatus("Impossible de charger les templates workflow.", true);
+      }
+    }
+    if (window.GearAssemblyEngine?.loadPlugins) {
+      try {
+        await window.GearAssemblyEngine.loadPlugins(BASE_PREFIX, registry);
+      } catch (error) {
+        console.error(error);
+        setConnectorsStatus("Impossible de charger les plugins d'assemblage.", true);
+      }
+    }
+    bindOutputUiInteractions();
+    scheduleOutputsUpdate();
     setConnectorsStatus("Connecteurs chargés.");
   } catch (error) {
     console.error(error);
@@ -454,11 +700,23 @@ const isAgentRefFeature = (state, feature) =>
 const isAgentsFeature = (state, feature) =>
   state.kind === "orchestration" && feature.name.toLowerCase() === "agents";
 
+const isModulesFeature = (state, feature) =>
+  state.kind === "orchestration" && feature.name.toLowerCase() === "modules";
+
 const buildAgentOptionList = () => {
   return agentStates.map((agent, index) => {
-    const name = findAgentTitle(agent);
+    const name = findStateTitle(agent);
     const fallback = `Agent ${index + 1}`;
     const label = name && name !== "(nouvel agent)" ? name : fallback;
+    return { value: label, label };
+  });
+};
+
+const buildModuleOptionList = () => {
+  return moduleStates.map((moduleState, index) => {
+    const name = findStateTitle(moduleState);
+    const fallback = `Module ${index + 1}`;
+    const label = name && name !== "(nouveau module)" ? name : fallback;
     return { value: label, label };
   });
 };
@@ -538,7 +796,13 @@ const normalizeGearRoot = (data) => {
     return {};
   }
   const keys = Object.keys(data);
-  if (keys.length === 1 && (keys[0] === "GearAgent" || keys[0] === "GearMultiAgent")) {
+  if (
+    keys.length === 1 &&
+    (keys[0] === "GearAgent" ||
+      keys[0] === "GearMultiAgent" ||
+      keys[0] === "GearModule" ||
+      keys[0] === "GearWorkflow")
+  ) {
     const inner = data[keys[0]];
     if (inner && typeof inner === "object") {
       return inner;
@@ -563,6 +827,10 @@ const applyMapping = (source, mappingEntries) => {
     if (!entry || !entry.to || entry.kind === "not_mapped") {
       continue;
     }
+    if ((entry.from === undefined || entry.from === null || entry.from === "") && "value" in entry) {
+      setNestedValue(output, pathToParts(entry.to), entry.value);
+      continue;
+    }
     const fromList = Array.isArray(entry.from) ? entry.from : [entry.from];
     let matched = false;
     let value;
@@ -585,21 +853,92 @@ const applyMapping = (source, mappingEntries) => {
   return output;
 };
 
-const toCrewaiModel = (model) => {
-  const text = String(model || "").trim();
-  if (!text) {
+const getMappedValue = (mapped, path) => {
+  if (!mapped || !path) {
+    return undefined;
+  }
+  const result = getValueAtPath(mapped, pathToParts(path));
+  return result.exists ? result.value : undefined;
+};
+
+const toCrewaiModel = (provider, model) => {
+  const modelText = String(model || "").trim();
+  if (!modelText) {
     return "";
   }
-  if (text.includes("/")) {
-    return text;
+  if (modelText.includes("/")) {
+    return modelText;
   }
-  if (text.includes(":")) {
-    const [provider, rest] = text.split(":", 2);
-    if (provider && rest) {
-      return `${provider}/${rest}`;
+  if (modelText.includes(":")) {
+    const [prov, rest] = modelText.split(":", 2);
+    if (prov && rest) {
+      return `${prov}/${rest}`;
     }
   }
-  return text;
+  const provText = String(provider || "").trim();
+  if (provText) {
+    return `${provText}/${modelText}`;
+  }
+  return modelText;
+};
+
+const normalizeCrewaiLlmValue = (llmValue) => {
+  if (!llmValue) {
+    return llmValue;
+  }
+  if (typeof llmValue === "string") {
+    return toCrewaiModel(null, llmValue);
+  }
+  if (typeof llmValue === "object") {
+    const provider = llmValue.provider || llmValue.Provider;
+    const model = llmValue.model || llmValue.Model;
+    if (model) {
+      return { ...llmValue, model: toCrewaiModel(provider, model) };
+    }
+  }
+  return llmValue;
+};
+
+const toPythonLiteral = (value) => {
+  if (value === null || value === undefined) {
+    return "None";
+  }
+  if (typeof value === "boolean") {
+    return value ? "True" : "False";
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : "None";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value).map(
+      ([key, val]) => `${toPythonLiteral(key)}: ${toPythonLiteral(val)}`,
+    );
+    return `{${entries.join(", ")}}`;
+  }
+  return JSON.stringify(String(value));
+};
+
+const toPythonName = (value, fallback) => {
+  const base = (value || "").toString().trim();
+  if (!base) {
+    return fallback;
+  }
+  const sanitized = base
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-zA-Z0-9_\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .toLowerCase();
+  return sanitized.length ? sanitized : fallback;
+};
+
+const parseNumber = (value) => {
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
 };
 
 const setIfMeaningful = (obj, key, value) => {
@@ -638,35 +977,273 @@ const ensureUniqueKey = (base, fallbackPrefix, index, usedKeys) => {
   return candidate;
 };
 
-const buildCrewaiAgentConfigFromGear = (gearAgent) => {
+const buildCrewaiAgentConfigFromGear = (gearAgent, mapped) => {
   const config = {};
-  setIfMeaningful(config, "role", gearAgent.AgentIdentity?.Name);
-  setIfMeaningful(config, "goal", gearAgent.AgentIdentity?.Purpose);
-  setIfMeaningful(config, "backstory", gearAgent.AgentIdentity?.ContextDescription);
-  const modelValue = toCrewaiModel(gearAgent.LLMConfiguration?.Model);
+  setIfMeaningful(config, "role", getMappedValue(mapped, "Identity.Role"));
+  setIfMeaningful(config, "goal", getMappedValue(mapped, "Identity.Goal"));
+  setIfMeaningful(config, "backstory", getMappedValue(mapped, "Identity.Backstory"));
+  const modelValue = toCrewaiModel(
+    gearAgent.LLMConfiguration?.Provider,
+    getMappedValue(mapped, "LLMConfiguration.Model"),
+  );
   setIfMeaningful(config, "llm", modelValue);
-  setIfMeaningful(config, "verbose", gearAgent.ExecutionControl?.VerbosityControl === true);
-  setIfMeaningful(config, "allow_delegation", gearAgent.ExecutionControl?.DelegationControl === true);
-  setIfMeaningful(config, "allow_code_execution", gearAgent.ExecutionControl?.CodeExecutionControl === true);
-  setIfMeaningful(config, "cache", gearAgent.ExecutionControl?.CachingControl === true);
-  setIfMeaningful(config, "reasoning", gearAgent.Reasoning === true);
-  setIfMeaningful(config, "memory", gearAgent.Memory === true);
+  setIfMeaningful(config, "verbose", getMappedValue(mapped, "BehavioralControls.Verbose") === true);
+  setIfMeaningful(
+    config,
+    "allow_delegation",
+    getMappedValue(mapped, "BehavioralControls.AllowDelegation") === true,
+  );
+  setIfMeaningful(
+    config,
+    "allow_code_execution",
+    getMappedValue(mapped, "BehavioralControls.AllowCodeExecution") === true,
+  );
+  setIfMeaningful(config, "cache", getMappedValue(mapped, "BehavioralControls.Cache") === true);
+  setIfMeaningful(config, "reasoning", getMappedValue(mapped, "Reasoning") === true);
+  setIfMeaningful(config, "memory", getMappedValue(mapped, "Memory") === true);
   return config;
 };
 
-const buildCrewaiTaskConfigFromGear = (gearAgent, agentKey, taskKey) => {
+const buildCrewaiTaskConfigFromGear = (gearAgent, mapped, agentKey, taskKey) => {
   const config = {};
-  const taskSpec = gearAgent.TaskSpecification || {};
-  setIfMeaningful(config, "description", taskSpec.TaskDescription || "");
-  setIfMeaningful(config, "expected_output", taskSpec.ExpectedOutput || "");
-  setIfMeaningful(config, "agent", taskSpec.AssignedAgent || agentKey);
-  setIfMeaningful(config, "name", taskSpec.TaskName || taskKey);
-  setIfMeaningful(config, "async_execution", gearAgent.ExecutionControl?.AsyncExecutionControl === true);
-  setIfMeaningful(config, "human_input", gearAgent.ExecutionControl?.HumanInteractionControl === true);
+  setIfMeaningful(config, "description", getMappedValue(mapped, "Task.Essential.Description") || "");
+  setIfMeaningful(config, "expected_output", getMappedValue(mapped, "Task.Essential.ExpectedOutput") || "");
+  setIfMeaningful(config, "agent", getMappedValue(mapped, "Task.Essential.This_Agent") || agentKey);
+  setIfMeaningful(config, "name", getMappedValue(mapped, "Task.Essential.Name") || taskKey);
+  setIfMeaningful(config, "async_execution", getMappedValue(mapped, "Task.Execution.AsyncExecution") === true);
+  setIfMeaningful(config, "human_input", getMappedValue(mapped, "Task.Execution.HumanInput") === true);
   return config;
+};
+
+const getFeatureValueByName = (state, featureName) => {
+  if (!state?.model || !featureName) {
+    return undefined;
+  }
+  const needle = featureName.toLowerCase();
+  const match = Object.values(state.model.features).find(
+    (feature) =>
+      isLeafFeature(state.model, feature.id) &&
+      feature.name.toLowerCase() === needle &&
+      isFeatureActive(state, feature.id),
+  );
+  if (!match) {
+    return undefined;
+  }
+  return state.featureValues[match.id];
+};
+
+const findLeafFeatureByName = (state, featureName) => {
+  if (!state?.model || !featureName) {
+    return null;
+  }
+  const needle = featureName.toLowerCase();
+  return (
+    Object.values(state.model.features).find(
+      (feature) =>
+        isLeafFeature(state.model, feature.id) &&
+        feature.name.toLowerCase() === needle,
+    ) || null
+  );
+};
+
+const setBooleanFeatureByName = (state, featureName, enabled) => {
+  const feature = findLeafFeatureByName(state, featureName);
+  if (!feature) {
+    return;
+  }
+  if (feature.relationType === "optional") {
+    state.optionalSelections[feature.id] = Boolean(enabled);
+  }
+  state.featureValues[feature.id] = enabled ? true : "";
+};
+
+const getCrewaiOrderedAgents = (state, agentNameMap, agentKeys) => {
+  if (!state?.builder) {
+    return [];
+  }
+  const sequenceAgents = (state.builder.sequence || [])
+    .filter((item) => item.type === "agent")
+    .map((item) => item.label || item.id)
+    .filter(Boolean);
+  if (sequenceAgents.length) {
+    return sequenceAgents
+      .map((name) => agentNameMap.get(name) || name)
+      .filter((key) => agentKeys.includes(key));
+  }
+  return agentKeys.slice();
+};
+
+const buildCrewaiWorkflowCode = (agentsPayload, tasksPayload, workflowState) => {
+  if (!Array.isArray(crewaiMultiMapping) || !crewaiMultiMapping.length) {
+    return "# Mapping CrewAI workflow indisponible. Vérifie connectors/frameworks/crewai/multiagent.mapping.yml";
+  }
+  const agentKeys = Object.keys(agentsPayload || {});
+  if (!agentKeys.length) {
+    return "# Aucun agent CrewAI defini.";
+  }
+
+  const importLines = [
+    "from crewai import Agent, Crew, Task, Process, LLM",
+    "import os",
+    "import sys",
+    "from dotenv import load_dotenv",
+    "",
+    "load_dotenv()",
+  ];
+
+  const llmLines = [];
+  const agentLines = [];
+  const taskLines = [];
+  const usedNames = new Set();
+  const agentVarMap = {};
+  const taskVarMap = {};
+
+  const makeUniqueVar = (base, fallback) => {
+    let candidate = toPythonName(base, fallback);
+    let suffix = 2;
+    while (usedNames.has(candidate)) {
+      candidate = `${candidate}_${suffix}`;
+      suffix += 1;
+    }
+    usedNames.add(candidate);
+    return candidate;
+  };
+
+  const agentNameMap = new Map();
+  agentKeys.forEach((agentKey) => {
+    const role = agentsPayload[agentKey]?.role?.toString().trim();
+    if (role && !agentNameMap.has(role)) {
+      agentNameMap.set(role, agentKey);
+    }
+    if (!agentNameMap.has(agentKey)) {
+      agentNameMap.set(agentKey, agentKey);
+    }
+  });
+
+  agentKeys.forEach((agentKey, index) => {
+    const agentVar = makeUniqueVar(agentKey, `agent_${index + 1}`);
+    agentVarMap[agentKey] = agentVar;
+    const agentConfig = agentsPayload[agentKey] || {};
+    let llmVar = "None";
+    const normalizedLlm = normalizeCrewaiLlmValue(agentConfig.llm);
+    if (normalizedLlm) {
+      const llmName = `${agentVar}_llm`;
+      if (typeof normalizedLlm === "string") {
+        llmLines.push(
+          `${llmName} = LLM(`,
+          `  model=${toPythonLiteral(normalizedLlm)}`,
+          `)`,
+          "",
+        );
+      } else {
+        const llmArgs = Object.entries(normalizedLlm)
+          .filter(([, value]) => value !== null && value !== undefined && value !== "")
+          .map(([key, value]) => `  ${key}=${toPythonLiteral(value)},`);
+        llmLines.push(`${llmName} = LLM(`, ...llmArgs, `)`, "");
+      }
+      llmVar = llmName;
+    }
+
+    const args = Object.entries(agentConfig)
+      .filter(([, value]) => {
+        if (value === null || value === undefined) return false;
+        if (typeof value === "string" && value.trim() === "") return false;
+        if (Array.isArray(value) && value.length === 0) return false;
+        return true;
+      })
+      .map(([key, value]) => {
+        if (key === "llm") {
+          return `  ${key}=${llmVar},`;
+        }
+        return `  ${key}=${toPythonLiteral(value)},`;
+      });
+
+    agentLines.push(`${agentVar} = Agent(`, ...args, `)`, "");
+  });
+
+  const taskKeys = Object.keys(tasksPayload || {});
+  taskKeys.forEach((taskKey, index) => {
+    const taskVar = makeUniqueVar(taskKey, `task_${index + 1}`);
+    taskVarMap[taskKey] = taskVar;
+    const taskConfig = tasksPayload[taskKey] || {};
+    const args = Object.entries(taskConfig)
+      .filter(([, value]) => {
+        if (value === null || value === undefined) return false;
+        if (typeof value === "string" && value.trim() === "") return false;
+        if (Array.isArray(value) && value.length === 0) return false;
+        return true;
+      })
+      .map(([key, value]) => {
+        if (key === "agent" && typeof value === "string" && agentVarMap[value]) {
+          return `  ${key}=${agentVarMap[value]},`;
+        }
+        return `  ${key}=${toPythonLiteral(value)},`;
+      });
+    taskLines.push(`${taskVar} = Task(`, ...args, `)`, "");
+  });
+
+  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
+  const mappedWorkflow = applyMapping(workflowYaml, crewaiMultiMapping);
+  const mappedProcessRaw = getMappedValue(mappedWorkflow, "Crew.EssentialComponents.Process");
+  if (!mappedProcessRaw) {
+    return "# Mapping CrewAI invalide: Crew.EssentialComponents.Process requis.";
+  }
+  const processValue = String(mappedProcessRaw).toLowerCase();
+  const mappedMemory = getMappedValue(mappedWorkflow, "Crew.MemoryAndPerformance.Memory");
+  const memoryValue =
+    typeof mappedMemory === "boolean"
+      ? mappedMemory
+      : Boolean(getFeatureValueByName(workflowState, "Memory"));
+
+  const orderedAgents = getCrewaiOrderedAgents(workflowState, agentNameMap, agentKeys);
+  const orderedTasks = [];
+  orderedAgents.forEach((agentKey) => {
+    const agentRole = agentsPayload[agentKey]?.role?.toString().trim();
+    taskKeys.forEach((taskKey) => {
+      const taskAgent = tasksPayload[taskKey]?.agent;
+      if ((taskAgent === agentKey || (agentRole && taskAgent === agentRole)) && !orderedTasks.includes(taskKey)) {
+        orderedTasks.push(taskKey);
+      }
+    });
+  });
+
+  const fallbackAgents = orderedAgents.length ? orderedAgents : agentKeys;
+  const fallbackTasks = orderedTasks.length ? orderedTasks : taskKeys;
+
+  const crewLines = [
+    "crew = Crew(",
+    `  agents=[${fallbackAgents.map((key) => agentVarMap[key]).join(", ")}],`,
+    `  tasks=[${fallbackTasks.map((key) => taskVarMap[key]).join(", ")}],`,
+    `  process=Process.${processValue},`,
+  ];
+  if (memoryValue) {
+    crewLines.push("  memory=True,");
+  }
+  crewLines.push(")");
+  const kickoffLines = ["", "result = crew.kickoff()", "", 'print("result:", result)'];
+
+  return [
+    ...importLines,
+    "",
+    ...llmLines,
+    ...agentLines,
+    ...taskLines,
+    ...crewLines,
+    ...kickoffLines,
+  ]
+    .join("\n")
+    .trim();
 };
 
 const buildCrewaiOutputs = () => {
+  const mappingEntries = Array.isArray(crewaiAgentMapping) ? crewaiAgentMapping : null;
+  if (!mappingEntries) {
+    return {
+      agents: {},
+      tasks: {},
+      error: "# Mapping CrewAI indisponible. Vérifie connectors/frameworks/crewai/agent.mapping.yml",
+    };
+  }
   const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
   const agentsPayload = {};
   const tasksPayload = {};
@@ -674,15 +1251,16 @@ const buildCrewaiOutputs = () => {
   const usedTaskKeys = new Set();
 
   gearAgents.forEach((gearAgent, index) => {
+    const mapped = applyMapping(gearAgent, mappingEntries);
     const agentKey = ensureUniqueKey(gearAgent.AgentIdentity?.Name, "agent", index + 1, usedAgentKeys);
-    agentsPayload[agentKey] = buildCrewaiAgentConfigFromGear(gearAgent);
+    agentsPayload[agentKey] = buildCrewaiAgentConfigFromGear(gearAgent, mapped);
     const taskKey = ensureUniqueKey(
       gearAgent.TaskSpecification?.TaskName,
       "task",
       index + 1,
       usedTaskKeys,
     );
-    tasksPayload[taskKey] = buildCrewaiTaskConfigFromGear(gearAgent, agentKey, taskKey);
+    tasksPayload[taskKey] = buildCrewaiTaskConfigFromGear(gearAgent, mapped, agentKey, taskKey);
   });
 
   return {
@@ -691,7 +1269,7 @@ const buildCrewaiOutputs = () => {
   };
 };
 
-const buildAdkAgentConfigFromGear = (gearAgent) => {
+const buildAdkAgentConfigFromGear = (gearAgent, mapped) => {
   const baseAgent = { AgentType: "LlmAgent" };
   const llmAgentConfig = {};
   const generateContentConfig = {};
@@ -701,7 +1279,7 @@ const buildAdkAgentConfigFromGear = (gearAgent) => {
   const builtInPlanner = {};
   const thinkingConfig = {};
 
-  setIfMeaningful(baseAgent, "Name", gearAgent.AgentIdentity?.Name);
+  setIfMeaningful(baseAgent, "Name", getMappedValue(mapped, "BaseAgent.Name"));
   const descriptionParts = [gearAgent.AgentIdentity?.Purpose, gearAgent.AgentIdentity?.ContextDescription]
     .map((value) => (value ?? "").toString().trim())
     .filter(Boolean);
@@ -709,18 +1287,21 @@ const buildAdkAgentConfigFromGear = (gearAgent) => {
     setIfMeaningful(baseAgent, "Description", descriptionParts.join("\n"));
   }
 
-  const modelValue = gearAgent.LLMConfiguration?.Model || "";
+  const modelValue = toCrewaiModel(
+    gearAgent.LLMConfiguration?.Provider,
+    getMappedValue(mapped, "LLMAgentConfig.Model"),
+  );
   setIfMeaningful(llmAgentConfig, "Model", modelValue);
-  setIfMeaningful(generateContentConfig, "Temperature", gearAgent.LLMConfiguration?.ModelParameters?.Temperature);
-  setIfMeaningful(generateContentConfig, "MaxOutputTokens", gearAgent.LLMConfiguration?.ModelParameters?.MaxTokens);
-  setIfMeaningful(generateContentConfig, "TopP", gearAgent.LLMConfiguration?.ModelParameters?.TopP);
-  setIfMeaningful(generateContentConfig, "TopK", gearAgent.LLMConfiguration?.ModelParameters?.TopK);
+  setIfMeaningful(generateContentConfig, "Temperature", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.Temperature"));
+  setIfMeaningful(generateContentConfig, "MaxOutputTokens", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.MaxOutputTokens"));
+  setIfMeaningful(generateContentConfig, "TopP", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopP"));
+  setIfMeaningful(generateContentConfig, "TopK", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopK"));
   if (Object.keys(generateContentConfig).length) {
     llmAgentConfig.GenerateContentConfig = generateContentConfig;
   }
 
-  setIfMeaningful(configurations, "Instruction", gearAgent.TaskSpecification?.TaskDescription);
-  setIfMeaningful(dataStructure, "OutputKey", gearAgent.TaskSpecification?.TaskName);
+  setIfMeaningful(configurations, "Instruction", getMappedValue(mapped, "Configurations.Instruction"));
+  setIfMeaningful(dataStructure, "OutputKey", getMappedValue(mapped, "Configurations.DataStructure.OutputKey"));
   if (gearAgent.TaskSpecification?.ExpectedOutput) {
     dataStructure.OutputSchema = {
       description: gearAgent.TaskSpecification.ExpectedOutput,
@@ -731,7 +1312,7 @@ const buildAdkAgentConfigFromGear = (gearAgent) => {
     configurations.DataStructure = dataStructure;
   }
 
-  if (gearAgent.Reasoning === true) {
+  if (getMappedValue(mapped, "Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts") === true) {
     thinkingConfig.IncludeThoughts = true;
   }
   if (Object.keys(thinkingConfig).length) {
@@ -740,7 +1321,7 @@ const buildAdkAgentConfigFromGear = (gearAgent) => {
     configurations.Planner = planner;
   }
 
-  if (gearAgent.ExecutionControl?.CodeExecutionControl === true) {
+  if (getMappedValue(mapped, "Configurations.CodeExecutor") === true) {
     configurations.CodeExecutor = true;
   }
 
@@ -755,14 +1336,353 @@ const buildAdkAgentConfigFromGear = (gearAgent) => {
 };
 
 const buildAdkOutputs = () => {
+  const mappingEntries =
+    Array.isArray(adkAgentMapping) && adkAgentMapping.length
+      ? adkAgentMapping
+      : null;
+  if (!mappingEntries) {
+    return {
+      agents: {},
+      error: "# Mapping ADK indisponible. Vérifie connectors/frameworks/adk/agent.mapping.yml",
+    };
+  }
   const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
   const adkAgents = {};
   const usedKeys = new Set();
   gearAgents.forEach((gearAgent, index) => {
+    const mapped = applyMapping(gearAgent, mappingEntries);
     const key = ensureUniqueKey(gearAgent.AgentIdentity?.Name, "agent", index + 1, usedKeys);
-    adkAgents[key] = buildAdkAgentConfigFromGear(gearAgent);
+    adkAgents[key] = buildAdkAgentConfigFromGear(gearAgent, mapped);
+  });
+  const moduleConfigResult = buildModuleConfigs();
+  if (moduleConfigResult.error) {
+    return { agents: {}, error: moduleConfigResult.error };
+  }
+  const moduleConfigs = moduleConfigResult.items;
+  moduleConfigs.forEach((moduleConfig, index) => {
+    const moduleKey = ensureUniqueKey(moduleConfig.name, "module", index + 1, usedKeys);
+    const subAgents =
+      moduleConfig.strategy === "parallel"
+        ? moduleConfig.parallelAgents
+        : moduleConfig.loopAgents;
+    adkAgents[moduleKey] = {
+      BaseAgent: {
+        AgentType: moduleConfig.strategy === "parallel" ? "ParallelAgent" : "LoopAgent",
+        Name: moduleConfig.name,
+        SubAgents: subAgents.map((name) => ({ Name: name })),
+      },
+    };
+    if (moduleConfig.strategy === "parallel" && moduleConfig.aggregator) {
+      const pipelineKey = ensureUniqueKey(`${moduleConfig.name}Pipeline`, "pipeline", index + 1, usedKeys);
+      adkAgents[pipelineKey] = {
+        BaseAgent: {
+          AgentType: "SequentialAgent",
+          Name: `${moduleConfig.name}Pipeline`,
+          SubAgents: [{ Name: moduleConfig.name }, { Name: moduleConfig.aggregator }],
+        },
+      };
+    }
   });
   return { agents: adkAgents };
+};
+
+const parseNameList = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (value === null || value === undefined) {
+    return [];
+  }
+  const text = String(value);
+  if (!text.trim()) {
+    return [];
+  }
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const parseNumberValue = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildModuleConfigs = () => {
+  const mappingEntries = Array.isArray(adkModuleMapping) && adkModuleMapping.length ? adkModuleMapping : null;
+  if (!mappingEntries) {
+    return { items: [], error: "# Mapping ADK module indisponible. Vérifie connectors/frameworks/adk/module.mapping.yml" };
+  }
+  return {
+    items: moduleStates
+    .map((state, index) => {
+      const moduleData = normalizeGearRoot(buildYamlObjectForAgent(state));
+      const mappedModule = applyMapping(moduleData, mappingEntries);
+      const name = getMappedValue(mappedModule, "Runtime.Module.Name") || moduleData.ModuleName || `Module ${index + 1}`;
+      const strategy = getMappedValue(mappedModule, "Runtime.Module.ADKAgentType.ParallelAgent")
+        ? "parallel"
+        : getMappedValue(mappedModule, "Runtime.Module.ADKAgentType.LoopAgent")
+          ? "loop"
+          : null;
+      if (!strategy) {
+        return null;
+      }
+      const parallelAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Parallel.SubAgents"));
+      const aggregator = String(getMappedValue(mappedModule, "Runtime.Module.Parallel.Aggregator") || "").trim();
+      const loopAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Loop.SubAgents"));
+      const turnCount = parseNumberValue(getMappedValue(mappedModule, "Runtime.Module.Loop.MaxIterations"));
+      return {
+        name,
+        strategy,
+        parallelAgents,
+        aggregator,
+        loopAgents,
+        turnCount,
+      };
+    })
+    .filter(Boolean),
+  };
+};
+
+const buildAdkWorkflowCode = (workflowState) => {
+  if (!Array.isArray(adkMultiMapping) || !adkMultiMapping.length) {
+    return "# Mapping ADK workflow indisponible. Vérifie connectors/frameworks/adk/multiagent.mapping.yml";
+  }
+  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
+  if (!gearAgents.length) {
+    return "# Aucun agent ADK defini.";
+  }
+  const moduleConfigResult = buildModuleConfigs();
+  if (moduleConfigResult.error) {
+    return moduleConfigResult.error;
+  }
+  const moduleConfigs = moduleConfigResult.items;
+  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
+  const mappedWorkflow = applyMapping(workflowYaml, adkMultiMapping);
+
+  const workflowMemoryEnabled = getMappedValue(mappedWorkflow, "Runtime.Memory.WorkflowEnabled") === true;
+  const memoryServiceClass = getMappedValue(mappedWorkflow, "Runtime.Memory.MemoryServiceClass");
+  const memoryToolClass = getMappedValue(mappedWorkflow, "Runtime.Memory.AgentToolClass");
+  const agentMappedList = gearAgents.map((agent) =>
+    applyMapping(agent, Array.isArray(adkAgentMapping) ? adkAgentMapping : []),
+  );
+  const agentMemoryMap = agentMappedList.map(
+    (mappedAgent) => getMappedValue(mappedAgent, "Runtime.Memory.AgentEnabled") === true,
+  );
+  const anyMemoryEnabled = workflowMemoryEnabled || agentMemoryMap.some(Boolean);
+
+  const importLines = [
+    "import asyncio",
+    "from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent",
+    "from google.adk.models.lite_llm import LiteLlm",
+    "from google.adk.runners import Runner",
+    "from google.adk.sessions import InMemorySessionService",
+  ];
+  if (anyMemoryEnabled) {
+    if (!memoryServiceClass || !memoryToolClass) {
+      return "# Mapping ADK invalide: Runtime.Memory.MemoryServiceClass et Runtime.Memory.AgentToolClass sont requis.";
+    }
+    importLines.push(`from google.adk.memory import ${memoryServiceClass}`);
+    importLines.push(`from google.adk.tools.preload_memory_tool import ${memoryToolClass}`);
+  }
+  importLines.push("from dotenv import load_dotenv", "", "load_dotenv()", "");
+
+  const usedNames = new Set();
+  const agentVarMap = new Map();
+  const agentNameMap = new Map();
+  const moduleVarMap = new Map();
+  const moduleSequenceVarMap = new Map();
+
+  const makeUniqueVar = (base, fallback) => {
+    let candidate = toPythonName(base, fallback);
+    let suffix = 2;
+    while (usedNames.has(candidate)) {
+      candidate = `${candidate}_${suffix}`;
+      suffix += 1;
+    }
+    usedNames.add(candidate);
+    return candidate;
+  };
+
+  const agentLines = [];
+  gearAgents.forEach((gearAgent, index) => {
+    const name = gearAgent.AgentIdentity?.Name || `Agent ${index + 1}`;
+    const agentVar = makeUniqueVar(name, `agent_${index + 1}`);
+    agentVarMap.set(name, agentVar);
+    agentNameMap.set(name, name);
+    const modelValue =
+      toCrewaiModel(
+        gearAgent.LLMConfiguration?.Provider,
+        gearAgent.LLMConfiguration?.Model,
+      ) || "gemini-2.5-flash-lite";
+    const instruction = gearAgent.TaskSpecification?.TaskDescription || "";
+    const outputKey = gearAgent.TaskSpecification?.TaskName || "";
+    const memoryEnabled = workflowMemoryEnabled || agentMemoryMap[index] === true;
+
+    const args = [
+      `  name=${toPythonLiteral(name)},`,
+      `  model=LiteLlm(model=${toPythonLiteral(modelValue)}),`,
+    ];
+    if (instruction) {
+      args.push(`  instruction=${toPythonLiteral(instruction)},`);
+    }
+    if (outputKey) {
+      args.push(`  output_key=${toPythonLiteral(outputKey)},`);
+    }
+    if (anyMemoryEnabled && memoryEnabled) {
+      args.push(`  tools=[${memoryToolClass}()],`);
+    }
+    agentLines.push(`${agentVar} = Agent(`, ...args, `)`, "");
+  });
+
+  const moduleLines = [];
+  moduleConfigs.forEach((moduleConfig, index) => {
+    const moduleVar = makeUniqueVar(moduleConfig.name, `module_${index + 1}`);
+    moduleVarMap.set(moduleConfig.name, moduleVar);
+    if (moduleConfig.strategy === "parallel") {
+      const subAgents = moduleConfig.parallelAgents
+        .map((name) => agentVarMap.get(name))
+        .filter(Boolean);
+      moduleLines.push(
+        `${moduleVar} = ParallelAgent(`,
+        `  name=${toPythonLiteral(moduleConfig.name)},`,
+        `  sub_agents=[${subAgents.join(", ")}],`,
+        `)`,
+        "",
+      );
+      if (moduleConfig.aggregator) {
+        const aggregatorVar = agentVarMap.get(moduleConfig.aggregator);
+        if (aggregatorVar) {
+          const pipelineVar = makeUniqueVar(`${moduleConfig.name}_pipeline`, `module_pipeline_${index + 1}`);
+          moduleSequenceVarMap.set(moduleConfig.name, pipelineVar);
+          moduleLines.push(
+            `${pipelineVar} = SequentialAgent(`,
+            `  name=${toPythonLiteral(`${moduleConfig.name}Pipeline`)},`,
+            `  sub_agents=[${moduleVar}, ${aggregatorVar}],`,
+            `)`,
+            "",
+          );
+        }
+      }
+      return;
+    }
+    if (moduleConfig.strategy === "loop") {
+      const subAgents = moduleConfig.loopAgents
+        .map((name) => agentVarMap.get(name))
+        .filter(Boolean);
+      const args = [
+        `  name=${toPythonLiteral(moduleConfig.name)},`,
+        `  sub_agents=[${subAgents.join(", ")}],`,
+      ];
+      if (moduleConfig.turnCount !== null) {
+        args.push(`  max_iterations=${moduleConfig.turnCount},`);
+      }
+      moduleLines.push(`${moduleVar} = LoopAgent(`, ...args, `)`, "");
+      moduleSequenceVarMap.set(moduleConfig.name, moduleVar);
+    }
+  });
+
+  const orderedAgents = getCrewaiOrderedAgents(
+    workflowState,
+    agentNameMap,
+    Array.from(agentVarMap.keys()),
+  );
+  const sequenceItems = workflowState ? buildWorkflowItems(workflowState) : [];
+  const orderedVars =
+    sequenceItems.length > 0
+      ? sequenceItems
+          .map((item) => {
+            const key = item.label || item.id;
+            if (item.type === "module") {
+              return moduleSequenceVarMap.get(key) || moduleVarMap.get(key) || null;
+            }
+            return agentVarMap.get(key) || null;
+          })
+          .filter(Boolean)
+      : orderedAgents.length
+        ? orderedAgents.map((name) => agentVarMap.get(name)).filter(Boolean)
+        : Array.from(agentVarMap.values());
+
+  const runnerLines = [];
+  if (anyMemoryEnabled) {
+    runnerLines.push(`memory_service = ${memoryServiceClass}()`, "");
+  }
+
+  const rootName = getMappedValue(mappedWorkflow, "SystemDefinition.RootAgent") || "RootWorkflow";
+  const appName = getMappedValue(mappedWorkflow, "Infrastructure.Runner.Configuration.AppName") || "gear-framework";
+
+  const rootLines = [
+    "root_agent = SequentialAgent(",
+    `  name=${toPythonLiteral(String(rootName))},`,
+    `  sub_agents=[${orderedVars.join(", ")}],`,
+    ")",
+    "",
+    "runner = Runner(",
+    "  agent=root_agent,",
+    "  session_service=InMemorySessionService(),",
+    ...(anyMemoryEnabled ? ["  memory_service=memory_service,"] : []),
+    `  app_name=${toPythonLiteral(String(appName))},`,
+    ")",
+    "async def _run():",
+    '    return await runner.run_debug("{}")',
+    "result = asyncio.run(_run())",
+    "print(result)",
+  ];
+
+  return [...importLines, ...agentLines, ...moduleLines, ...runnerLines, ...rootLines]
+    .join("\n")
+    .trim();
+};
+
+const buildAdkWorkflowObject = (workflowState) => {
+  const items = workflowState ? buildWorkflowItems(workflowState) : [];
+  const sequence = items.map((item) =>
+    item.type === "module"
+      ? `Module:${item.label || item.id}`
+      : `Agent:${item.label || item.id}`,
+  );
+  const agentNames = items
+    .filter((item) => item.type === "agent")
+    .map((item) => item.label || item.id)
+    .filter(Boolean);
+  const systemDefinition = {
+    RootAgent: agentNames[0] ? { Name: agentNames[0] } : {},
+    Agents: agentNames.map((name) => ({ Name: name })),
+  };
+  if (sequence.length) {
+    systemDefinition.OrchestrationMechanisms = {
+      WorkflowAgents: {
+        SequentialAgent: sequence,
+      },
+    };
+  }
+
+  const memoryValue = Boolean(getFeatureValueByName(workflowState, "Memory"));
+  const infrastructure = {};
+  if (memoryValue) {
+    infrastructure.Runner = {
+      Configuration: {
+        OptionalParameters: {
+          MemoryService: true,
+        },
+      },
+    };
+  }
+
+  const eventsConfig = {
+    Storage: {
+      SessionEvents: true,
+    },
+  };
+
+  return {
+    SystemDefinition: systemDefinition,
+    Infrastructure: infrastructure,
+    EventsConfig: eventsConfig,
+  };
 };
 
 const isExplicitFalse = (value) => value === false;
@@ -838,12 +1758,20 @@ const getMissingRequiredCount = (state) => {
   return missing;
 };
 
+const normalizeWorkflowLabel = (label) => {
+  if (typeof label !== "string") {
+    return label;
+  }
+  return label.replace(/orchestration/gi, "Workflow").replace(/\s+/g, " ").trim();
+};
+
 const createFeatureState = (kind, model, label = "") => {
+  const normalizedLabel = kind === "orchestration" ? normalizeWorkflowLabel(label || "Workflow") : label;
   const state = {
     id: `a${++agentCounter}`,
     kind,
     model,
-    label,
+    label: normalizedLabel,
     optionalSelections: {},
     alternativeSelections: {},
     featureValues: {},
@@ -1002,8 +1930,14 @@ const renderFeature = (state, featureId, parentActive) => {
     const rawValue = state.featureValues[feature.id];
     const stringValue = Array.isArray(rawValue) ? "" : String(rawValue ?? "").trim();
     const isBoolean = isBooleanFeatureName(feature.name);
+    const isNumber = isNumberFeatureName(feature.name);
+    const parsedNumber = isNumber ? parseNumberValue(rawValue) : null;
     const isRequired = isRequiredLeafFeature(state, feature);
-    const isInvalid = active && isRequired && !isBoolean && stringValue === "";
+    const isInvalid =
+      active &&
+      isRequired &&
+      !isBoolean &&
+      (isNumber ? parsedNumber === null : stringValue === "");
     if (isInvalid) {
       line.classList.add("is-invalid");
     }
@@ -1034,6 +1968,40 @@ const renderFeature = (state, featureId, parentActive) => {
         renderAgentSummary(state);
         renderAgentYaml(state);
         renderAgentHeader(state);
+        renderMissingBadge(state);
+      });
+      selectEl.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      line.appendChild(selectEl);
+    } else if (isModulesFeature(state, feature)) {
+      const selectEl = document.createElement("select");
+      selectEl.className = "feature-value";
+      selectEl.multiple = true;
+      selectEl.size = 4;
+      selectEl.disabled = !active;
+
+      const options = buildModuleOptionList();
+      for (const option of options) {
+        const opt = document.createElement("option");
+        opt.value = option.value;
+        opt.textContent = option.label;
+        selectEl.appendChild(opt);
+      }
+
+      const currentValue = state.featureValues[feature.id];
+      const selectedValues = Array.isArray(currentValue) ? currentValue : [];
+      for (const option of selectEl.options) {
+        option.selected = selectedValues.includes(option.value);
+      }
+
+      selectEl.addEventListener("change", () => {
+        const selected = Array.from(selectEl.selectedOptions).map((opt) => opt.value);
+        state.featureValues[feature.id] = selected;
+        renderAgentSummary(state);
+        renderAgentYaml(state);
+        renderAgentHeader(state);
+        renderMissingBadge(state);
       });
       selectEl.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -1065,6 +2033,7 @@ const renderFeature = (state, featureId, parentActive) => {
         renderAgentSummary(state);
         renderAgentYaml(state);
         renderAgentHeader(state);
+        renderMissingBadge(state);
       });
       selectEl.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -1085,9 +2054,22 @@ const renderFeature = (state, featureId, parentActive) => {
       }
     valueEl.addEventListener("input", () => {
       state.featureValues[feature.id] = valueEl.value;
+      const currentValue = valueEl.value;
+      const currentString = String(currentValue ?? "").trim();
+      const currentIsNumber = isNumberFeatureName(feature.name);
+      const currentParsed = currentIsNumber ? parseNumberValue(currentValue) : null;
+      const requiredNow = isRequiredLeafFeature(state, feature);
+      const invalidNow =
+        isFeatureActive(state, feature.id) &&
+        requiredNow &&
+        !isBooleanFeatureName(feature.name) &&
+        (currentIsNumber ? currentParsed === null : currentString === "");
+      line.classList.toggle("is-invalid", invalidNow);
+      valueEl.classList.toggle("is-invalid", invalidNow);
       renderAgentSummary(state);
       renderAgentYaml(state);
       renderAgentHeader(state);
+      renderMissingBadge(state);
       if (state.kind === "agent" && feature.name.toLowerCase() === "name") {
         orchestrationStates.forEach((item) => renderAgent(item));
       }
@@ -1227,301 +2209,205 @@ const dumpCrewaiYaml = (data) => {
 const createOrchestrationBuilderState = () => ({
   selectedAgents: [],
   lastAgentOptions: [],
-  nodes: [],
+  selectedModules: [],
+  lastModuleOptions: [],
+  sequence: [],
   edges: [],
-  nodeCounter: 0,
 });
 
-const nodeLabel = (node) => {
-  if (node.type === "agent") {
-    return `Agent: ${node.agentRef}`;
+const itemLabel = (item) => {
+  if (item.type === "agent") {
+    return `Agent: ${item.id}`;
   }
-  const name = node.name ? `${node.name}` : "orchestration";
-  const suffix = node.strategy === "Loop" && node.turnCount ? ` (${node.turnCount})` : "";
-  return `Orchestration: ${name} · ${node.strategy}${suffix}`;
+  return `Module: ${item.id}`;
 };
 
 const buildOrchestrationYaml = (state) => {
   if (!state.builder) {
     return buildYamlObjectForAgent(state);
   }
-  const nodes = state.builder.nodes.map((node) => {
-    if (node.type === "agent") {
-      return {
-        AgentNode: {
-          AgentRef: node.agentRef,
-        },
-      };
+  const payload = buildYamlObjectForAgent(state);
+  const rootId = state.model?.roots?.[0];
+  const rootName = rootId ? state.model.features[rootId]?.name : null;
+  let root = payload;
+  if (rootName) {
+    if (!payload[rootName]) {
+      payload[rootName] = {};
     }
-    const strategyPayload = {};
-    if (node.strategy === "Loop") {
-      strategyPayload.Loop = {};
-      if (node.turnCount) {
-        strategyPayload.Loop.TurnCount = node.turnCount;
-      }
-    } else if (node.strategy === "Parallel") {
-      strategyPayload.Parallel = {};
-      if (node.aggregator) {
-        strategyPayload.Parallel.Aggregator = node.aggregator;
-      }
-    } else if (node.strategy === "custom") {
-      strategyPayload.custom = {};
-    } else {
-      strategyPayload.Sequential = {};
-    }
-    const orchestrationNode = {
-      Name: node.name || node.id,
-      Strategy: strategyPayload,
-    };
-    if (Array.isArray(node.childNodes) && node.childNodes.length) {
-      orchestrationNode.ChildNodes = node.childNodes.slice();
-    }
-    return {
-      OrchestrationNode: orchestrationNode,
-    };
-  });
-
-  const edges = state.builder.edges.map((edge) => ({
-    FromNode: edge.from,
-    ToNode: edge.to,
-  }));
-
-  const payload = {
-    Agents: state.builder.selectedAgents.slice(),
-    Orchestration: {
-      Nodes: nodes,
-      Edges: edges,
-    },
-  };
-
+    root = payload[rootName];
+  }
+  root.Items = root.Items && typeof root.Items === "object" ? root.Items : {};
+  if (state.builder.selectedAgents.length) {
+    root.Items.Agents = state.builder.selectedAgents.slice();
+  }
+  if (state.builder.selectedModules.length) {
+    root.Items.Modules = state.builder.selectedModules.slice();
+  }
+  if (state.builder.edges.length) {
+    root.Edges = state.builder.edges.map((edge) => ({
+      From: edge.from,
+      To: edge.to,
+    }));
+  }
   return payload;
 };
 
-const pruneBuilderState = (state) => {
+const buildWorkflowItems = (state) => {
+  if (!state.builder) {
+    return [];
+  }
+  const items = [];
+  state.builder.sequence.forEach((entry) => {
+    items.push(entry);
+  });
+  return items;
+};
+
+const buildEdgesFromSequence = (state) => {
   if (!state.builder) {
     return;
   }
-  const allowedAgents = new Set(state.builder.selectedAgents);
-  state.builder.nodes = state.builder.nodes.filter((node) => {
-    if (node.type === "agent") {
-      return allowedAgents.has(node.agentRef);
-    }
-    return true;
-  });
-  const nodeIds = new Set(state.builder.nodes.map((node) => node.id));
+  const seq = state.builder.sequence || [];
+  state.builder.edges = [];
+  for (let i = 0; i < seq.length - 1; i += 1) {
+    const from = seq[i];
+    const to = seq[i + 1];
+    state.builder.edges.push({
+      from: from.label || from.id,
+      to: to.label || to.id,
+    });
+  }
+};
+
+const addSequenceItem = (state, type, label) => {
+  if (!state.builder || !label) {
+    return;
+  }
+  const base = String(label);
+  const existing = new Set(state.builder.sequence.map((item) => item.id));
+  let candidate = base;
+  let suffix = 2;
+  while (existing.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  state.builder.sequence.push({ id: candidate, label: base, type });
+  buildEdgesFromSequence(state);
+};
+
+const pruneBuilderState = (state, items) => {
+  if (!state.builder) {
+    return;
+  }
+  const nodeIds = new Set(items.map((node) => node.label || node.id));
   state.builder.edges = state.builder.edges.filter(
     (edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to),
   );
+};
+
+const syncSelection = (current, options, lastOptions) => {
+  const optionValues = options.map((option) => option.value);
+  let selection = current.filter((value) => optionValues.includes(value));
+  if (!selection.length && optionValues.length) {
+    selection = optionValues.slice();
+  } else if (lastOptions.length === current.length) {
+    const allPreviouslySelected = lastOptions.every((value) => selection.includes(value));
+    if (allPreviouslySelected) {
+      const newOnes = optionValues.filter((value) => !selection.includes(value));
+      if (newOnes.length) {
+        selection = selection.concat(newOnes);
+      }
+    }
+  }
+  return { selection, optionValues };
 };
 
 const renderOrchestrationBuilder = (state) => {
   if (!state.builder || !state.els.builderEl) {
     return;
   }
-  const options = buildAgentOptionList();
-  const optionValues = options.map((option) => option.value);
-  state.builder.selectedAgents = state.builder.selectedAgents.filter((value) => optionValues.includes(value));
-  if (!state.builder.selectedAgents.length && optionValues.length) {
-    state.builder.selectedAgents = optionValues.slice();
-  } else if (state.builder.lastAgentOptions.length === state.builder.selectedAgents.length) {
-    const allPreviouslySelected = state.builder.lastAgentOptions.every((value) =>
-      state.builder.selectedAgents.includes(value),
-    );
-    if (allPreviouslySelected) {
-      const newOnes = optionValues.filter((value) => !state.builder.selectedAgents.includes(value));
-      if (newOnes.length) {
-        state.builder.selectedAgents = state.builder.selectedAgents.concat(newOnes);
-      }
-    }
+  if (state.els.memoryToggle) {
+    const memoryFeature = findLeafFeatureByName(state, "Memory");
+    state.els.memoryToggle.checked = memoryFeature
+      ? isFeatureActive(state, memoryFeature.id)
+      : false;
   }
-  state.builder.lastAgentOptions = optionValues.slice();
-  const selectedSet = new Set(state.builder.selectedAgents);
-  const { orchAgentsEl } = state.els;
-  orchAgentsEl.innerHTML = "";
-  options.forEach((option) => {
-    const item = document.createElement("label");
-    item.className = "agent-select-item";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = selectedSet.has(option.value);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        state.builder.selectedAgents.push(option.value);
-      } else {
-        state.builder.selectedAgents = state.builder.selectedAgents.filter((val) => val !== option.value);
-      }
-      pruneBuilderState(state);
-      renderOrchestrationBuilder(state);
-      renderAgentYaml(state);
-    });
-    const span = document.createElement("span");
-    span.textContent = option.label;
-    item.appendChild(checkbox);
-    item.appendChild(span);
-    orchAgentsEl.appendChild(item);
+  const agentOptions = buildAgentOptionList();
+  const moduleOptions = buildModuleOptionList();
+  state.builder.selectedAgents = agentOptions.map((option) => option.value);
+  state.builder.selectedModules = moduleOptions.map((option) => option.value);
+  state.builder.lastAgentOptions = state.builder.selectedAgents.slice();
+  state.builder.lastModuleOptions = state.builder.selectedModules.slice();
+  const allowedAgents = new Set(state.builder.selectedAgents);
+  const allowedModules = new Set(state.builder.selectedModules);
+  state.builder.sequence = (state.builder.sequence || []).filter((item) => {
+    if (item.type === "agent") {
+      return allowedAgents.has(item.label || item.id);
+    }
+    if (item.type === "module") {
+      return allowedModules.has(item.label || item.id);
+    }
+    return false;
   });
-
-  const nodeType =
-    state.els.nodeTypeSelect?.value || state.els.nodeTypeSelectClone?.value || "agent";
-  if (state.els.nodeTypeSelectClone) {
-    state.els.nodeTypeSelectClone.value = nodeType;
-  }
-  if (state.els.nodeTypeSelect) {
-    state.els.nodeTypeSelect.value = nodeType;
-  }
-  if (state.els.nodeAgentFields && state.els.nodeOrchFields) {
-    if (state.els.nodeInlineAgent) {
-      state.els.nodeInlineAgent.style.display = nodeType === "agent" ? "" : "none";
-    }
-    if (state.els.nodeInlineOrch) {
-      state.els.nodeInlineOrch.style.display = nodeType === "agent" ? "none" : "";
-    }
-    if (state.els.nodeInlineAdvanced) {
-      state.els.nodeInlineAdvanced.style.display = nodeType === "agent" ? "none" : "";
-    }
-    state.els.nodeAgentFields.hidden = nodeType !== "agent";
-    state.els.nodeOrchFields.hidden = nodeType === "agent";
-    state.els.nodeOrchFields.style.display = nodeType === "agent" ? "none" : "";
-    const orchInputs = state.els.nodeOrchFields.querySelectorAll("input, select");
-    orchInputs.forEach((input) => {
-      input.disabled = nodeType === "agent";
-      if (nodeType === "agent" && input.type !== "hidden") {
-        if (input.tagName === "SELECT") {
-          input.selectedIndex = 0;
-        } else {
-          input.value = "";
-        }
-      }
-    });
-  }
-
-  const nodeAgentSelect = state.els.nodeAgentSelect;
-  if (nodeAgentSelect) {
-    nodeAgentSelect.innerHTML = "";
-    state.builder.selectedAgents.forEach((agentName) => {
-      const opt = document.createElement("option");
-      opt.value = agentName;
-      opt.textContent = agentName;
-      nodeAgentSelect.appendChild(opt);
-    });
-  }
-
-  const strategy = state.els.nodeStrategySelect?.value || "Sequential";
-  if (state.els.nodeTurnCountWrap) {
-    state.els.nodeTurnCountWrap.hidden = strategy !== "Loop";
-  }
-  if (state.els.nodeAggregatorWrap) {
-    state.els.nodeAggregatorWrap.hidden = strategy !== "Parallel";
-  }
-  if (state.els.nodeTurnCountInput) {
-    state.els.nodeTurnCountInput.disabled = strategy !== "Loop";
-    if (strategy !== "Loop") {
-      state.els.nodeTurnCountInput.value = "";
-    }
-  }
-  if (state.els.nodeAggregatorInput) {
-    state.els.nodeAggregatorInput.disabled = strategy !== "Parallel";
-    if (strategy !== "Parallel") {
-      state.els.nodeAggregatorInput.value = "";
-    }
-  }
-  if (state.els.nodeInlineAdvanced) {
-    state.els.nodeInlineAdvanced.style.display = nodeType === "agent" ? "none" : "";
-  }
-  if (state.els.nodeChildrenWrap && state.els.nodeChildrenSelect) {
-    state.els.nodeChildrenWrap.hidden = nodeType !== "orchestration";
-    state.els.nodeChildrenSelect.innerHTML = "";
-    state.builder.nodes.forEach((node) => {
-      const item = document.createElement("label");
-      item.className = "multi-select-item";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.value = node.id;
-      checkbox.checked = Array.isArray(state.builder.tempChildNodes)
-        ? state.builder.tempChildNodes.includes(node.id)
-        : false;
-      checkbox.addEventListener("change", () => {
-        const selected = new Set(state.builder.tempChildNodes || []);
-        if (checkbox.checked) {
-          selected.add(node.id);
-        } else {
-          selected.delete(node.id);
-        }
-        state.builder.tempChildNodes = Array.from(selected);
-      });
-      const span = document.createElement("span");
-      span.textContent = `${node.id}`;
-      item.appendChild(checkbox);
-      item.appendChild(span);
-      state.els.nodeChildrenSelect.appendChild(item);
-    });
-  }
-
-  if (state.els.nodeListEl) {
-    state.els.nodeListEl.innerHTML = "";
-    state.builder.nodes.forEach((node) => {
-      const li = document.createElement("li");
-      const label = document.createElement("span");
-      label.textContent = `${node.id} · ${nodeLabel(node)}`;
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "secondary";
-      remove.textContent = "Supprimer";
-      remove.addEventListener("click", () => {
-        state.builder.nodes = state.builder.nodes.filter((item) => item.id !== node.id);
-        pruneBuilderState(state);
+  buildEdgesFromSequence(state);
+  const { orchAgentsEl } = state.els;
+  if (orchAgentsEl) {
+    orchAgentsEl.innerHTML = "";
+    agentOptions.forEach((option) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "agent-select-item";
+      item.textContent = option.label;
+      item.addEventListener("click", () => {
+        addSequenceItem(state, "agent", option.value);
         renderOrchestrationBuilder(state);
         renderAgentYaml(state);
       });
-      li.appendChild(label);
-      li.appendChild(remove);
-      state.els.nodeListEl.appendChild(li);
+      orchAgentsEl.appendChild(item);
     });
   }
 
-  const nodeOptions = state.builder.nodes.map((node) => ({
-    value: node.id,
-    label: `${node.id} · ${nodeLabel(node)}`,
-  }));
-  const edgeFromSelect = state.els.edgeFromSelect;
-  const edgeToSelect = state.els.edgeToSelect;
-  if (edgeFromSelect && edgeToSelect) {
-    edgeFromSelect.innerHTML = "";
-    edgeToSelect.innerHTML = "";
-    nodeOptions.forEach((opt) => {
-      const fromOpt = document.createElement("option");
-      fromOpt.value = opt.value;
-      fromOpt.textContent = opt.label;
-      edgeFromSelect.appendChild(fromOpt);
-      const toOpt = document.createElement("option");
-      toOpt.value = opt.value;
-      toOpt.textContent = opt.label;
-      edgeToSelect.appendChild(toOpt);
-    });
-  }
-
-  if (state.els.edgeListEl) {
-    state.els.edgeListEl.innerHTML = "";
-    state.builder.edges.forEach((edge, index) => {
-      const li = document.createElement("li");
-      const label = document.createElement("span");
-      label.textContent = `${edge.from} → ${edge.to}`;
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "secondary";
-      remove.textContent = "Supprimer";
-      remove.addEventListener("click", () => {
-        state.builder.edges = state.builder.edges.filter((_, idx) => idx !== index);
+  const { orchModulesEl } = state.els;
+  if (orchModulesEl) {
+    orchModulesEl.innerHTML = "";
+    moduleOptions.forEach((option) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "agent-select-item";
+      item.textContent = option.label;
+      item.addEventListener("click", () => {
+        addSequenceItem(state, "module", option.value);
         renderOrchestrationBuilder(state);
         renderAgentYaml(state);
       });
-      li.appendChild(label);
-      li.appendChild(remove);
-      state.els.edgeListEl.appendChild(li);
+      orchModulesEl.appendChild(item);
     });
+  }
+
+  const items = buildWorkflowItems(state);
+  pruneBuilderState(state, items);
+
+  if (state.els.sequenceEl) {
+    const el = state.els.sequenceEl;
+    el.innerHTML = "";
+    if (items.length) {
+      items.forEach((item, index) => {
+        if (index > 0) {
+          const arrow = document.createElement("span");
+          arrow.className = "sequence-arrow";
+          arrow.textContent = "→";
+          el.appendChild(arrow);
+        }
+        const chip = document.createElement("span");
+        chip.className = `sequence-chip sequence-chip--${item.type}`;
+        chip.textContent = item.label || item.id;
+        el.appendChild(chip);
+      });
+    }
   }
 
   renderOrchestrationGraph(state);
+  scheduleOutputsUpdate();
 };
 
 const renderOrchestrationGraph = (state) => {
@@ -1529,7 +2415,7 @@ const renderOrchestrationGraph = (state) => {
   if (!svg) {
     return;
   }
-  const nodes = state.builder?.nodes || [];
+  const nodes = buildWorkflowItems(state);
   const edges = state.builder?.edges || [];
   const width = 600;
   const height = 160;
@@ -1558,8 +2444,10 @@ const renderOrchestrationGraph = (state) => {
 
   const nodesMarkup = positions
     .map((pos) => {
-      const label = nodes.find((node) => node.id === pos.id)?.type === "agent" ? "A" : "O";
-      return `<g><circle cx="${pos.x}" cy="${pos.y}" r="18" fill="#1f2937" stroke="#93c5fd" stroke-width="2" /><text x="${pos.x}" y="${pos.y + 5}" text-anchor="middle" fill="#e2e8f0" font-size="12">${label}</text><text x="${pos.x}" y="${pos.y + 30}" text-anchor="middle" fill="#94a3b8" font-size="10">${pos.id}</text></g>`;
+      const type = nodes.find((node) => node.id === pos.id)?.type;
+      const label = type === "module" ? "M" : "A";
+      const display = nodes.find((node) => node.id === pos.id)?.label || pos.id;
+      return `<g><circle cx="${pos.x}" cy="${pos.y}" r="18" fill="#1f2937" stroke="#93c5fd" stroke-width="2" /><text x="${pos.x}" y="${pos.y + 5}" text-anchor="middle" fill="#e2e8f0" font-size="12">${label}</text><text x="${pos.x}" y="${pos.y + 30}" text-anchor="middle" fill="#94a3b8" font-size="10">${display}</text></g>`;
     })
     .join("");
 
@@ -1579,92 +2467,20 @@ const initOrchestrationBuilder = (state) => {
     return;
   }
   state.builder = createOrchestrationBuilderState();
-  if (state.els.nodeTypeSelect) {
-    state.els.nodeTypeSelect.addEventListener("change", () => renderOrchestrationBuilder(state));
-  }
-  if (state.els.nodeTypeSelectClone) {
-    state.els.nodeTypeSelectClone.addEventListener("change", () => {
-      if (state.els.nodeTypeSelect) {
-        state.els.nodeTypeSelect.value = state.els.nodeTypeSelectClone.value;
+  if (state.els.clearLastButton) {
+    state.els.clearLastButton.addEventListener("click", () => {
+      if (state.builder.sequence.length) {
+        state.builder.sequence.pop();
+        buildEdgesFromSequence(state);
+        renderOrchestrationBuilder(state);
+        renderAgentYaml(state);
       }
-      renderOrchestrationBuilder(state);
     });
   }
-  if (state.els.nodeStrategySelect) {
-    state.els.nodeStrategySelect.addEventListener("change", () => renderOrchestrationBuilder(state));
-  }
-  if (state.els.addNodeButton) {
-    state.els.addNodeButton.addEventListener("click", () => {
-      const nodeType = state.els.nodeTypeSelect?.value || "agent";
-      if (nodeType === "agent") {
-        const agentRef = state.els.nodeAgentSelect?.value;
-        if (!agentRef) {
-          return;
-        }
-        const existingIds = new Set(state.builder.nodes.map((node) => node.id));
-        let nodeId = agentRef;
-        let suffix = 2;
-        while (existingIds.has(nodeId)) {
-          nodeId = `${agentRef}_${suffix}`;
-          suffix += 1;
-        }
-        state.builder.nodes.push({
-          id: nodeId,
-          type: "agent",
-          agentRef,
-        });
-      } else {
-        const strategy = state.els.nodeStrategySelect?.value || "Sequential";
-        const turnCount = Number(state.els.nodeTurnCountInput?.value || "");
-        const aggregator = state.els.nodeAggregatorInput?.value?.trim() || "";
-        const name = state.els.nodeOrchNameInput?.value?.trim();
-        if (!name) {
-          return;
-        }
-        const existingIds = new Set(state.builder.nodes.map((node) => node.id));
-        let nodeId = name;
-        let suffix = 2;
-        while (existingIds.has(nodeId)) {
-          nodeId = `${name}_${suffix}`;
-          suffix += 1;
-        }
-        const childNodes = Array.isArray(state.builder.tempChildNodes)
-          ? state.builder.tempChildNodes.slice()
-          : [];
-        state.builder.nodes.push({
-          id: nodeId,
-          type: "orchestration",
-          name,
-          strategy,
-          turnCount: Number.isNaN(turnCount) ? null : turnCount,
-          aggregator,
-          childNodes,
-        });
-        state.builder.tempChildNodes = [];
-      }
-      renderOrchestrationBuilder(state);
-      renderAgentYaml(state);
-    });
-  }
-  if (state.els.addEdgeButton) {
-    state.els.addEdgeButton.addEventListener("click", () => {
-      const from = state.els.edgeFromSelect?.value;
-      const to = state.els.edgeToSelect?.value;
-      if (!from || !to) {
-        return;
-      }
-      state.builder.edges.push({ from, to });
-      renderOrchestrationBuilder(state);
-      renderAgentYaml(state);
-    });
-  }
-  if (state.els.autoChainButton) {
-    state.els.autoChainButton.addEventListener("click", () => {
-      const ids = state.builder.nodes.map((node) => node.id);
+  if (state.els.clearAllButton) {
+    state.els.clearAllButton.addEventListener("click", () => {
+      state.builder.sequence = [];
       state.builder.edges = [];
-      for (let i = 0; i < ids.length - 1; i += 1) {
-        state.builder.edges.push({ from: ids[i], to: ids[i + 1] });
-      }
       renderOrchestrationBuilder(state);
       renderAgentYaml(state);
     });
@@ -1721,21 +2537,74 @@ const renderYamlPreview = (preEl, text) => {
 };
 
 const setOutputText = (key, text) => {
-  outputTextBlocks.forEach((block) => {
+  document.querySelectorAll("[data-output]").forEach((block) => {
     if (block.dataset.output === key) {
       renderYamlPreview(block, text);
     }
   });
 };
 
+// Recompute translated YAML + workflow code from current Gear state.
 const updateOutputs = () => {
-  const crewai = buildCrewaiOutputs();
-  setOutputText("crewai-agents", dumpCrewaiYaml(crewai.agents));
-  setOutputText("crewai-tasks", dumpCrewaiYaml(crewai.tasks));
-  setOutputText("crewai-orchestration", "# Orchestration CrewAI a definir.");
-  const adk = buildAdkOutputs();
-  setOutputText("adk-agents", dumpYaml(adk.agents).trim());
-  setOutputText("adk-orchestration", "# Orchestration ADK a definir.");
+  const frameworks = Array.isArray(connectorsRegistry?.frameworks) ? connectorsRegistry.frameworks : [];
+  const renderable = frameworks.filter((f) => f?.mappings && (f.mappings.agent || f.mappings.multiagent));
+  if (!window.GearAssemblyEngine?.assemble) {
+    renderable.forEach((framework) => {
+      buildFrameworkOutputs(framework).forEach((out) => {
+        setOutputText(`${framework.id}-${out.key}`, "# Moteur d'assemblage indisponible.");
+      });
+    });
+    return;
+  }
+  const workflowState = orchestrationStates[0] || null;
+  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
+  const gearModules = moduleStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
+  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
+  const workflowItems = workflowState ? buildWorkflowItems(workflowState) : [];
+  const assembled = window.GearAssemblyEngine.assemble({
+    gearAgents,
+    gearModules,
+    workflowYaml,
+    workflowItems,
+    mappings: {
+      crewaiAgent: crewaiAgentMapping,
+      crewaiMulti: crewaiMultiMapping,
+      adkAgent: adkAgentMapping,
+      adkMulti: adkMultiMapping,
+      adkModule: adkModuleMapping,
+    },
+  });
+  renderable.forEach((framework) => {
+    const result = assembled?.[framework.id] || {};
+    const outputs = buildFrameworkOutputs(framework);
+    outputs.forEach((out) => {
+      const outputKey = `${framework.id}-${out.key}`;
+      if (result.error) {
+        setOutputText(outputKey, result.error);
+        return;
+      }
+      const payload = result.outputs || {};
+      const value = payload[out.key];
+      if (value === undefined || value === null) {
+        setOutputText(outputKey, "# Sortie indisponible.");
+        return;
+      }
+      if (typeof value === "string") {
+        setOutputText(outputKey, value);
+        return;
+      }
+      if (framework.id === "crewai" && (out.key === "agents" || out.key === "tasks")) {
+        setOutputText(outputKey, dumpCrewaiYaml(value));
+        return;
+      }
+      if (framework.id === "adk" && out.key === "agents") {
+        const adkAgentsYaml = addBlankLinesBetweenTopLevel(dumpYaml(value)).trim();
+        setOutputText(outputKey, adkAgentsYaml);
+        return;
+      }
+      setOutputText(outputKey, dumpYaml(value));
+    });
+  });
 };
 
 const scheduleOutputsUpdate = debounce(updateOutputs, 120);
@@ -1813,17 +2682,21 @@ const renderAgentSummary = (state) => {
   }
 };
 
-const findAgentTitle = (state) => {
+const findStateTitle = (state) => {
   const { model } = state;
+  if (state.kind === "orchestration") {
+    return state.label || "Workflow";
+  }
+  const names = state.kind === "module" ? ["modulename", "name"] : ["name"];
   const candidates = Object.values(model.features)
-    .filter((feature) => isLeafFeature(model, feature.id) && feature.name.toLowerCase() === "name")
+    .filter((feature) => isLeafFeature(model, feature.id) && names.includes(feature.name.toLowerCase()))
     .filter((feature) => isFeatureActive(state, feature.id))
     .map((feature) => (state.featureValues[feature.id] ?? "").trim())
     .filter(Boolean);
   if (candidates.length) {
     return candidates[0];
   }
-  return "(nouvel agent)";
+  return state.kind === "module" ? "(nouveau module)" : "(nouvel agent)";
 };
 
 const renderAgentHeader = (state) => {
@@ -1831,12 +2704,19 @@ const renderAgentHeader = (state) => {
   if (!titleEl) {
     return;
   }
+  if (state.kind === "module") {
+    titleEl.textContent = findStateTitle(state);
+    orchestrationStates.forEach((item) => renderAgent(item));
+    return;
+  }
   if (state.kind !== "agent") {
-    const label = state.label || "Orchestration";
+    let label = normalizeWorkflowLabel(state.label || "Workflow");
+    state.label = label;
     titleEl.textContent = label;
     return;
   }
-  titleEl.textContent = findAgentTitle(state);
+  titleEl.textContent = findStateTitle(state);
+  orchestrationStates.forEach((item) => renderAgent(item));
 };
 
 const renderMissingBadge = (state) => {
@@ -1922,73 +2802,31 @@ const loadOrchestrationFromYamlObject = (state, data) => {
     return;
   }
   const normalized = normalizeGearRoot(data);
-  state.builder.selectedAgents = Array.isArray(normalized.Agents)
-    ? normalized.Agents.map(String)
-    : [];
+  const itemsBlock = normalized.Items && typeof normalized.Items === "object" ? normalized.Items : {};
+  state.builder.selectedAgents = Array.isArray(itemsBlock.Agents)
+    ? itemsBlock.Agents.map(String)
+    : Array.isArray(normalized.Agents)
+      ? normalized.Agents.map(String)
+      : [];
+  state.builder.selectedModules = Array.isArray(itemsBlock.Modules)
+    ? itemsBlock.Modules.map(String)
+    : Array.isArray(normalized.Modules)
+      ? normalized.Modules.map(String)
+      : [];
 
-  const nodesRaw = normalized.Orchestration?.Nodes;
-  const nodes = [];
-  if (Array.isArray(nodesRaw)) {
-    nodesRaw.forEach((node, index) => {
-      if (node?.AgentNode) {
-        const agentRef = node.AgentNode.AgentRef || node.NodeId;
-        nodes.push({
-          id: agentRef || node.NodeId || `node_${index + 1}`,
-          type: "agent",
-          agentRef,
-        });
-      } else if (node?.OrchestrationNode) {
-        const strategyBlock = node.OrchestrationNode.Strategy || {};
-        const name = node.OrchestrationNode.Name || node.NodeId || `node_${index + 1}`;
-        const strategy = Object.keys(strategyBlock)[0] || "Sequential";
-        nodes.push({
-          id: name || node.NodeId || `node_${index + 1}`,
-          type: "orchestration",
-          name,
-          strategy,
-          turnCount: strategyBlock.Loop?.TurnCount || null,
-          aggregator: strategyBlock.Parallel?.Aggregator || "",
-          childNodes: Array.isArray(node.OrchestrationNode.ChildNodes)
-            ? node.OrchestrationNode.ChildNodes.slice()
-            : [],
-        });
-      }
-    });
-  } else if (nodesRaw && typeof nodesRaw === "object") {
-    Object.entries(nodesRaw).forEach(([nodeId, node]) => {
-      if (node?.AgentNode) {
-        const agentRef = node.AgentNode.AgentRef || nodeId;
-        nodes.push({
-          id: agentRef || nodeId,
-          type: "agent",
-          agentRef,
-        });
-      } else if (node?.OrchestrationNode) {
-        const strategyBlock = node.OrchestrationNode.Strategy || {};
-        const name = node.OrchestrationNode.Name || nodeId;
-        const strategy = Object.keys(strategyBlock)[0] || "Sequential";
-        nodes.push({
-          id: name || nodeId,
-          type: "orchestration",
-          name,
-          strategy,
-          turnCount: strategyBlock.Loop?.TurnCount || null,
-          aggregator: strategyBlock.Parallel?.Aggregator || "",
-          childNodes: Array.isArray(node.OrchestrationNode.ChildNodes)
-            ? node.OrchestrationNode.ChildNodes.slice()
-            : [],
-        });
-      }
-    });
-  }
-
-  state.builder.nodes = nodes;
-  state.builder.nodeCounter = nodes.length;
-  const edgesRaw = normalized.Orchestration?.Edges;
+  const edgesRaw =
+    normalized.Edges ||
+    normalized.Workflow?.Edges ||
+    normalized.Orchestration?.Edges ||
+    [];
   state.builder.edges = Array.isArray(edgesRaw)
-    ? edgesRaw.map((edge) => ({ from: edge.FromNode, to: edge.ToNode }))
+    ? edgesRaw.map((edge) => ({
+        from: edge.From || edge.FromNode,
+        to: edge.To || edge.ToNode,
+      }))
     : [];
-  pruneBuilderState(state);
+  const items = buildWorkflowItems(state);
+  pruneBuilderState(state, items);
   renderOrchestrationBuilder(state);
 };
 
@@ -2063,8 +2901,10 @@ const downloadYaml = (state) => {
   link.href = url;
   if (state.kind === "agent") {
     link.download = `agent-${agentStates.findIndex((agent) => agent.id === state.id) + 1}.yml`;
+  } else if (state.kind === "module") {
+    link.download = `module-${moduleStates.findIndex((item) => item.id === state.id) + 1}.yml`;
   } else {
-    link.download = "orchestration.yml";
+    link.download = "workflow.yml";
   }
   document.body.appendChild(link);
   link.click();
@@ -2136,6 +2976,19 @@ const removeAgent = (state) => {
   }
 };
 
+const removeModule = (state) => {
+  moduleStates = moduleStates.filter((item) => item.id !== state.id);
+  if (state.rootEl) {
+    state.rootEl.remove();
+  }
+  if (!moduleStates.length) {
+    addModule();
+  } else {
+    moduleStates.forEach((item) => renderAgentHeader(item));
+  }
+  orchestrationStates.forEach((item) => renderAgent(item));
+};
+
 const removeOrchestration = (state) => {
   orchestrationStates = orchestrationStates.filter((item) => item.id !== state.id);
   if (state.rootEl) {
@@ -2194,9 +3047,13 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
   const loadYamlButton = fragment.querySelector("[data-agent-load-yaml]");
   const copyYamlButton = fragment.querySelector("[data-agent-copy-yaml]");
   const downloadYamlButton = fragment.querySelector("[data-agent-download-yaml]");
+  const duplicateButton = fragment.querySelector("[data-duplicate-agent]");
+  const duplicateModuleButton = fragment.querySelector("[data-duplicate-module]");
   const tabInputs = fragment.querySelectorAll(".agent-tabs input[type=\"radio\"]");
   const builderEl = fragment.querySelector("[data-orchestration-builder]");
   const orchAgentsEl = fragment.querySelector("[data-orch-agents]");
+  const orchModulesEl = fragment.querySelector("[data-orch-modules]");
+  const sequenceEl = fragment.querySelector("[data-sequence]");
   const nodeTypeSelect = fragment.querySelector("[data-node-type]");
   const nodeTypeSelectClone = fragment.querySelector("[data-node-type-clone]");
   const nodeAgentSelect = fragment.querySelector("[data-node-agent]");
@@ -2215,12 +3072,11 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
   const nodeInlineAdvanced = fragment.querySelector("[data-node-inline-advanced]");
   const addNodeButton = fragment.querySelector("[data-add-node]");
   const nodeListEl = fragment.querySelector("[data-node-list]");
-  const edgeFromSelect = fragment.querySelector("[data-edge-from]");
-  const edgeToSelect = fragment.querySelector("[data-edge-to]");
-  const addEdgeButton = fragment.querySelector("[data-add-edge]");
   const autoChainButton = fragment.querySelector("[data-auto-chain]");
-  const edgeListEl = fragment.querySelector("[data-edge-list]");
+  const clearLastButton = fragment.querySelector("[data-clear-last]");
+  const clearAllButton = fragment.querySelector("[data-clear-all]");
   const graphEl = fragment.querySelector("[data-orch-graph]");
+  const memoryToggle = fragment.querySelector("[data-orch-memory]");
 
   state.rootEl = rootEl;
   state.els = {
@@ -2235,9 +3091,13 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
     loadYamlButton,
     copyYamlButton,
     downloadYamlButton,
+    duplicateButton,
+    duplicateModuleButton,
     tabInputs,
     builderEl,
     orchAgentsEl,
+    orchModulesEl,
+    sequenceEl,
     nodeTypeSelect,
     nodeTypeSelectClone,
     nodeAgentSelect,
@@ -2256,12 +3116,11 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
     nodeInlineAdvanced,
     addNodeButton,
     nodeListEl,
-    edgeFromSelect,
-    edgeToSelect,
-    addEdgeButton,
     autoChainButton,
-    edgeListEl,
+    clearLastButton,
+    clearAllButton,
     graphEl,
+    memoryToggle,
   };
 
   if (rootEl) {
@@ -2287,9 +3146,57 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
       event.stopPropagation();
       if (state.kind === "agent") {
         removeAgent(state);
+      } else if (state.kind === "module") {
+        removeModule(state);
       } else {
         removeOrchestration(state);
       }
+    });
+  }
+
+  if (memoryToggle && state.kind === "orchestration") {
+    memoryToggle.addEventListener("change", () => {
+      setBooleanFeatureByName(state, "Memory", memoryToggle.checked);
+      renderAgentSummary(state);
+      renderAgentYaml(state);
+      renderMissingBadge(state);
+      scheduleOutputsUpdate();
+    });
+  }
+
+  if (duplicateButton) {
+    duplicateButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.kind !== "agent") {
+        return;
+      }
+      const yamlText = state.els.yamlEl?.value || "";
+      const newState = createFeatureState("agent", agentModel);
+      agentStates.push(newState);
+      mountFeatureCard(newState, agentTemplate, agentsContainer);
+      if (yamlText.trim()) {
+        loadFromYamlText(newState, yamlText, { silent: true });
+      }
+      agentStates.forEach((agent) => renderAgentHeader(agent));
+    });
+  }
+
+  if (duplicateModuleButton) {
+    duplicateModuleButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.kind !== "module") {
+        return;
+      }
+      const yamlText = state.els.yamlEl?.value || "";
+      const newState = createFeatureState("module", moduleModel);
+      moduleStates.push(newState);
+      mountFeatureCard(newState, moduleTemplate, modulesContainer);
+      if (yamlText.trim()) {
+        loadFromYamlText(newState, yamlText, { silent: true });
+      }
+      moduleStates.forEach((item) => renderAgentHeader(item));
     });
   }
 
@@ -2313,13 +3220,39 @@ const addAgent = () => {
   orchestrationStates.forEach((item) => renderAgent(item));
 };
 
+const createModuleInstance = () => {
+  if (!moduleModel) {
+    return;
+  }
+  const state = createFeatureState("module", moduleModel);
+  moduleStates.push(state);
+  const template = moduleTemplate || ensureModuleTemplate();
+  mountFeatureCard(state, template, modulesContainer);
+  moduleStates.forEach((item) => renderAgentHeader(item));
+  orchestrationStates.forEach((item) => renderAgent(item));
+};
+
+const addModule = async () => {
+  if (!moduleModel && !ensureModuleModel()) {
+    await loadDefaultModuleModel();
+  }
+  if (!moduleModel && !ensureModuleModel()) {
+    setStatus("Charge un UVL avant d'ajouter des modules.", true, "module");
+    return;
+  }
+  createModuleInstance();
+};
+
 const addOrchestration = () => {
   if (!orchestrationModel) {
-    setStatus("Charge un UVL d’orchestration avant d’ajouter une orchestration.", true, "orchestration");
+    setStatus("Charge un UVL de workflow avant d’ajouter un workflow.", true, "orchestration");
+    return;
+  }
+  if (orchestrationStates.length) {
     return;
   }
   const index = orchestrationStates.length + 1;
-  const state = createFeatureState("orchestration", orchestrationModel, `Orchestration ${index}`);
+  const state = createFeatureState("orchestration", orchestrationModel, `Workflow ${index}`);
   orchestrationStates.push(state);
   mountFeatureCard(state, orchestrationTemplate, orchestrationContainer);
   orchestrationStates.forEach((item) => renderAgentHeader(item));
@@ -2327,9 +3260,19 @@ const addOrchestration = () => {
 
 const resetAgentsForModel = () => {
   agentStates = [];
-  agentCounter = 0;
   agentsContainer.innerHTML = "";
   addAgent();
+};
+
+const resetModulesForModel = () => {
+  moduleStates = [];
+  if (modulesContainer) {
+    modulesContainer.innerHTML = "";
+  }
+  if (!moduleModel) {
+    return;
+  }
+  createModuleInstance();
 };
 
 const resetOrchestrationForModel = () => {
@@ -2354,6 +3297,17 @@ const loadAgentFromText = (text, sourceLabel) => {
   setStatus(`Modèle agents chargé depuis ${sourceLabel}.`, false, "agent");
 };
 
+const loadModuleFromText = (text, sourceLabel) => {
+  const parsed = parseUvl(text);
+  if (!parsed.roots.length) {
+    throw new Error("Aucune feature racine détectée.");
+  }
+  parsed.featurePaths = buildPathIndex(parsed);
+  moduleModel = parsed;
+  resetModulesForModel();
+  setStatus(`Modèle modules chargé depuis ${sourceLabel}.`, false, "module");
+};
+
 const loadOrchestrationFromText = (text, sourceLabel) => {
   const parsed = parseUvl(text);
   if (!parsed.roots.length) {
@@ -2362,7 +3316,7 @@ const loadOrchestrationFromText = (text, sourceLabel) => {
   parsed.featurePaths = buildPathIndex(parsed);
   orchestrationModel = parsed;
   resetOrchestrationForModel();
-  setStatus(`Modèle orchestration chargé depuis ${sourceLabel}.`, false, "orchestration");
+  setStatus(`Modèle workflow chargé depuis ${sourceLabel}.`, false, "orchestration");
 };
 
 const loadDefaultAgentModel = async () => {
@@ -2395,6 +3349,65 @@ const loadDefaultAgentModel = async () => {
 if (loadDefaultButton) {
   loadDefaultButton.addEventListener("click", () => {
     loadDefaultAgentModel();
+  });
+}
+
+const loadDefaultModuleModel = async () => {
+  ensureModuleModel();
+  setStatus(`Chargement de ${DEFAULT_MODULE_UVL_PATH}…`, false, "module");
+  try {
+    const text = await (async () => {
+      const urls = buildUrlCandidates(DEFAULT_MODULE_UVL_PATH);
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) {
+            lastError = new Error(`HTTP ${response.status}`);
+            continue;
+          }
+          return await response.text();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("Chargement impossible");
+    })();
+    loadModuleFromText(text, DEFAULT_MODULE_UVL_PATH);
+    return true;
+  } catch (error) {
+    console.error(error);
+  }
+  try {
+    loadModuleFromText(DEFAULT_MODULE_UVL_FALLBACK, "module intégré");
+    return true;
+  } catch (error) {
+    console.error(error);
+    setStatus(`Impossible de charger le modèle modules. Lance le serveur depuis la racine du projet.`, true, "module");
+    return false;
+  }
+};
+
+if (loadModuleDefaultButton) {
+  loadModuleDefaultButton.addEventListener("click", () => {
+    loadDefaultModuleModel();
+  });
+}
+
+if (moduleUvlFileInput) {
+  moduleUvlFileInput.addEventListener("change", async () => {
+    const file = moduleUvlFileInput.files?.[0];
+    if (!file) {
+      return;
+    }
+    setStatus(`Chargement de ${file.name}…`, false, "module");
+    try {
+      const text = await file.text();
+      loadModuleFromText(text, file.name);
+    } catch (error) {
+      console.error(error);
+      setStatus(`Impossible de lire ${file.name}.`, true, "module");
+    }
   });
 }
 
@@ -2434,9 +3447,21 @@ if (uvlFileInput) {
   });
 }
 
+if (moduleUvlFileInput) {
+  moduleUvlFileInput.addEventListener("change", () => {
+    syncFileLabel(moduleUvlFileInput);
+  });
+}
+
 if (addAgentButton) {
   addAgentButton.addEventListener("click", () => {
     addAgent();
+  });
+}
+
+if (addModuleButton) {
+  addModuleButton.addEventListener("click", () => {
+    addModule().catch((error) => console.error(error));
   });
 }
 
@@ -2502,48 +3527,34 @@ if (orchestrationUvlFileInput) {
   });
 }
 
-if (targetTabLabels.length) {
+const bindOutputUiInteractions = () => {
   targetTabLabels.forEach((label) => {
     const input = label.querySelector("input");
-    if (!input) {
-      return;
-    }
+    if (!input || input.dataset.bound === "true") return;
+    input.dataset.bound = "true";
     input.addEventListener("change", () => {
-      if (input.checked) {
-        setActiveTargetPanel(label.dataset.targetTab);
-      }
+      if (input.checked) setActiveTargetPanel(label.dataset.targetTab);
     });
-    if (input.checked) {
-      setActiveTargetPanel(label.dataset.targetTab);
-    }
+    if (input.checked) setActiveTargetPanel(label.dataset.targetTab);
   });
-}
 
-if (outputTabLabels.length) {
   outputTabLabels.forEach((label) => {
     const input = label.querySelector("input");
-    if (!input) {
-      return;
-    }
+    if (!input || input.dataset.bound === "true") return;
+    input.dataset.bound = "true";
     input.addEventListener("change", () => {
-      if (input.checked) {
-        setActiveOutputPanel(label.dataset.outputTab);
-      }
+      if (input.checked) setActiveOutputPanel(label.dataset.outputTab);
     });
-    if (input.checked) {
-      setActiveOutputPanel(label.dataset.outputTab);
-    }
+    if (input.checked) setActiveOutputPanel(label.dataset.outputTab);
   });
-}
 
-if (outputCopyButtons.length) {
   outputCopyButtons.forEach((button) => {
+    if (button.dataset.bound === "true") return;
+    button.dataset.bound = "true";
     button.addEventListener("click", async () => {
       const pre = button.closest(".output-code")?.querySelector("[data-output]");
       const text = pre?.textContent?.trim();
-      if (!text) {
-        return;
-      }
+      if (!text) return;
       try {
         await navigator.clipboard.writeText(text);
       } catch (error) {
@@ -2551,12 +3562,136 @@ if (outputCopyButtons.length) {
       }
     });
   });
-}
+
+  if (runCrewaiWorkflowButton && runCrewaiWorkflowButton.dataset.bound !== "true") {
+    runCrewaiWorkflowButton.dataset.bound = "true";
+    runCrewaiWorkflowButton.addEventListener("click", async () => {
+    if (crewaiRunAborter) {
+      crewaiRunAborter.abort();
+    }
+    crewaiRunAborter = new AbortController();
+    const workflowCode = Array.from(document.querySelectorAll("[data-output]")).find(
+      (block) => block.dataset.output === "crewai-orchestration",
+    )?.textContent;
+    if (!workflowCode || !workflowCode.trim()) {
+      if (crewaiRunOutput) {
+        crewaiRunOutput.textContent = "# Aucun code CrewAI à exécuter.";
+      }
+      return;
+    }
+      if (crewaiRunOutput) {
+        crewaiRunOutput.textContent = "# Exécution en cours...";
+      }
+    try {
+      const response = await fetch(CREWAI_RUN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "crewai" }),
+        signal: crewaiRunAborter.signal,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Erreur d'exécution");
+      }
+      const stdout = payload?.stdout || "";
+      const stderr = payload?.stderr || "";
+      const combined = [stdout, stderr].filter(Boolean).join("\n");
+      if (crewaiRunOutput) {
+        crewaiRunOutput.textContent = combined || "# Aucun résultat.";
+      }
+    } catch (error) {
+      console.error(error);
+      if (crewaiRunOutput) {
+        const message =
+          error?.name === "AbortError"
+            ? "# Exécution arrêtée."
+            : `# Erreur: ${error.message || error}`;
+        crewaiRunOutput.textContent = message;
+      }
+    } finally {
+      crewaiRunAborter = null;
+    }
+  });
+  }
+
+  if (stopCrewaiWorkflowButton && stopCrewaiWorkflowButton.dataset.bound !== "true") {
+    stopCrewaiWorkflowButton.dataset.bound = "true";
+    stopCrewaiWorkflowButton.addEventListener("click", () => {
+    if (crewaiRunAborter) {
+      crewaiRunAborter.abort();
+    }
+  });
+  }
+
+  if (runAdkWorkflowButton && runAdkWorkflowButton.dataset.bound !== "true") {
+    runAdkWorkflowButton.dataset.bound = "true";
+    runAdkWorkflowButton.addEventListener("click", async () => {
+    if (adkRunAborter) {
+      adkRunAborter.abort();
+    }
+    adkRunAborter = new AbortController();
+    const workflowCode = Array.from(document.querySelectorAll("[data-output]")).find(
+      (block) => block.dataset.output === "adk-orchestration",
+    )?.textContent;
+    if (!workflowCode || !workflowCode.trim()) {
+      if (adkRunOutput) {
+        adkRunOutput.textContent = "# Aucun code ADK à exécuter.";
+      }
+      return;
+    }
+    if (adkRunOutput) {
+      adkRunOutput.textContent = "# Exécution en cours...";
+    }
+    try {
+      const response = await fetch(CREWAI_RUN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "adk" }),
+        signal: adkRunAborter.signal,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Erreur d'exécution");
+      }
+      const stdout = payload?.stdout || "";
+      const stderr = payload?.stderr || "";
+      const combined = [stdout, stderr].filter(Boolean).join("\n");
+      if (adkRunOutput) {
+        adkRunOutput.textContent = combined || "# Aucun résultat.";
+      }
+    } catch (error) {
+      console.error(error);
+      if (adkRunOutput) {
+        const message =
+          error?.name === "AbortError"
+            ? "# Exécution arrêtée."
+            : `# Erreur: ${error.message || error}`;
+        adkRunOutput.textContent = message;
+      }
+    } finally {
+      adkRunAborter = null;
+    }
+  });
+  }
+
+  if (stopAdkWorkflowButton && stopAdkWorkflowButton.dataset.bound !== "true") {
+    stopAdkWorkflowButton.dataset.bound = "true";
+    stopAdkWorkflowButton.addEventListener("click", () => {
+    if (adkRunAborter) {
+      adkRunAborter.abort();
+    }
+  });
+  }
+};
 
 loadDefaultAgentModel();
+loadDefaultModuleModel();
 loadDefaultOrchestrationModel();
 loadConnectorsRegistry();
-loadCrewaiMappings().then(() => {
+Promise.all([loadCrewaiMappings(), loadAdkMappings()]).then(() => {
+  refreshOutputDomRefs();
+  bindOutputUiInteractions();
   scheduleOutputsUpdate();
   initializeOutputPanels();
 });
+window.scrollTo({ top: 0, left: 0, behavior: "auto" });

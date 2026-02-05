@@ -1,37 +1,47 @@
-# Gear -> ADK (multiagent)
-# Source model: gear/gear-multiagent.yml
-# Target model: ADK multi-agent system (Lite)
+# Gear -> ADK (workflow)
+# Source model: gear-framework/gear/gear-multiagent.uvl (YAML runtime: WorkflowName, Items, Edges, Memory)
 
-- from: Agents
+- from: WorkflowName
+  to: SystemDefinition.RootAgent
+  kind: partial
+  notes: "Nom du root workflow ADK."
+
+- from: WorkflowName
+  to: Runtime.Workflow.RootName
+  kind: partial
+  notes: "Nom applique au root_agent dans le code Python."
+
+- from: Items.Agents
   to: SystemDefinition.Agents
   kind: direct
 
-- from: RootAgent
-  to: SystemDefinition.RootAgent
+- from: Items.Modules
+  to: SystemDefinition.WorkflowModules
   kind: partial
 
-- from: Orchestration.Sequential
-  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.SequentialAgent
-  kind: equivalent
-
-- from: Orchestration.Parallel
-  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.ParallelAgent
-  kind: equivalent
-
-- from: Orchestration.Loop
-  to: SystemDefinition.OrchestrationMechanisms.WorkflowAgents.LoopAgent
-  kind: equivalent
-
-- from: Orchestration.Loop.TurnCount
-  to: "LoopAgent.max_iterations"
+- from: Edges
+  to: SystemDefinition.WorkflowEdges
   kind: partial
-  notes: "ADK: map via LoopAgent config."
-
-- from: Orchestration.Parallel.Aggregator
-  to: "SequentialAgent (apres ParallelAgent)"
-  kind: partial
-  notes: "Pattern Parallel -> Aggregator."
 
 - from: Memory
-  to: Infrastructure.Runner.Configuration.OptionalParameters.MemoryService
+  to: Runtime.Memory.WorkflowEnabled
   kind: partial
+  notes: "Active la memoire long terme au niveau workflow."
+
+- from:
+  to: Runtime.Memory.MemoryServiceClass
+  value: InMemoryMemoryService
+  kind: partial
+  notes: "Classe memory service utilisee quand la memoire est activee."
+
+- from:
+  to: Runtime.Memory.AgentToolClass
+  value: PreloadMemoryTool
+  kind: partial
+  notes: "Outil memory ajoute aux agents quand memoire activee."
+
+- from:
+  to: Infrastructure.Runner.Configuration.AppName
+  value: gear-framework
+  kind: partial
+

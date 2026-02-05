@@ -1,0 +1,17 @@
+namespace GearModule
+
+features
+	GearModule {abstract}
+		mandatory
+			ModuleName {abstract}
+			Strategy {abstract}
+				alternative
+					Parallel {abstract}
+						mandatory
+							ParallelAgents {abstract}
+					Loop {abstract}
+						mandatory
+							TurnCount {abstract}
+							LoopAgents {abstract}
+						optional
+							StopCondition {abstract}

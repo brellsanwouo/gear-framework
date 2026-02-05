@@ -4,15 +4,25 @@ frameworks:
     label: CrewAI
     description: "Agents + taches + orchestration (Lite)"
     mappings:
-      agent: frameworks/crewai/agent.mapping.yml
-      multiagent: frameworks/crewai/multiagent.mapping.yml
+      agent: connectors/frameworks/crewai/agent.mapping.yml
+      multiagent: connectors/frameworks/crewai/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/crewai/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/crewai/workflow.tmpl
   - id: adk
     label: Google ADK
     description: "Agents + orchestration (ADK)"
     mappings:
-      agent: frameworks/adk/agent.mapping.yml
-      multiagent: frameworks/adk/multiagent.mapping.yml
+      agent: connectors/frameworks/adk/agent.mapping.yml
+      multiagent: connectors/frameworks/adk/multiagent.mapping.yml
+      module: connectors/frameworks/adk/module.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/adk/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/adk/workflow.tmpl
+      
   - id: custom
     label: "Autre framework"
-    description: "Ajoute un dossier dans frameworks/"
+    description: "Ajoute un dossier dans connectors/frameworks/"
     mappings: {}
