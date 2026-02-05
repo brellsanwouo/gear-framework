@@ -3077,6 +3077,9 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
   const clearAllButton = fragment.querySelector("[data-clear-all]");
   const graphEl = fragment.querySelector("[data-orch-graph]");
   const memoryToggle = fragment.querySelector("[data-orch-memory]");
+  const analyzeAgentButton = fragment.querySelector("[data-analyze-agent-btn]");
+  const analyzeModuleButton = fragment.querySelector("[data-analyze-module-btn]");
+  const analyzeMultiAgentButton = fragment.querySelector("[data-analyze-multi-agent-btn]");
 
   state.rootEl = rootEl;
   state.els = {
@@ -3121,6 +3124,9 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
     clearAllButton,
     graphEl,
     memoryToggle,
+    analyzeAgentButton,
+    analyzeModuleButton,
+    analyzeMultiAgentButton
   };
 
   if (rootEl) {
@@ -3204,6 +3210,38 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
   if (state.kind === "orchestration") {
     initOrchestrationBuilder(state);
   }
+
+
+  if (analyzeAgentButton) {
+  analyzeAgentButton.addEventListener("click", async () => {
+    try {
+      await runFlamapyAnalysis(state,"agent");
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
+    if (analyzeModuleButton) {
+  analyzeModuleButton.addEventListener("click", async () => {
+    try {
+      await runFlamapyAnalysis(state,"module");
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
+      if (analyzeMultiAgentButton) {
+  analyzeMultiAgentButton.addEventListener("click", async () => {
+    try {
+      await runFlamapyAnalysis(state,"multiagent");
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
   containerEl.appendChild(fragment);
   renderAgent(state);
 };
@@ -3242,6 +3280,73 @@ const addModule = async () => {
   }
   createModuleInstance();
 };
+
+const updateFlamapyAnalysisUI = (state, result,fm_type) => {
+
+  const resultsEl = document.querySelector(`[data-analysis-results-${fm_type}]`);
+  const errorEl   = document.querySelector(`[data-analysis-error-${fm_type}]`);
+  const validEl   = document.querySelector(`[data-stat-valid-${fm_type}]`);
+  const countEl   = document.querySelector(`[data-stat-count-${fm_type}]`);
+
+  if (!resultsEl || !errorEl) return;
+
+  // Reset
+  resultsEl.hidden = true;
+  errorEl.hidden = true;
+
+  if (result?.error) {
+    errorEl.textContent = result.error;
+    errorEl.hidden = false;
+    return;
+  }
+
+  // Success
+  if (validEl) {
+    validEl.textContent = result.valid ? "Valide" : "Invalid";
+  }
+
+  if (countEl) {
+    countEl.textContent = result.config_count
+  }
+
+  resultsEl.hidden = false;
+};
+
+
+const runFlamapyAnalysis = async (state,fm_type) => {
+    try {
+      if (!state.model) {
+        throw new Error("UVL missing.");
+      }
+
+      const selectedFeatures = [];
+      Object.keys(state.model.features).forEach(id => {
+          if (isFeatureActive(state, id)) {
+              selectedFeatures.push(state.model.features[id].name);
+          }
+      });
+
+      const response = await fetch('http://localhost:8200/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selected_features: selectedFeatures,
+          fm_type: fm_type
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Error");
+      updateFlamapyAnalysisUI(state, data, fm_type);
+    } catch (error) {
+      console.error(error);
+      updateFlamapyAnalysisUI(state, {
+        error: error.message || "Erreur lors de l’analyse",fm_type
+      });
+    } finally {
+    }
+  };
+
 
 const addOrchestration = () => {
   if (!orchestrationModel) {

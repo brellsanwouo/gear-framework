@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 
-
+from flamapy.interfaces.python import FLAMAFeatureModel
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -146,6 +146,35 @@ def run_orchestration() -> Any:
         }
     )
 
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze():
+    data = request.json
+    selected_features = data.get('selected_features', [])
+    fm_type = data.get('fm_type')
+    print(data)
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
+            csv_content = ",".join(selected_features)
+            tmp_file.write(csv_content)
+            tmp_path = tmp_file.name
+
+        fm = FLAMAFeatureModel(f"gear/gear-{fm_type}.uvl")
+        response = {
+            #"valid": fm.satisfiable_configuration(tmp_path),
+            "valid": False,
+            "config_count": fm.estimated_number_of_configurations(),
+            "message": "Successful analysis"
+        }
+        print(response)
+        return jsonify(response)
+
+    except Exception as e:
+        print(f"Error Flamapy: {e}")
+        return jsonify({"valid": False, "error": str(e)}), 500
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 def main() -> None:
     app.run(host=HOST, port=PORT, debug=False)

@@ -96,7 +96,7 @@ source .venv/bin/activate
 ### 2) Install base dependencies
 ```
 pip install --upgrade pip
-pip install flask flask-cors pyyaml python-dotenv
+pip install flask flask-cors pyyaml python-dotenv flamapy
 pip install google-adk litellm
 ```
 

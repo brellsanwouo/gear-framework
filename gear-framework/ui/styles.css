@@ -1312,3 +1312,86 @@ button.secondary.accent {
     min-width: min(240px, 70vw);
   }
 }
+
+
+/* ANALYSE FLAMAPY */
+
+.analysis-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.analysis-panel h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+}
+
+.analysis-controls button.full-width {
+  width: 100%;
+  justify-content: center;
+}
+
+.analysis-results {
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.stat-value.is-valid {
+  color: #10b981;
+}
+
+.stat-value.is-invalid {
+  color: #ef4444;
+}
+
+.analysis-error {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+[hidden] {
+  display: none;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.stat-value {
+  min-width: 5rem;
+  text-align: right;
+}
+
+.analysis-error {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+}
