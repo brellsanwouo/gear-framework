@@ -9,145 +9,161 @@ import tempfile
 import textwrap
 import time
 import uuid
-
 from pathlib import Path
 from typing import Any, Dict
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
-
+import yaml
+import mysql.connector
 from dotenv import load_dotenv
 
-from flamapy.interfaces.python import FLAMAFeatureModel
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+from flamapy.interfaces.python import FLAMAFeatureModel
 
 BASE_DIR = Path(__file__).resolve().parent
 UI_DIR = BASE_DIR / "ui"
-HOST = "127.0.0.1"
-PORT = int(os.environ.get("PORT", "8200"))
 
 load_dotenv()
+
+CONFIG = {}
+config_path = BASE_DIR / "config.yml"
+try:
+    with open(config_path, "r", encoding="utf-8") as f:
+        CONFIG = yaml.safe_load(f)
+except Exception as e:
+    sys.exit(1)
+
+HOST = CONFIG['server']['host']
+PORT = int(os.environ.get("PORT", CONFIG['server']['port']))
+
+DB_HOST = CONFIG['database']['host']
+DB_PORT = CONFIG['database']['port']
+DB_USER = CONFIG['database']['user']
+DB_NAME = CONFIG['database']['dbname']
+DB_PASS = os.environ.get("DB_PASSWORD")
+
+TASKS_FILE_PATH = BASE_DIR / CONFIG['paths']['tasks_file']
 
 app = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
 CORS(app)
 
-# CONFIGURATION BASE DE DONNÉES
-DEFAULT_DB_URL = "postgresql://gear:xAzexGqKA4Cu1jQqFL6haFm6qiHVafYs@dpg-d63rpqi4d50c73dvfnh0-a.oregon-postgres.render.com/gear_db_hz9z"
-DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DB_URL)
-
-
 TASKS_CONFIG = {}
 try:
-    with open(BASE_DIR / "tasks.json", "r", encoding="utf-8") as f:
+    with open(TASKS_FILE_PATH, "r", encoding="utf-8") as f:
         TASKS_CONFIG = json.load(f)
-except Exception as e:
-    print(f"Erreur chargement tasks.json: {e}")
+except Exception:
+    pass
+
+
+def get_db_connection():
+    if not DB_PASS:
+        raise ValueError("DB_PASSWORD missing")
+
+    conn = mysql.connector.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME
+    )
+    print(conn)
+    return conn
+
+
+def init_db():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users
+                    (
+                        user_id
+                        VARCHAR
+                    (
+                        255
+                    ) PRIMARY KEY,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        group_order TEXT,
+                        current_task_index INT DEFAULT 0
+                        )
+                    """)
+
+        cur.execute("""
+                    CREATE TABLE IF NOT EXISTS task_logs
+                    (
+                        id
+                        INT
+                        AUTO_INCREMENT
+                        PRIMARY
+                        KEY,
+                        user_id
+                        VARCHAR
+                    (
+                        255
+                    ),
+                        task_id VARCHAR
+                    (
+                        255
+                    ),
+                        mode VARCHAR
+                    (
+                        50
+                    ),
+                        start_time DOUBLE,
+                        end_time DOUBLE,
+                        duration DOUBLE,
+                        completed BOOLEAN DEFAULT FALSE,
+                        FOREIGN KEY
+                    (
+                        user_id
+                    ) REFERENCES users
+                    (
+                        user_id
+                    )
+                        )
+                    """)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"DB Error: {e}")
+
+
+init_db()
 
 
 @app.get("/api/experiment/task_info/<task_id>")
 def get_task_info(task_id):
     task = TASKS_CONFIG.get(task_id)
     if not task:
-        return jsonify({"error": "Tâche inconnue"}), 404
+        return jsonify({"error": "Task unknown"}), 404
     return jsonify(task)
 
 
 @app.post("/api/experiment/validate_task")
 def validate_task():
-    # TODO les tests
-    return jsonify({"valid": True, "message": "Bravo !."})
-
-def get_db_connection():
-    """Établit une connexion à la base de données PostgreSQL."""
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
-
-
-def init_db():
-    """Initialise les tables dans PostgreSQL."""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        # Table Users
-        cur.execute('''
-                    CREATE TABLE IF NOT EXISTS users
-                    (
-                        user_id
-                        TEXT
-                        PRIMARY
-                        KEY,
-                        created_at
-                        TIMESTAMP
-                        DEFAULT
-                        CURRENT_TIMESTAMP,
-                        group_order
-                        TEXT,
-                        current_task_index
-                        INTEGER
-                        DEFAULT
-                        0
-                    );
-                    ''')
-
-        # Table Task Logs
-        cur.execute('''
-                    CREATE TABLE IF NOT EXISTS task_logs
-                    (
-                        id
-                        SERIAL
-                        PRIMARY
-                        KEY,
-                        user_id
-                        TEXT
-                        REFERENCES
-                        users
-                    (
-                        user_id
-                    ),
-                        task_id TEXT,
-                        mode TEXT,
-                        start_time DOUBLE PRECISION,
-                        end_time DOUBLE PRECISION,
-                        duration DOUBLE PRECISION,
-                        completed BOOLEAN DEFAULT FALSE
-                        );
-                    ''')
-
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("Base de données PostgreSQL initialisée avec succès.")
-    except Exception as e:
-        print(f"Erreur lors de l'initialisation de la BDD : {e}")
-
-
-# Initialisation au lancement
-init_db()
-
-TASKS_GROUP_A = ["T1", "T2"]
-TASKS_GROUP_B = ["T3", "T4"]
+    return jsonify({"valid": True, "message": "Valid configuration."})
 
 
 @app.post("/api/experiment/start")
 def start_experiment():
     user_id = str(uuid.uuid4())
 
-    # On décide quel groupe passe en premier (A ou B)
-    groups = [TASKS_GROUP_A, TASKS_GROUP_B]
+    group_a = CONFIG['experiment']['group_a']
+    group_b = CONFIG['experiment']['group_b']
+
+    groups = [group_a, group_b]
     random.shuffle(groups)
 
-    # On décide quel mode est associé au premier groupe
     modes = ["GEAR", "MANUAL"]
     random.shuffle(modes)
 
-    # Structure: [{"id": "T3", "mode": "MANUAL"}, {"id": "T4", "mode": "MANUAL"}, {"id": "T1", "mode": "GEAR"}...]
     experiment_sequence = []
 
     for task_id in groups[0]:
         experiment_sequence.append({"id": task_id, "mode": modes[0]})
-
     for task_id in groups[1]:
         experiment_sequence.append({"id": task_id, "mode": modes[1]})
 
@@ -185,10 +201,10 @@ def log_task_start():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO task_logs (user_id, task_id, mode, start_time, completed) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            "INSERT INTO task_logs (user_id, task_id, mode, start_time, completed) VALUES (%s, %s, %s, %s, %s)",
             (user_id, task_id, mode, start_time, False)
         )
-        log_id = cur.fetchone()[0]
+        log_id = cur.lastrowid
         conn.commit()
         cur.close()
         conn.close()
@@ -226,7 +242,7 @@ def log_task_end() -> Any:
         else:
             cur.close()
             conn.close()
-            return jsonify({"error": "Log ID non trouvé"}), 404
+            return jsonify({"error": "Log ID not found"}), 404
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -234,13 +250,11 @@ def log_task_end() -> Any:
 
 @app.get("/experiment")
 def experiment_ui() -> Any:
-    """Page d'accueil de l'expérience."""
     return send_from_directory(UI_DIR, "experiment.html")
 
 
 @app.get("/manual")
 def manual_ui() -> Any:
-    """Interface pour les tâches manuelles."""
     return send_from_directory(UI_DIR, "manual.html")
 
 
@@ -276,7 +290,6 @@ def _load_dotenv() -> None:
 
 @app.get("/")
 def index() -> Any:
-    # Serve the UI at the root path for convenience.
     return send_from_directory(UI_DIR, "index.html")
 
 
@@ -287,7 +300,6 @@ def index_ui() -> Any:
 
 @app.get("/ui/<path:filename>")
 def ui_files(filename: str) -> Any:
-    # UI assets (JS/CSS/etc).
     return send_from_directory(UI_DIR, filename)
 
 
@@ -295,22 +307,19 @@ def ui_files(filename: str) -> Any:
 def project_files(filename: str) -> Any:
     if (UI_DIR / filename).exists():
         return send_from_directory(UI_DIR, filename)
-
     return send_from_directory(BASE_DIR, filename)
 
 
 def _ensure_kickoff(code: str, inputs: Dict[str, Any]) -> str:
-    # Ensure CrewAI scripts trigger crew.kickoff().
     if "kickoff(" in code:
         return code
     wrapper = textwrap.dedent(
         f"""
-
         if "crew" in globals():
             result = crew.kickoff()
             print(result)
         else:
-            raise RuntimeError("Aucune variable 'crew' n'a été définie dans l'orchestration.")
+            raise RuntimeError("No 'crew' variable defined.")
         """
     ).strip("\n")
     return f"{code}\n{wrapper}\n"
@@ -318,21 +327,21 @@ def _ensure_kickoff(code: str, inputs: Dict[str, Any]) -> str:
 
 @app.post("/api/run")
 def run_orchestration() -> Any:
-    # Run generated workflow code in a temporary Python file.
     payload = request.get_json(silent=True) or {}
     code = payload.get("code", "")
     inputs = payload.get("inputs", {})
     target = payload.get("target", "crewai")
 
     if not isinstance(code, str) or not code.strip():
-        return jsonify({"error": "Le code orchestration est vide."}), 400
+        return jsonify({"error": "Empty code."}), 400
     if not isinstance(inputs, dict):
-        return jsonify({"error": "Le champ inputs doit être un objet JSON."}), 400
+        return jsonify({"error": "Inputs must be JSON object."}), 400
 
     code_to_run = code if target == "adk" else _ensure_kickoff(code, inputs)
 
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+
     if not env.get("OPENAI_API_KEY"):
         return jsonify({"error": "OPENAI_API_KEY manquante côté serveur."}), 500
 
@@ -349,13 +358,11 @@ def run_orchestration() -> Any:
             timeout=180,
         )
 
-    return jsonify(
-        {
-            "stdout": result.stdout or "",
-            "stderr": result.stderr or "",
-            "returncode": result.returncode,
-        }
-    )
+    return jsonify({
+        "stdout": result.stdout or "",
+        "stderr": result.stderr or "",
+        "returncode": result.returncode,
+    })
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -363,12 +370,11 @@ def analyze():
     data = request.json
     selected_features = data.get('selected_features', [])
     fm_type = data.get('fm_type')
-    print(data)
+
+    tmp_path = ""
     try:
-        print("trying")
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
             csv_content = ",".join(selected_features)
-            print(csv_content)
             tmp_file.write(csv_content)
             tmp_path = tmp_file.name
 
@@ -378,7 +384,6 @@ def analyze():
             "config_count": fm.estimated_number_of_configurations(),
             "message": "Successful analysis"
         }
-        print(response)
         return jsonify(response)
 
     except Exception as e:
