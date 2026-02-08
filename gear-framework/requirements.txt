@@ -1,0 +1,7 @@
+flask
+flask-cors
+pyyaml
+python-dotenv
+flamapy
+psycopg2-binary
+mysql-connector-python

@@ -1,0 +1,16 @@
+server:
+  host: "0.0.0.0"
+  port: 8200
+
+database:
+  host: "srv1650.hstgr.io"
+  port: 3306
+  user: "u912090761_gear"
+  dbname: "u912090761_gear"
+
+paths:
+  tasks_file: "tasks.json"
+
+experiment:
+  group_a: ["T1", "T2"]
+  group_b: ["T3", "T4"]
