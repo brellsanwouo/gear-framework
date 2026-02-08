@@ -1,0 +1,81 @@
+body {
+    background: #f5f7fb;
+    padding: 20px;
+    font-family: "Inter", "Segoe UI", sans-serif;
+    color: #1e293b;
+    margin: 0;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.timer {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: monospace;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 0.2rem 0.8rem;
+    border-radius: 6px;
+}
+
+.instructions {
+    background: #eef2ff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #c7d2fe;
+    color: #1e1b4b;
+    line-height: 1.6;
+    font-size: 1.05rem;
+}
+
+textarea {
+    width: 100%;
+    height: 60vh;
+    padding: 1.2rem;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    font-family: "JetBrains Mono", monospace;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+textarea:focus {
+    outline: 2px solid #2563eb;
+    border-color: transparent;
+}
+
+button {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    font-size: 1rem;
+}
+
+button:hover {
+    background: #059669;
+}
+
+button:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}

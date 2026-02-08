@@ -1,0 +1,22 @@
+{
+  "T1": {
+    "title": "Création d'un Scraper",
+    "description": "<h3>Objectif</h3><p>Vous devez créer un agent capable de récupérer des données sur le web.</p><ul><li>Nom de l'agent : <strong>ScraperBot</strong></li><li>Technologie : <strong>Python</strong></li><li>Librairie : <strong>Selenium</strong></li></ul><p>L'agent doit avoir une feature 'Log' activée.</p>",
+    "time_limit_seconds": 100
+  },
+  "T2": {
+    "title": "Module Base de Données",
+    "description": "<h3>Objectif</h3><p>Définissez un module de persistance.</p><p>Il doit supporter <strong>PostgreSQL</strong> et permettre le chiffrement des données (feature 'Encryption').</p>",
+    "time_limit_seconds": 100
+  },
+  "T3": {
+    "title": "Rédaction Assistée IA",
+    "description": "<h3>Objectif</h3><p>Créez un agent rédacteur.</p><p>Il doit utiliser le LLM <strong>GPT-4</strong> et avoir une mémoire vectorielle activée.</p>",
+    "time_limit_seconds": 100
+  },
+  "T4": {
+    "title": "Orchestration",
+    "description": "<h3>Objectif</h3><p>Reliez les agents précédents.</p><p>Le flux doit être : Scraper -> Database -> Writer.</p>",
+    "time_limit_seconds": 100
+  }
+}

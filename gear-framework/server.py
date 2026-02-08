@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import subprocess
 import sys
 import tempfile
 import textwrap
+import time
+import uuid
+
 from pathlib import Path
 from typing import Any, Dict
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from dotenv import load_dotenv
 
@@ -20,13 +27,221 @@ UI_DIR = BASE_DIR / "ui"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("PORT", "8200"))
 
-# Load .env if available (CLI or UI runtime).
 load_dotenv()
 
-# try:
-#     from dotenv import load_dotenv  # type: ignore
-# except Exception:  # pragma: no cover - optional dependency
-    # load_dotenv = None
+app = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
+CORS(app)
+
+# CONFIGURATION BASE DE DONNÉES
+DEFAULT_DB_URL = "postgresql://gear:xAzexGqKA4Cu1jQqFL6haFm6qiHVafYs@dpg-d63rpqi4d50c73dvfnh0-a.oregon-postgres.render.com/gear_db_hz9z"
+DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DB_URL)
+
+
+TASKS_CONFIG = {}
+try:
+    with open(BASE_DIR / "tasks.json", "r", encoding="utf-8") as f:
+        TASKS_CONFIG = json.load(f)
+except Exception as e:
+    print(f"Erreur chargement tasks.json: {e}")
+
+
+@app.get("/api/experiment/task_info/<task_id>")
+def get_task_info(task_id):
+    task = TASKS_CONFIG.get(task_id)
+    if not task:
+        return jsonify({"error": "Tâche inconnue"}), 404
+    return jsonify(task)
+
+
+@app.post("/api/experiment/validate_task")
+def validate_task():
+    # TODO les tests
+    return jsonify({"valid": True, "message": "Bravo !."})
+
+def get_db_connection():
+    """Établit une connexion à la base de données PostgreSQL."""
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+
+def init_db():
+    """Initialise les tables dans PostgreSQL."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Table Users
+        cur.execute('''
+                    CREATE TABLE IF NOT EXISTS users
+                    (
+                        user_id
+                        TEXT
+                        PRIMARY
+                        KEY,
+                        created_at
+                        TIMESTAMP
+                        DEFAULT
+                        CURRENT_TIMESTAMP,
+                        group_order
+                        TEXT,
+                        current_task_index
+                        INTEGER
+                        DEFAULT
+                        0
+                    );
+                    ''')
+
+        # Table Task Logs
+        cur.execute('''
+                    CREATE TABLE IF NOT EXISTS task_logs
+                    (
+                        id
+                        SERIAL
+                        PRIMARY
+                        KEY,
+                        user_id
+                        TEXT
+                        REFERENCES
+                        users
+                    (
+                        user_id
+                    ),
+                        task_id TEXT,
+                        mode TEXT,
+                        start_time DOUBLE PRECISION,
+                        end_time DOUBLE PRECISION,
+                        duration DOUBLE PRECISION,
+                        completed BOOLEAN DEFAULT FALSE
+                        );
+                    ''')
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Base de données PostgreSQL initialisée avec succès.")
+    except Exception as e:
+        print(f"Erreur lors de l'initialisation de la BDD : {e}")
+
+
+# Initialisation au lancement
+init_db()
+
+TASKS_GROUP_A = ["T1", "T2"]
+TASKS_GROUP_B = ["T3", "T4"]
+
+
+@app.post("/api/experiment/start")
+def start_experiment():
+    user_id = str(uuid.uuid4())
+
+    # On décide quel groupe passe en premier (A ou B)
+    groups = [TASKS_GROUP_A, TASKS_GROUP_B]
+    random.shuffle(groups)
+
+    # On décide quel mode est associé au premier groupe
+    modes = ["GEAR", "MANUAL"]
+    random.shuffle(modes)
+
+    # Structure: [{"id": "T3", "mode": "MANUAL"}, {"id": "T4", "mode": "MANUAL"}, {"id": "T1", "mode": "GEAR"}...]
+    experiment_sequence = []
+
+    for task_id in groups[0]:
+        experiment_sequence.append({"id": task_id, "mode": modes[0]})
+
+    for task_id in groups[1]:
+        experiment_sequence.append({"id": task_id, "mode": modes[1]})
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (user_id, group_order, current_task_index) VALUES (%s, %s, %s)",
+            (user_id, json.dumps(experiment_sequence), 0)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({
+        "user_id": user_id,
+        "sequence": experiment_sequence,
+        "first_task": experiment_sequence[0],
+        "total_tasks": len(experiment_sequence)
+    })
+
+
+@app.post("/api/experiment/log_start")
+def log_task_start():
+    data = request.json
+    user_id = data.get("user_id")
+    task_id = data.get("task_id")
+    mode = data.get("mode")
+    start_time = time.time()
+
+    log_id = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO task_logs (user_id, task_id, mode, start_time, completed) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (user_id, task_id, mode, start_time, False)
+        )
+        log_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"log_id": log_id, "start_time": start_time})
+
+
+@app.post("/api/experiment/log_end")
+def log_task_end() -> Any:
+    data = request.json
+    log_id = data.get("log_id")
+    end_time = time.time()
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT start_time FROM task_logs WHERE id = %s", (log_id,))
+        result = cur.fetchone()
+
+        if result:
+            start_time = result[0]
+            duration = end_time - start_time
+
+            cur.execute(
+                "UPDATE task_logs SET end_time = %s, duration = %s, completed = %s WHERE id = %s",
+                (end_time, duration, True, log_id)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return jsonify({"success": True, "duration": duration})
+        else:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Log ID non trouvé"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/experiment")
+def experiment_ui() -> Any:
+    """Page d'accueil de l'expérience."""
+    return send_from_directory(UI_DIR, "experiment.html")
+
+
+@app.get("/manual")
+def manual_ui() -> Any:
+    """Interface pour les tâches manuelles."""
+    return send_from_directory(UI_DIR, "manual.html")
 
 
 def _load_dotenv() -> None:
@@ -59,12 +274,6 @@ def _load_dotenv() -> None:
     print("OPENAI_API_KEY present:", bool(os.environ.get("OPENAI_API_KEY")))
 
 
-app = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
-CORS(app)
-
-_load_dotenv()
-
-
 @app.get("/")
 def index() -> Any:
     # Serve the UI at the root path for convenience.
@@ -84,7 +293,9 @@ def ui_files(filename: str) -> Any:
 
 @app.get("/<path:filename>")
 def project_files(filename: str) -> Any:
-    # Allow the UI to fetch mappings/templates from the repo root.
+    if (UI_DIR / filename).exists():
+        return send_from_directory(UI_DIR, filename)
+
     return send_from_directory(BASE_DIR, filename)
 
 
@@ -154,15 +365,16 @@ def analyze():
     fm_type = data.get('fm_type')
     print(data)
     try:
+        print("trying")
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
             csv_content = ",".join(selected_features)
+            print(csv_content)
             tmp_file.write(csv_content)
             tmp_path = tmp_file.name
 
         fm = FLAMAFeatureModel(f"gear/gear-{fm_type}.uvl")
         response = {
-            #"valid": fm.satisfiable_configuration(tmp_path),
-            "valid": False,
+            "valid": fm.satisfiable_configuration(tmp_path),
             "config_count": fm.estimated_number_of_configurations(),
             "message": "Successful analysis"
         }

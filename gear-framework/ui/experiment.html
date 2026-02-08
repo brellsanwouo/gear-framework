@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gear Experiment Lobby</title>
+    <link rel="stylesheet" href="experiment.css">
+    <script src="experiment.js" defer></script>
+</head>
+<body>
+
+    <div id="introScreen" class="card">
+        <h1>Expérience Gear</h1>
+        <p>Bienvenue. Vous allez réaliser une série de 4 tâches de configuration.<br>Certaines seront assistées par l'outil Gear, d'autres manuelles.</p>
+        <button id="startBtn">Commencer l'expérience</button>
+    </div>
+
+    <div id="pauseScreen" class="card hidden">
+        <h1>Tâche terminée</h1>
+        <p>Prenez une pause si nécessaire.<br>Cliquez ci-dessous pour lancer la tâche suivante.</p>
+        <p class="next-task-info" id="nextTaskInfo">...</p>
+        <button id="nextBtn">Lancer la tâche suivante</button>
+    </div>
+
+    <div id="endScreen" class="card hidden">
+        <h1>Merci !</h1>
+        <p>L'expérience est terminée. Vos résultats ont été enregistrés.</p>
+    </div>
+
+</body>
+</html>

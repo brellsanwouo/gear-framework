@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mode Manuel - Éditeur de Code</title>
+
+    <link rel="stylesheet" href="manual.css">
+    <link rel="stylesheet" href="overlay.css">
+    <script src="overlay.js" defer></script>
+</head>
+<body>
+
+    <div class="editor-container">
+        <textarea
+            id="manualInput"
+            placeholder="# Collez votre code Python ici...
+Example:
+from crewai import Agent
+
+agent = Agent(
+    role='Scraper',
+    goal='Extraire des données',
+    ...
+)"
+            spellcheck="false"></textarea>
+    </div>
+
+</body>
+</html>
