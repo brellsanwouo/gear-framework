@@ -5,8 +5,7 @@ features
 				mandatory
 					Name {abstract}
 					Purpose {abstract}
-				optional
-					ContextDescription {abstract}
+					ContextDescription {abstract}					
 			LLMConfiguration {abstract}
 				mandatory
 					Provider {abstract}
@@ -29,11 +28,9 @@ features
 							Seed {abstract}
 			TaskSpecification {abstract}
 				mandatory
+					TaskName {abstract}
 					TaskDescription {abstract}
 					ExpectedOutput {abstract}
-				optional
-					TaskName {abstract}                    
-					AssignedAgent {abstract}
 		optional
 			Tools {abstract}
 			Memory {abstract}

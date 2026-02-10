@@ -965,6 +965,25 @@ const setIfMeaningful = (obj, key, value) => {
   obj[key] = value;
 };
 
+const buildAdkDescriptionFromGear = (gearAgent) => {
+  const descriptionParts = [gearAgent?.AgentIdentity?.Purpose, gearAgent?.AgentIdentity?.ContextDescription]
+    .map((value) => (value ?? "").toString().trim())
+    .filter(Boolean);
+  return descriptionParts.length ? descriptionParts.join("\n") : "";
+};
+
+const buildAdkInstructionFromGear = (gearAgent) => {
+  const base = (gearAgent?.TaskSpecification?.TaskDescription ?? "").toString().trim();
+  const expected = (gearAgent?.TaskSpecification?.ExpectedOutput ?? "").toString().trim();
+  if (!expected) {
+    return base;
+  }
+  if (!base) {
+    return expected;
+  }
+  return `${base}\n\n${expected}`;
+};
+
 const ensureUniqueKey = (base, fallbackPrefix, index, usedKeys) => {
   const seed = base?.trim() || `${fallbackPrefix}${index}`;
   let candidate = seed;
@@ -1518,14 +1537,18 @@ const buildAdkWorkflowCode = (workflowState) => {
         gearAgent.LLMConfiguration?.Provider,
         gearAgent.LLMConfiguration?.Model,
       ) || "gemini-2.5-flash-lite";
-    const instruction = gearAgent.TaskSpecification?.TaskDescription || "";
+    const instruction = buildAdkInstructionFromGear(gearAgent);
     const outputKey = gearAgent.TaskSpecification?.TaskName || "";
     const memoryEnabled = workflowMemoryEnabled || agentMemoryMap[index] === true;
+    const description = buildAdkDescriptionFromGear(gearAgent);
 
     const args = [
       `  name=${toPythonLiteral(name)},`,
       `  model=LiteLlm(model=${toPythonLiteral(modelValue)}),`,
     ];
+    if (description) {
+      args.push(`  description=${toPythonLiteral(description)},`);
+    }
     if (instruction) {
       args.push(`  instruction=${toPythonLiteral(instruction)},`);
     }
