@@ -1,0 +1,31 @@
+flowchart LR
+  n1[SystemDescriberAgent]
+  n2[BlueprintPlannerAgent]
+  n3[MovementAnalyzerAgent]
+  n4[MechanicAnalyzerAgent]
+  n5[SequenceCalibratorAgent]
+  j1[merge]
+  n6[ActionListIntegratorAgent]
+  n7[ActionListSolverAgent]
+  n8[OutputValidatorAgent]
+  n1 L_n1_n2_0@-.-> n2
+  n2 L_n2_n3_0@-.-> n3
+  n2 L_n2_n4_0@-.-> n4
+  n2 L_n2_n5_0@-.-> n5
+  n3 L_n3_j1_0@-.-> j1
+  n4 L_n4_j1_0@-.-> j1
+  n5 L_n5_j1_0@-.-> j1
+  j1 L_j1_n6_0@-.-> n6
+  n6 L_n6_n7_0@-.-> n7
+  n7 L_n7_n8_0@-.-> n8
+
+  L_n1_n2_0@{ animation: fast }
+  L_n2_n3_0@{ animation: fast }
+  L_n2_n4_0@{ animation: fast }
+  L_n2_n5_0@{ animation: fast }
+  L_n3_j1_0@{ animation: fast }
+  L_n4_j1_0@{ animation: fast }
+  L_n5_j1_0@{ animation: fast }
+  L_j1_n6_0@{ animation: fast }
+  L_n6_n7_0@{ animation: fast }
+  L_n7_n8_0@{ animation: fast }

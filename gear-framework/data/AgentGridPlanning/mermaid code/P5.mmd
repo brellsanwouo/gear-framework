@@ -1,0 +1,26 @@
+flowchart LR
+  n1[SystemDescriberAgent]
+  n2[InitialActionDesignerAgent]
+  n3[SolvabilityReviewerAgent]
+  n4[ActionListRefinerAgent]
+  n5[DifficultyCalibratorAgent]
+  n6[IntegratorAgent]
+  n7[ActionListSolverAgent]
+  n8[OutputValidatorAgent]
+  n1 L_n1_n2_0@-.-> n2
+  n2 L_n2_n3_0@-.-> n3
+  n3 L_n3_n4_0@-.-> n4
+  n4 L_n4_n5_0@-.-> n5
+  n5 L_n5_n3_0@-.->|2 tours| n3
+  n5 L_n5_n6_0@-.-> n6
+  n6 L_n6_n7_0@-.-> n7
+  n7 L_n7_n8_0@-.-> n8
+
+  L_n1_n2_0@{ animation: fast }
+  L_n2_n3_0@{ animation: fast }
+  L_n3_n4_0@{ animation: fast }
+  L_n4_n5_0@{ animation: fast }
+  L_n5_n3_0@{ animation: fast }
+  L_n5_n6_0@{ animation: fast }
+  L_n6_n7_0@{ animation: fast }
+  L_n7_n8_0@{ animation: fast }
