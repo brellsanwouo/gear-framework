@@ -1,4 +1,4 @@
-# AgentGridPlanning (Inspiré MiniGrid & BabyAI)
+# AgentGridPlanning (Inspiré de MiniGrid & BabyAI)
 
 ## Description du game
 
