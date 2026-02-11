@@ -1,4 +1,4 @@
-# Probleme de base
+# AgentGridPlanning (Inspiré MiniGrid & BabyAI)
 
 ## Description du game
 
