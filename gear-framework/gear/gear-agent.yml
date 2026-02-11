@@ -8,7 +8,7 @@ properties:
       Name: { type: string }
       Purpose: { type: string }
       ContextDescription: { type: string }
-    required: [Name, Purpose]
+    required: [Name, Purpose, ContextDescription]
     additionalProperties: false
   LLMConfiguration:
     type: object
@@ -39,11 +39,10 @@ properties:
   TaskSpecification:
     type: object
     properties:
+      TaskName: { type: string }
       TaskDescription: { type: string }
       ExpectedOutput: { type: string }
-      TaskName: { type: string }
-      AssignedAgent: { type: string }
-    required: [TaskDescription, ExpectedOutput]
+    required: [TaskName, TaskDescription, ExpectedOutput]
     additionalProperties: false
   Tools:
     type: array

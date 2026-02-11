@@ -1,0 +1,34 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "GearModule"
+type: object
+properties:
+  ModuleName:
+    type: string
+  Strategy:
+    type: object
+    oneOf:
+      - required: [Parallel]
+      - required: [Loop]
+    properties:
+      Parallel:
+        type: object
+        properties:
+          ParallelAgents:
+            type: array
+            items: { type: string }
+          Aggregator: { type: string }
+        required: [ParallelAgents, Aggregator]
+        additionalProperties: false
+      Loop:
+        type: object
+        properties:
+          TurnCount: { type: integer }
+          StopCondition: { type: string }
+          LoopAgents:
+            type: array
+            items: { type: string }
+        required: [TurnCount, StopCondition, LoopAgents]
+        additionalProperties: false
+    additionalProperties: false
+required: [ModuleName, Strategy]
+additionalProperties: false

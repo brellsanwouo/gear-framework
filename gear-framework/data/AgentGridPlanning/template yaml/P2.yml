@@ -1,0 +1,106 @@
+GearAgent:
+  AgentIdentity:
+    Name: SystemDescriberAgent
+    Purpose: décrire de façon claire et compréhensible le problème à résoudre.
+    ContextDescription: >-
+      decrit le probleme AgentGridPlanning en fixant la grille de reference, les actions autorisees et les regles
+      d'execution afin de fournir une specification exploitable. La description du probleme contient le JSON de
+      description, la vue en grille et la definition des actions ci-dessous.
+        JSON de description du probleme:
+
+      ```json
+
+      {
+        "grid": ["S..#...", "##.#.#.", "..K..D.", ".####.#", "......G"],
+        "elements": [["S", 0, 0], [".", 0, 1], [".", 0, 2], ["#", 0, 3], [".", 0, 4], [".", 0, 5], [".", 0, 6], ["#", 1, 0], ["#", 1, 1], [".", 1, 2], ["#", 1, 3], [".", 1, 4], ["#", 1, 5], [".", 1, 6], [".", 2, 0], [".", 2, 1], ["K", 2, 2], [".", 2, 3], [".", 2, 4], ["D", 2, 5], [".", 2, 6], [".", 3, 0], ["#", 3, 1], ["#", 3, 2], ["#", 3, 3], ["#", 3, 4], [".", 3, 5], ["#", 3, 6], [".", 4, 0], [".", 4, 1], [".", 4, 2], [".", 4, 3], [".", 4, 4], [".", 4, 5], ["G", 4, 6]],
+        "actions_allowed": ["U", "D", "L", "R", "TAKE_K", "OPEN_D"]
+      }
+
+      ```
+        vue_grille_texte:
+
+      ```text
+
+      S . . # . . .
+
+      # # . # . # .
+
+      . . K . . D .
+
+      . # # # # . #
+
+      . . . . . . G
+
+      ```
+        definition_des_actions: `U` deplacement d'une case vers le haut; `D` deplacement d'une case vers le bas; `L` deplacement d'une case vers la gauche; `R` deplacement d'une case vers la droite; `TAKE_K` valide uniquement si l'avatar est sur la case `K`; `OPEN_D` valide uniquement si la cle est prise et si l'avatar est adjacent a `D`.
+        contraintes_de_deplacement: un deplacement est invalide si la case cible est hors grille; un deplacement est invalide si la case cible est un mur `#`; un deplacement vers la porte `D` est invalide tant que l'action `OPEN_D` n'a pas ete executee.
+        condition_de_victoire: atteindre `G` apres avoir pris `K` et ouvert `D` (actions `TAKE_K` puis `OPEN_D`).
+        symboles_de_grille: `S` depart; `G` objectif; `K` cle; `D` porte; `#` mur; `.` case libre.
+        taille_matrice: 5 x 7 (lignes x colonnes).
+        systeme_coordonnees: (ligne, colonne) indexe a partir de 0.
+        coordonnees_elements: definies dans le champ `elements` du JSON (liste de tuples [symbole, ligne, colonne]).
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: SystemDescriberTask
+    TaskDescription: >-
+      decrire la grille de reference et ses elements (`S`, `G`, `K`, `D`, `#`, `.`), decrire les preconditions de
+      `TAKE_K` et `OPEN_D`, preciser les conditions d'invalidite des deplacements.
+    ExpectedOutput: specification du systeme (grille + actions + regles) exploitable.
+
+
+
+GearAgent:
+  AgentIdentity:
+    Name: ConstraintPlannerAgent
+    Purpose: etablir un plan d'actions macro.
+    ContextDescription: transforme les regles en plan de progression.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ConstraintPlannerTask
+    TaskDescription: >-
+      proposer un plan d'actions macro pour aller de `S` vers `G` avec passage obligatoire par `K` puis ouverture de
+      `D`.
+    ExpectedOutput: plan d'actions macro et ordre des etapes proposees.
+
+
+
+GearAgent:
+  AgentIdentity:
+    Name: ActionPathSolverAgent
+    Purpose: produire une liste candidate executable.
+    ContextDescription: detaille le plan en sequences completes.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ActionPathSolverTask
+    TaskDescription: >-
+      construire toutes les sequences d'actions valides (chemins de `S` vers `G`) incluant obligatoirement `TAKE_K` et
+      `OPEN_D`, sans boucle, sans revisiter une case par deplacement, et uniquement des chemins distincts.
+    ExpectedOutput: liste candidate complete de chemins distincts.
+
+
+
+
+GearAgent:
+  AgentIdentity:
+    Name: OutputValidatorAgent
+    Purpose: livrer la liste d'actions finale attendue.
+    ContextDescription: valide les sequences et publie la sortie.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: OutputValidatorTask
+    TaskDescription: >-
+      verifier la legalite de chaque action et la victoire finale pour chaque sequence (avec `TAKE_K` et `OPEN_D`
+      obligatoires), puis publier la liste finale de toutes les sequences distinctes.
+    ExpectedOutput: >-
+      La sortie attendue est un JSON contenant tous les chemins valides pour quitter de `S` à `G`. pour présenter la
+      sortie, tu peux utiliser le template ci-dessous. Rassure toi de supprimer les caractères pour échapper.  ```json
+      {   "path 1": "["R", "R", "D", "D", "L", "L", "D", "D", "R", "R", "R", "R", "R", "R"]",   "path 2": "["R", "R",
+      "D", "D", "TAKE_K", "L", "L", "D", "D", "R", "R", "R", "R", "R", "R"]" } ```

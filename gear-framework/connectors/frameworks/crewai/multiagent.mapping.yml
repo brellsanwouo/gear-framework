@@ -1,20 +1,32 @@
-# Gear -> CrewAI (multiagent)
+# Gear -> CrewAI (workflow)
+# Source model: gear-framework/gear/gear-multiagent.uvl (YAML runtime: WorkflowName, Items, Edges, Memory)
 
-- from: Agents
+- from: WorkflowName
+  to: Crew.Metadata.Name
+  kind: partial
+  notes: "Nom logique du workflow."
+
+- from: Items.Agents
   to: Crew.EssentialComponents.Agents
   kind: direct
-  notes: Liste d'agents.
+  notes: "Liste des agents utilises dans le workflow."
 
-- from: Orchestration.Sequential
-  to: Crew.EssentialComponents.Process
+- from: Items.Modules
+  to: Crew.EssentialComponents.Modules
   kind: partial
-  notes: Valeur attendue cote CrewAI: Sequential.
+  notes: "Information de modules (utile pour extensions)."
 
-- from: RootAgent
-  to: Crew.AdvancedFeatures.ManagerAgent
+- from: Edges
+  to: Crew.Orchestration.Edges
   kind: partial
-  notes: Approximatif (surtout utile si orchestration hierarchique).
+  notes: "Graphe d'ordre du workflow."
 
 - from: Memory
   to: Crew.MemoryAndPerformance.Memory
   kind: partial
+
+- from:
+  to: Crew.EssentialComponents.Process
+  value: sequential
+  kind: partial
+  notes: "Par defaut, CrewAI utilise Process.sequential."
