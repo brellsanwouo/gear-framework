@@ -1,0 +1,72 @@
+namespace CrewAgent
+
+features
+	CrewAgent {abstract}
+		mandatory
+			Identity {abstract}
+				mandatory
+					Role {abstract}
+					Goal {abstract}
+					Backstory {abstract}
+			LLMConfiguration {abstract}
+				mandatory
+					Model {abstract}
+					API_KEY {abstract}
+				optional
+					Advanced_configs {abstract}
+						optional
+							Temperature {abstract}
+							MaxTokens {abstract}
+							Top_p {abstract}
+							FrequencyPenalty {abstract}
+							PresencePenalty {abstract}
+							Seed {abstract}
+							Stop {abstract}
+							Timeout {abstract}
+							MaxRetries {abstract}
+			Task {abstract}
+				mandatory
+					Essential {abstract}
+						mandatory
+							Name {abstract}
+							Description {abstract}
+							This_Agent {abstract}
+						optional
+							ExpectedOutput {abstract}
+				optional
+					Execution {abstract}
+						optional
+							Task_Tools {abstract}
+							Context {abstract}
+							AsyncExecution {abstract}
+							HumanInput {abstract}
+							Markdown {abstract}
+					Output {abstract}
+						optional
+							OutputFile {abstract}
+							CreateDirectory {abstract}
+							OutputJson {abstract}
+							OutputPydantic {abstract}
+							Task_Callback {abstract}
+							Config {abstract}
+					ValidationAndSafety {abstract}
+						optional
+							Guardrail {abstract}
+							Guardrails {abstract}
+							GuardrailMaxRetries {abstract}
+							GuardrailTypes {abstract}
+								alternative
+									FunctionBased
+									LLMBased
+		optional
+			Agent_Tools {abstract}
+			BehavioralControls {abstract}
+				optional
+					AllowDelegation {abstract}
+					AllowCodeExecution {abstract}
+					Verbose {abstract}
+					Cache {abstract}
+						alternative
+			Memory {abstract}
+			Reasoning {abstract}
+			// KnowledgeSources {abstract}

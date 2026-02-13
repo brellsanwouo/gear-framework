@@ -1,32 +1,10 @@
-namespace GearMultiAgent
-
 features
-	GearMultiAgent {abstract}
+	GearWorkflow {abstract}
 		mandatory
-			Agents {abstract}
-			Orchestration {abstract}
-				mandatory
-					Nodes {abstract}
-						or
-							AgentNode {abstract}
-								mandatory
-									AgentRef {abstract}
-							OrchestrationNode {abstract}
-								mandatory
-									Strategy {abstract}
-										alternative
-											Sequential {abstract}
-											Loop {abstract}
-												mandatory
-													TurnCount {abstract}
-											Parallel {abstract}
-												mandatory
-													Aggregator {abstract}
-											custom {abstract}
-					Edges {abstract}
-						mandatory
-							FromNode {abstract}
-							ToNode {abstract}
+			WorkflowName {abstract}
+			Items {abstract}
+				alternative
+					Agents {abstract}
+					Modules {abstract}
 		optional
-			RootNode {abstract}
 			Memory {abstract}
