@@ -11,7 +11,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict
-
+from markdown import markdown
 import yaml
 import mysql.connector
 from dotenv import load_dotenv
@@ -59,6 +59,19 @@ try:
 except Exception:
     pass
 
+def _read_md_as_html(md_path: str) -> str:
+    if not md_path:
+        return ""
+
+    abs_path = md_path if os.path.isabs(md_path) else os.path.join(BASE_DIR, md_path)
+
+    try:
+        with open(abs_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
+    except Exception:
+        return ""
+
+    return markdown(md_text, extensions=["fenced_code", "tables", "toc"])
 
 def get_db_connection():
     if not DB_PASS:
@@ -144,33 +157,33 @@ def get_task_info(task_id):
     task = TASKS_CONFIG.get(task_id)
     if not task:
         return jsonify({"error": "Task unknown"}), 404
-    return jsonify(task)
 
+    task_out = dict(task)
+
+    md_path = task_out.get("description", "")
+    task_out["description"] = _read_md_as_html(md_path)
+
+    task_out["description_path"] = md_path
+
+    return jsonify(task_out)
 
 @app.post("/api/experiment/validate_task")
 def validate_task():
     return jsonify({"valid": True, "message": "Valid configuration."})
 
 
+TASK_IDS = [f"T{i}" for i in range(6)]
+
 @app.post("/api/experiment/start")
 def start_experiment():
     user_id = str(uuid.uuid4())
 
-    group_a = CONFIG['experiment']['group_a']
-    group_b = CONFIG['experiment']['group_b']
-
-    groups = [group_a, group_b]
-    random.shuffle(groups)
-
-    modes = ["GEAR", "MANUAL"]
-    random.shuffle(modes)
-
     experiment_sequence = []
-
-    for task_id in groups[0]:
-        experiment_sequence.append({"id": task_id, "mode": modes[0]})
-    for task_id in groups[1]:
-        experiment_sequence.append({"id": task_id, "mode": modes[1]})
+    for tid in TASK_IDS:
+        modes = ["GEAR", "MANUAL"]
+        random.shuffle(modes)
+        for m in modes:
+            experiment_sequence.append({"id": tid, "mode": m})
 
     try:
         conn = get_db_connection()
@@ -191,6 +204,7 @@ def start_experiment():
         "first_task": experiment_sequence[0],
         "total_tasks": len(experiment_sequence)
     })
+
 
 
 @app.post("/api/experiment/log_start")

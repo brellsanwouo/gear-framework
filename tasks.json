@@ -1,22 +1,32 @@
 {
+  "T0": {
+    "title": "SystemDescriberTask",
+    "description": "data/AgentGridPlanning/P0.md",
+    "time_limit_seconds": 100
+  },
   "T1": {
-    "title": "Création d'un Scraper",
-    "description": "<h3>Objectif</h3><p>Vous devez créer un agent capable de récupérer des données sur le web.</p><ul><li>Nom de l'agent : <strong>ScraperBot</strong></li><li>Technologie : <strong>Python</strong></li><li>Librairie : <strong>Selenium</strong></li></ul><p>L'agent doit avoir une feature 'Log' activée.</p>",
+    "title": "2 agents sequentiels",
+    "description": "data/AgentGridPlanning/P1.md",
     "time_limit_seconds": 100
   },
   "T2": {
-    "title": "Module Base de Données",
-    "description": "<h3>Objectif</h3><p>Définissez un module de persistance.</p><p>Il doit supporter <strong>PostgreSQL</strong> et permettre le chiffrement des données (feature 'Encryption').</p>",
+    "title": "4 agents sequentiels",
+    "description": "data/AgentGridPlanning/P2.md",
     "time_limit_seconds": 100
   },
   "T3": {
-    "title": "Rédaction Assistée IA",
-    "description": "<h3>Objectif</h3><p>Créez un agent rédacteur.</p><p>Il doit utiliser le LLM <strong>GPT-4</strong> et avoir une mémoire vectorielle activée.</p>",
+    "title": "8 agents (3 en parallele)",
+    "description": "data/AgentGridPlanning/P3.md",
     "time_limit_seconds": 100
   },
   "T4": {
-    "title": "Orchestration",
-    "description": "<h3>Objectif</h3><p>Reliez les agents précédents.</p><p>Le flux doit être : Scraper -> Database -> Writer.</p>",
+    "title": "8 agents (boucle 2 tours sur 2 agents)",
+    "description": "data/AgentGridPlanning/P4.md",
+    "time_limit_seconds": 100
+  },
+  "T5": {
+    "title": "8 agents (boucle 2 tours sur 3 agents)",
+    "description": "data/AgentGridPlanning/P5.md",
     "time_limit_seconds": 100
   }
 }
