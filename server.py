@@ -20,11 +20,6 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flamapy.interfaces.python import FLAMAFeatureModel
 
-# import mlflow
-#
-# mlflow.set_tracking_uri("http://localhost:5000")
-# mlflow.set_experiment("Gear-Controlled-Experiment")
-
 BASE_DIR = Path(__file__).resolve().parent
 UI_DIR = BASE_DIR / "ui"
 
@@ -52,6 +47,60 @@ TASKS_FILE_PATH = BASE_DIR / CONFIG['paths']['tasks_file']
 app = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
 CORS(app)
 
+def get_db_connection():
+    if not DB_PASS:
+        raise ValueError("DB_PASSWORD missing")
+
+    conn = mysql.connector.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME
+    )
+    return conn
+
+def init_db():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+                   CREATE TABLE IF NOT EXISTS users (
+                       user_id VARCHAR(255) PRIMARY KEY,
+                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       group_order TEXT,
+                       current_task_index INT DEFAULT 0
+                   )
+               """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS task_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(255),
+                task_id VARCHAR(255),
+                mode VARCHAR(50),
+                start_time DOUBLE,
+                end_time DOUBLE,
+                duration DOUBLE,
+                total_tokens INT DEFAULT 0,
+                llm_calls INT DEFAULT 0,
+                error_count INT DEFAULT 0,
+                return_code INT DEFAULT 0,
+                completed BOOLEAN DEFAULT FALSE,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+
+
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"DB Error: {e}")
+
+
+init_db()
+
 TASKS_CONFIG = {}
 try:
     with open(TASKS_FILE_PATH, "r", encoding="utf-8") as f:
@@ -73,83 +122,52 @@ def _read_md_as_html(md_path: str) -> str:
 
     return markdown(md_text, extensions=["fenced_code", "tables", "toc"])
 
-def get_db_connection():
-    if not DB_PASS:
-        raise ValueError("DB_PASSWORD missing")
+def get_instrumentation_prefix():
+    return """
+import json
+import sys
+import atexit
 
-    conn = mysql.connector.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASS,
-        database=DB_NAME
-    )
-    print(conn)
-    return conn
+LLM_CALLS = 0
+TOTAL_TOKENS = 0
+ERROR_COUNT = 0
 
+# -------- OpenAI --------
+try:
+    import openai
 
-def init_db():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+    _orig_create = openai.resources.chat.completions.Completions.create
 
-        cur.execute("""
-                    CREATE TABLE IF NOT EXISTS users
-                    (
-                        user_id
-                        VARCHAR
-                    (
-                        255
-                    ) PRIMARY KEY,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        group_order TEXT,
-                        current_task_index INT DEFAULT 0
-                        )
-                    """)
+    def patched_create(self, *args, **kwargs):
+        global LLM_CALLS, TOTAL_TOKENS, ERROR_COUNT
+        LLM_CALLS += 1
+        try:
+            response = _orig_create(self, *args, **kwargs)
+            usage = getattr(response, "usage", None)
+            if usage:
+                TOTAL_TOKENS += getattr(usage, "total_tokens", 0)
+            return response
+        except Exception:
+            ERROR_COUNT += 1
+            raise
 
-        cur.execute("""
-                    CREATE TABLE IF NOT EXISTS task_logs
-                    (
-                        id
-                        INT
-                        AUTO_INCREMENT
-                        PRIMARY
-                        KEY,
-                        user_id
-                        VARCHAR
-                    (
-                        255
-                    ),
-                        task_id VARCHAR
-                    (
-                        255
-                    ),
-                        mode VARCHAR
-                    (
-                        50
-                    ),
-                        start_time DOUBLE,
-                        end_time DOUBLE,
-                        duration DOUBLE,
-                        completed BOOLEAN DEFAULT FALSE,
-                        FOREIGN KEY
-                    (
-                        user_id
-                    ) REFERENCES users
-                    (
-                        user_id
-                    )
-                        )
-                    """)
+    openai.resources.chat.completions.Completions.create = patched_create
 
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"DB Error: {e}")
+except Exception:
+    pass
 
+def _export_metrics():
+    sys.stderr.write("__GEAR_METRICS_START__\\n")
+    sys.stderr.write(json.dumps({
+        "llm_calls": LLM_CALLS,
+        "total_tokens": TOTAL_TOKENS,
+        "error_count": ERROR_COUNT
+    }))
+    sys.stderr.write("\\n__GEAR_METRICS_END__\\n")
 
-init_db()
+atexit.register(_export_metrics)
+"""
+
 
 
 @app.get("/api/experiment/task_info/<task_id>")
@@ -226,15 +244,7 @@ def log_task_start():
         conn.commit()
         cur.close()
         conn.close()
-        #
-        # # ---------------- MLflow ----------------
-        # mlflow.start_run(run_name=f"{user_id}_{task_id}")
-        # mlflow.set_tag("user_id", user_id)
-        # mlflow.set_tag("task_id", task_id)
-        # mlflow.set_tag("mode", mode)
-        # mlflow.log_metric("start_time", start_time)
-        #
-        # return jsonify({"log_id": log_id, "start_time": start_time})
+        return jsonify({"log_id": log_id, "start_time": start_time})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -243,40 +253,57 @@ def log_task_start():
 def log_task_end():
     data = request.json
     log_id = data.get("log_id")
+    metrics = data.get("metrics", {})
+    return_code = data.get("returncode", 0)
     end_time = time.time()
+
+    llm_calls = metrics.get("llm_calls", 0)
+    total_tokens = metrics.get("total_tokens", 0)
+    error_count = metrics.get("error_count", 0)
 
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT start_time FROM task_logs WHERE id = %s", (log_id,))
+        cur.execute("SELECT start_time FROM task_logs WHERE id=%s", (log_id,))
         result = cur.fetchone()
 
-        if result:
-            start_time = result[0]
-            duration = end_time - start_time
-
-            cur.execute(
-                "UPDATE task_logs SET end_time = %s, duration = %s, completed = %s WHERE id = %s",
-                (end_time, duration, True, log_id)
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            #
-            # # ---------------- MLflow ----------------
-            # mlflow.log_metric("end_time", end_time)
-            # mlflow.log_metric("duration", duration)
-            # mlflow.end_run()
-
-            return jsonify({"success": True, "duration": duration})
-        else:
-            cur.close()
-            conn.close()
+        if not result:
             return jsonify({"error": "Log ID not found"}), 404
+
+        start_time = result[0]
+        duration = end_time - start_time
+
+        cur.execute("""
+            UPDATE task_logs
+            SET end_time=%s,
+                duration=%s,
+                total_tokens=%s,
+                llm_calls=%s,
+                error_count=%s,
+                return_code=%s,
+                completed=%s
+            WHERE id=%s
+        """, (
+            end_time,
+            duration,
+            total_tokens,
+            llm_calls,
+            error_count,
+            return_code,
+            True,
+            log_id
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({"success": True, "duration": duration})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 
@@ -342,7 +369,7 @@ def project_files(filename: str) -> Any:
     return send_from_directory(BASE_DIR, filename)
 
 
-def _ensure_kickoff(code: str, inputs: Dict[str, Any]) -> str:
+def _ensure_kickoff(code: str) -> str:
     if "kickoff(" in code:
         return code
     wrapper = textwrap.dedent(
@@ -358,18 +385,19 @@ def _ensure_kickoff(code: str, inputs: Dict[str, Any]) -> str:
 
 
 @app.post("/api/run")
-def run_orchestration() -> Any:
+def run_orchestration():
     payload = request.get_json(silent=True) or {}
     code = payload.get("code", "")
-    inputs = payload.get("inputs", {})
     target = payload.get("target", "crewai")
 
-    if not isinstance(code, str) or not code.strip():
-        return jsonify({"error": "Empty code."}), 400
-    if not isinstance(inputs, dict):
-        return jsonify({"error": "Inputs must be JSON object."}), 400
+    if not code.strip():
+        return jsonify({"error": "Empty code"}), 400
 
-    code_to_run = code if target == "adk" else _ensure_kickoff(code, inputs)
+    code_to_run = code if target == "adk" else _ensure_kickoff(code)
+
+    prefix = get_instrumentation_prefix()
+
+    final_code = prefix + "\n" + code_to_run
 
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
@@ -379,7 +407,7 @@ def run_orchestration() -> Any:
 
     with tempfile.TemporaryDirectory() as temp_dir:
         script_path = Path(temp_dir) / "orchestration.py"
-        script_path.write_text(code_to_run, encoding="utf-8")
+        script_path.write_text(final_code, encoding="utf-8")
 
         result = subprocess.run(
             [sys.executable, str(script_path)],
@@ -387,15 +415,33 @@ def run_orchestration() -> Any:
             text=True,
             env=env,
             cwd=str(BASE_DIR),
-            timeout=180,
+            timeout=180
         )
 
-    return jsonify({
-        "stdout": result.stdout or "",
-        "stderr": result.stderr or "",
-        "returncode": result.returncode,
-    })
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
 
+    metrics = {"llm_calls": 0, "total_tokens": 0, "error_count": 0}
+
+    if "__GEAR_METRICS_START__" in stderr:
+        try:
+            json_part = stderr.split("__GEAR_METRICS_START__")[1]
+            json_part = json_part.split("__GEAR_METRICS_END__")[0].strip()
+            metrics = json.loads(json_part)
+            parts = stderr.split("__GEAR_METRICS_START__")
+            stderr = parts[0]
+
+        except Exception:
+            pass
+    if result.returncode != 0:
+        metrics["error_count"] += 1
+
+    return jsonify({
+        "stdout": stdout,
+        "stderr": stderr,
+        "returncode": result.returncode,
+        "metrics": metrics
+    })
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():

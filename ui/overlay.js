@@ -142,7 +142,12 @@
             await fetch('/api/experiment/log_end', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ log_id: logId })
+                body: JSON.stringify({
+                log_id: logId,
+                metrics: window.currentTaskMetrics || {},
+                returncode: window.currentReturnCode ?? 0
+            })
+
             });
         }
 

@@ -3721,6 +3721,22 @@ const bindOutputUiInteractions = () => {
         signal: crewaiRunAborter.signal,
       });
       const payload = await response.json();
+      if (!window.currentTaskMetrics) {
+          window.currentTaskMetrics = {
+              total_tokens: 0,
+              total_errors: 0,
+              runs: 0
+          };
+      }
+
+      const m = payload.metrics || {};
+
+      window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
+      window.currentTaskMetrics.total_errors += m.total_errors || 0;
+      window.currentTaskMetrics.runs += 1;
+
+window.currentReturnCode = payload.returncode ?? 0;
+
       if (!response.ok) {
         throw new Error(payload?.error || "Erreur d'exécution");
       }
@@ -3781,6 +3797,9 @@ const bindOutputUiInteractions = () => {
         signal: adkRunAborter.signal,
       });
       const payload = await response.json();
+      window.currentTaskMetrics = payload.metrics || {};
+      window.currentReturnCode = payload.returncode ?? 0;
+
       if (!response.ok) {
         throw new Error(payload?.error || "Erreur d'exécution");
       }
