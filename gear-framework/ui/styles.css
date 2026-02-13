@@ -1395,3 +1395,30 @@ button.secondary.accent {
   background: #f1f5f9;
   border: 1px dashed #cbd5e1;
 }
+
+.output-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.output-wrapper label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+}
+
+.run-output {
+    flex: 1;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #334155;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin: 0;
+}

@@ -5,3 +5,7 @@ python-dotenv
 flamapy
 psycopg2-binary
 mysql-connector-python
+crewai
+google
+google.adk
+mlflow

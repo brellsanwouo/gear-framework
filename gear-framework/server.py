@@ -20,6 +20,11 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flamapy.interfaces.python import FLAMAFeatureModel
 
+# import mlflow
+#
+# mlflow.set_tracking_uri("http://localhost:5000")
+# mlflow.set_experiment("Gear-Controlled-Experiment")
+
 BASE_DIR = Path(__file__).resolve().parent
 UI_DIR = BASE_DIR / "ui"
 
@@ -196,7 +201,6 @@ def log_task_start():
     mode = data.get("mode")
     start_time = time.time()
 
-    log_id = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -208,14 +212,21 @@ def log_task_start():
         conn.commit()
         cur.close()
         conn.close()
+        #
+        # # ---------------- MLflow ----------------
+        # mlflow.start_run(run_name=f"{user_id}_{task_id}")
+        # mlflow.set_tag("user_id", user_id)
+        # mlflow.set_tag("task_id", task_id)
+        # mlflow.set_tag("mode", mode)
+        # mlflow.log_metric("start_time", start_time)
+        #
+        # return jsonify({"log_id": log_id, "start_time": start_time})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    return jsonify({"log_id": log_id, "start_time": start_time})
-
-
 @app.post("/api/experiment/log_end")
-def log_task_end() -> Any:
+def log_task_end():
     data = request.json
     log_id = data.get("log_id")
     end_time = time.time()
@@ -238,6 +249,12 @@ def log_task_end() -> Any:
             conn.commit()
             cur.close()
             conn.close()
+            #
+            # # ---------------- MLflow ----------------
+            # mlflow.log_metric("end_time", end_time)
+            # mlflow.log_metric("duration", duration)
+            # mlflow.end_run()
+
             return jsonify({"success": True, "duration": duration})
         else:
             cur.close()
@@ -246,6 +263,7 @@ def log_task_end() -> Any:
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.get("/experiment")

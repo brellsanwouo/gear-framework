@@ -1,98 +1,76 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('uid');
-    const taskId = params.get('tid');
 
-    const timerDisplay = document.getElementById('timer');
-    const taskIdDisplay = document.getElementById('taskId');
-    const instructionsDisplay = document.getElementById('instructions');
-    const finishBtn = document.getElementById('finishBtn');
+    const runBtn = document.getElementById('runWorkflowBtn');
+    const stopBtn = document.getElementById('stopWorkflowBtn');
+    const outputPre = document.getElementById('runOutput');
+    const inputArea = document.getElementById('manualInput');
+    const frameworkSelect = document.getElementById('frameworkTarget');
 
-    let logId = null;
-    let startTime = Date.now();
-    let timerInterval = null;
 
-    const INSTRUCTIONS = {
-        "T1": "Écrivez le YAML pour un agent nommé 'Scraper' utilisant Python et Selenium.",
-        "T2": "Définissez un module de base de données PostgreSQL.",
-        "T3": "Créez un agent Writer connecté à OpenAI (GPT-4).",
-        "T4": "Orchestrez le lien entre l'agent Scraper et l'agent Writer."
-    };
+    const API_RUN_ENDPOINT = "/api/run";
+    let runAborter = null;
 
-    taskIdDisplay.textContent = taskId || "?";
-    instructionsDisplay.textContent = INSTRUCTIONS[taskId] || "Instructions indisponibles pour cette tâche.";
 
-    async function initTask() {
-        if (!userId || !taskId) {
-            alert("Erreur : Paramètres utilisateur manquants (uid ou tid).");
-            return;
-        }
+    if (runBtn) {
+        runBtn.addEventListener('click', async () => {
+            const code = inputArea.value;
+            if (!code || !code.trim()) {
+                outputPre.textContent = "# Veuillez entrer du code avant d'exécuter.";
+                return;
+            }
 
-        try {
-            const res = await fetch('/api/experiment/log_start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    user_id: userId,
-                    task_id: taskId,
-                    mode: 'MANUAL'
-                })
-            });
+            const targetFramework = frameworkSelect.value;
 
-            if (!res.ok) throw new Error("Erreur serveur");
+            if (runAborter) runAborter.abort();
+            runAborter = new AbortController();
+            outputPre.textContent = `# Exécution du workflow (${targetFramework})...`;
+            outputPre.classList.remove('error');
 
-            const data = await res.json();
-            logId = data.log_id;
+            try {
+                const response = await fetch(API_RUN_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        code: code,
+                        inputs: {},
+                        target: targetFramework
+                    }),
+                    signal: runAborter.signal,
+                });
 
-            startTimer();
+                const payload = await response.json();
 
-        } catch (error) {
-            console.error("Impossible de démarrer le log:", error);
-            instructionsDisplay.textContent += " (Erreur de connexion serveur)";
-        }
+                if (!response.ok) {
+                    throw new Error(payload?.error || "Erreur d'exécution serveur");
+                }
+
+                const stdout = payload?.stdout || "";
+                const stderr = payload?.stderr || "";
+                const combined = [stdout, stderr].filter(Boolean).join("\n");
+
+                outputPre.textContent = combined || "# Exécution terminée (aucun résultat affichable).";
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    outputPre.textContent += "\n# Exécution arrêtée par l'utilisateur.";
+                } else {
+                    console.error(error);
+                    outputPre.textContent = `# Erreur : ${error.message || error}`;
+                    outputPre.classList.add('error');
+                }
+            } finally {
+                runAborter = null;
+            }
+        });
     }
 
-    function startTimer() {
-        timerInterval = setInterval(() => {
-            const diff = Math.floor((Date.now() - startTime) / 1000);
-            const m = Math.floor(diff / 60).toString().padStart(2, '0');
-            const s = (diff % 60).toString().padStart(2, '0');
-            timerDisplay.textContent = `${m}:${s}`;
-        }, 1000);
+
+    if (stopBtn) {
+        stopBtn.addEventListener('click', () => {
+            if (runAborter) {
+                runAborter.abort();
+                runAborter = null;
+            }
+        });
     }
-
-    finishBtn.addEventListener('click', async () => {
-        if (!logId) {
-            alert("La tâche n'a pas été correctement initialisée.");
-            return;
-        }
-
-        if(!confirm("Avez-vous terminé votre code YAML/JSON ?")) return;
-
-        finishBtn.disabled = true;
-        finishBtn.textContent = "Enregistrement...";
-        clearInterval(timerInterval);
-
-        try {
-            await fetch('/api/experiment/log_end', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ log_id: logId })
-            });
-
-            let idx = parseInt(localStorage.getItem('gear_index') || '0');
-            localStorage.setItem('gear_index', idx + 1);
-
-            // Retour au Hub
-            window.location.href = '/experiment';
-
-        } catch (error) {
-            console.error("Erreur lors de la fin de tâche:", error);
-            alert("Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.");
-            finishBtn.disabled = false;
-            finishBtn.textContent = "Valider & Terminer";
-        }
-    });
-
-    initTask();
 });

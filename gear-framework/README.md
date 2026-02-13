@@ -96,7 +96,7 @@ source .venv/bin/activate
 ### 2) Install base dependencies
 ```
 pip install --upgrade pip
-pip install flask flask-cors pyyaml python-dotenv flamapy psycopg2-binary mysql-connector-python
+pip install flask flask-cors pyyaml python-dotenv flamapy psycopg2-binary mysql-connector-python crewai google google.adk mlflow
 pip install google-adk litellm
 ```
 

@@ -372,10 +372,13 @@ const renderOutputLayoutFromRegistry = (registry) => {
           `
           <div class="run-panel">
             <div class="run-actions">
-              <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">Exécuter le workflow</button>
-              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">Arrêter</button>
+              <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">▶ Exécuter le workflow</button>
+              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">■ Arrêter</button>
             </div>
-            <pre class="code-sample run-output" id="${framework.id === "crewai" ? "crewaiRunOutput" : "adkRunOutput"}"># Résultat d'exécution</pre>
+            <div class="output-wrapper">
+                <label>Sortie console :</label>
+                <pre class="code-sample run-output" id="${framework.id === "crewai" ? "crewaiRunOutput" : "adkRunOutput"}"> Résultat d'exécution</pre>
+            </div>
           </div>
         `,
         );

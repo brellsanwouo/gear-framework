@@ -4,27 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mode Manuel - Éditeur de Code</title>
-
     <link rel="stylesheet" href="manual.css">
+
     <link rel="stylesheet" href="overlay.css">
     <script src="overlay.js" defer></script>
+
+    <script src="manual.js" defer></script>
 </head>
 <body>
 
-    <div class="editor-container">
-        <textarea
-            id="manualInput"
-            placeholder="# Collez votre code Python ici...
-Example:
-from crewai import Agent
+    <main class="main-card">
 
-agent = Agent(
-    role='Scraper',
-    goal='Extraire des données',
-    ...
-)"
-            spellcheck="false"></textarea>
-    </div>
+        <div class="editor-column">
+            <h3 class="section-title">Éditeur de script</h3>
+            <div class="editor-container">
+                <textarea
+                    id="manualInput"
+                    placeholder="# Sélectionnez votre framework à droite, puis collez votre code ici...
+# Exemple CrewAI :
+from crewai import Agent, Task, Crew
+...
+
+# Exemple Google ADK :
+from google.adk.agents import Agent
+..."
+                    spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <aside class="run-panel">
+            <h3 class="section-title">Configuration</h3>
+
+            <div class="control-group">
+                <label for="frameworkTarget">Framework Cible :</label>
+                <select id="frameworkTarget" class="framework-select">
+                    <option value="crewai">CrewAI</option>
+                    <option value="adk">Google ADK</option>
+                </select>
+            </div>
+
+            <div class="run-actions">
+                <button type="button" id="runWorkflowBtn" class="secondary action-btn">▶ Exécuter le workflow</button>
+                <button type="button" id="stopWorkflowBtn" class="secondary danger action-btn">■ Arrêter</button>
+            </div>
+
+            <div class="output-wrapper">
+                <label>Sortie console :</label>
+                <pre id="runOutput" class="code-sample run-output"># En attente d'exécution...</pre>
+            </div>
+        </aside>
+
+    </main>
 
 </body>
 </html>
