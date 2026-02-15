@@ -87,7 +87,10 @@
         body: JSON.stringify({ user_id: userId, task_id: taskId, mode: mode })
     })
     .then(r => r.json())
-    .then(d => logId = d.log_id)
+    .then(d => {
+      logId = d.log_id;
+      window.currentLogId = logId;
+    })
     .catch(e => console.error("Erreur log start (non bloquant)", e));
 
     const drawer = document.getElementById('expDrawer');
@@ -120,7 +123,7 @@
             const result = await res.json();
 
             if (result.valid) {
-                finishTask("Tâche validée avec succès !");
+                finishTask(userCode);
             } else {
                 showToast(result.message || "Configuration invalide.", 'error');
                 btnValidate.disabled = false;
@@ -134,18 +137,18 @@
         }
     };
 
-    async function finishTask(message = "") {
+    async function finishTask(code) {
+        message= "Tâche validée avec succès !"
         clearInterval(timerInterval);
         if(message) showToast(message, 'success');
-
         if (logId) {
             await fetch('/api/experiment/log_end', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                 log_id: logId,
-                metrics: window.currentTaskMetrics || {},
-                returncode: window.currentReturnCode ?? 0
+               // metrics: window.currentTaskMetrics || {},
+                code : code
             })
 
             });

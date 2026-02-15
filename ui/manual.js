@@ -27,34 +27,40 @@ document.addEventListener('DOMContentLoaded', () => {
             outputPre.classList.remove('error');
 
             try {
+                const logId = window.currentLogId;
+                if (!logId) {
+                  outputPre.textContent = "log_id manquant";
+                  return;
+                }
                 const response = await fetch(API_RUN_ENDPOINT, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        code: code,
-                        inputs: {},
-                        target: targetFramework
-                    }),
-                    signal: runAborter.signal,
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    log_id: logId,
+                    code: code,
+                    inputs: {},
+                    target: targetFramework
+                  }),
+                  signal: runAborter.signal,
                 });
 
                 const payload = await response.json();
 
-                if (!window.currentTaskMetrics) {
-                    window.currentTaskMetrics = {
-                        total_tokens: 0,
-                        total_errors: 0,
-                        runs: 0
-                    };
-                }
+                // if (!window.currentTaskMetrics) {
+                //     window.currentTaskMetrics = {
+                //         total_tokens: 0,
+                //         total_errors: 0,
+                //         llm_calls: 0,
+                //     };
+                // }
+                //
+                // const m = payload.metrics || {};
+                //
+                // window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
+                // window.currentTaskMetrics.total_errors += m.total_errors || 0;
+                // window.currentTaskMetrics.llm_calls += m.llm_calls || 0;
 
-                const m = payload.metrics || {};
-
-                window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
-                window.currentTaskMetrics.total_errors += m.total_errors || 0;
-                window.currentTaskMetrics.runs += 1;
-
-                window.currentReturnCode = payload.returncode ?? 0;
+                //window.currentReturnCode = payload.returncode ?? 0;
 
 
 

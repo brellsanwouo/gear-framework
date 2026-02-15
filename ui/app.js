@@ -3714,28 +3714,33 @@ const bindOutputUiInteractions = () => {
         crewaiRunOutput.textContent = "# Exécution en cours...";
       }
     try {
-      const response = await fetch(CREWAI_RUN_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "crewai" }),
-        signal: crewaiRunAborter.signal,
-      });
-      const payload = await response.json();
-      if (!window.currentTaskMetrics) {
-          window.currentTaskMetrics = {
-              total_tokens: 0,
-              total_errors: 0,
-              runs: 0
-          };
-      }
+        const logId = window.currentLogId;
+        if (!logId) {
+          crewaiRunOutput.textContent = "log_id manquant";
+          return;
+        }
+        const response = await fetch(CREWAI_RUN_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: workflowCode, inputs: {}, target: "crewai", log_id: logId}),
+          signal: crewaiRunAborter.signal,
+        });
+        const payload = await response.json();
 
-      const m = payload.metrics || {};
+      // if (!window.currentTaskMetrics) {
+      //     window.currentTaskMetrics = {
+      //         total_tokens: 0,
+      //         total_errors: 0,
+      //         llm_calls: 0,
+      //     };
+      // }
+      //
+      // const m = payload.metrics || {};
+      //
+      // window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
+      // window.currentTaskMetrics.total_errors += m.total_errors || 0;
+      // window.currentTaskMetrics.llm_calls += m.llm_calls || 0;
 
-      window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
-      window.currentTaskMetrics.total_errors += m.total_errors || 0;
-      window.currentTaskMetrics.runs += 1;
-
-window.currentReturnCode = payload.returncode ?? 0;
 
       if (!response.ok) {
         throw new Error(payload?.error || "Erreur d'exécution");
@@ -3790,15 +3795,34 @@ window.currentReturnCode = payload.returncode ?? 0;
       adkRunOutput.textContent = "# Exécution en cours...";
     }
     try {
+
+      const logId = window.currentLogId;
+      if (!logId) {
+        crewaiRunOutput.textContent = "log_id manquant";
+        return;
+      }
       const response = await fetch(CREWAI_RUN_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "adk" }),
+        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "adk", log_id: logId}),
         signal: adkRunAborter.signal,
       });
+
       const payload = await response.json();
-      window.currentTaskMetrics = payload.metrics || {};
-      window.currentReturnCode = payload.returncode ?? 0;
+
+      // if (!window.currentTaskMetrics) {
+      //     window.currentTaskMetrics = {
+      //         total_tokens: 0,
+      //         total_errors: 0,
+      //         llm_calls: 0,
+      //     };
+      // }
+      //
+      // const m = payload.metrics || {};
+      //
+      // window.currentTaskMetrics.total_tokens += m.total_tokens || 0;
+      // window.currentTaskMetrics.total_errors += m.total_errors || 0;
+      // window.currentTaskMetrics.llm_calls += m.llm_calls || 0;
 
       if (!response.ok) {
         throw new Error(payload?.error || "Erreur d'exécution");

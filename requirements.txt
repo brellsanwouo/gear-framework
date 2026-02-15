@@ -5,7 +5,10 @@ python-dotenv
 psycopg2-binary
 mysql-connector-python
 crewai
-google.adk
+google-adk
 mlflow
 flamapy
 markdown
+tiktoken
+opentelemetry-exporter-otlp-proto-http
+litellm
