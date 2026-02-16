@@ -76,6 +76,7 @@
       getMappedValue(mapped, "LLMAgentConfig.Model"),
     );
     setIfMeaningful(llmAgentConfig, "Model", modelValue);
+    setIfMeaningful(llmAgentConfig, "Provider", gearAgent.LLMConfiguration?.Provider);
     setIfMeaningful(
       generateContentConfig,
       "Temperature",
@@ -144,17 +145,12 @@
           return null;
         }
         const parallelAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Parallel.SubAgents"));
-        const aggregator = String(getMappedValue(mappedModule, "Runtime.Module.Parallel.Aggregator") || "").trim();
         const loopAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Loop.SubAgents"));
         const turnCount = parseNumberValue(getMappedValue(mappedModule, "Runtime.Module.Loop.MaxIterations"));
-        if (strategy === "parallel" && !aggregator) {
-          return { error: `# Module parallel sans aggregator: ${name}` };
-        }
         return {
           name,
           strategy,
           parallelAgents,
-          aggregator,
           loopAgents,
           turnCount,
         };
@@ -399,16 +395,6 @@
             SubAgents: subAgents.map((name) => ({ Name: name })),
           },
         };
-        if (moduleConfig.strategy === "parallel" && moduleConfig.aggregator) {
-          const pipelineKey = ensureUniqueKey(`${moduleConfig.name}Pipeline`, "pipeline", index + 1, usedKeys);
-          adkAgents[pipelineKey] = {
-            BaseAgent: {
-              AgentType: "SequentialAgent",
-              Name: `${moduleConfig.name}Pipeline`,
-              SubAgents: [{ Name: moduleConfig.name }, { Name: moduleConfig.aggregator }],
-            },
-          };
-        }
       });
 
       const workflowCode = buildAdkWorkflowCode(
@@ -422,6 +408,7 @@
       return {
         outputs: {
           agents: adkAgents,
+          modules: moduleConfigs,
           orchestration: workflowCode,
         },
       };

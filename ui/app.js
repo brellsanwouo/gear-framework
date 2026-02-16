@@ -50,6 +50,26 @@ const ADK_AGENT_MAPPING_PATH = "connectors/frameworks/adk/agent.mapping.yml";
 const ADK_MULTI_MAPPING_PATH = "connectors/frameworks/adk/multiagent.mapping.yml";
 const ADK_MODULE_MAPPING_PATH = "connectors/frameworks/adk/module.mapping.yml";
 
+const SCALAR_ENUM_PARENTS_BY_KIND = {
+  agent: new Set(["Provider", "Model"]),
+};
+
+const FIXED_FEATURE_VALUES_BY_NAME = {
+  APIKey: "OPENAI_API_KEY",
+};
+
+const TASK_FROM_PREFIXES = ["TaskSpecification"];
+const TASK_TO_PREFIXES = ["Task."];
+
+const FRAMEWORK_LIMITATIONS = {
+  crewai: {
+    orchestration: [
+      { from: "GearWorkflow.Process.Parallel", notes: "CrewAI ne supporte pas le workflow parallele." },
+      { from: "GearWorkflow.Process.Loop", notes: "CrewAI ne supporte pas le workflow en boucle." },
+    ],
+  },
+};
+
 let agentModel = null;
 let moduleModel = null;
 let orchestrationModel = null;
@@ -72,7 +92,6 @@ const DEFAULT_MODULE_UVL_FALLBACK = `features
           Parallel {abstract}
             mandatory
               ParallelAgents {abstract}
-              Aggregator {abstract}
           Loop {abstract}
             mandatory
               TurnCount {abstract}
@@ -134,13 +153,205 @@ const indentOf = (line) => {
 };
 
 const parseFeatureLine = (line) => {
-  const nameMatch = line.match(/^([A-Za-z0-9_]+)/);
+  const nameMatch = line.match(/^([A-Za-z0-9_.-]+)/);
   if (!nameMatch) {
     return null;
   }
   const name = nameMatch[1];
-  const abstract = /abstract\s+true/.test(line);
+  const abstract =
+    /{[^}]*\babstract\b[^}]*}/i.test(line) || /\babstract\s+true\b/i.test(line);
   return { name, abstract };
+};
+
+const stripInlineComment = (line) => {
+  const idx = line.indexOf("//");
+  if (idx === -1) {
+    return line;
+  }
+  return line.slice(0, idx);
+};
+
+const tokenizeConstraint = (text) => {
+  const tokens = [];
+  let i = 0;
+  const push = (type, value) => {
+    tokens.push(value !== undefined ? { type, value } : { type });
+  };
+  while (i < text.length) {
+    const ch = text[i];
+    if (/\s/.test(ch)) {
+      i += 1;
+      continue;
+    }
+    if (text.startsWith("<=>", i)) {
+      push("IFF");
+      i += 3;
+      continue;
+    }
+    if (text.startsWith("=>", i)) {
+      push("IMPLIES");
+      i += 2;
+      continue;
+    }
+    if (ch === "(") {
+      push("LPAREN");
+      i += 1;
+      continue;
+    }
+    if (ch === ")") {
+      push("RPAREN");
+      i += 1;
+      continue;
+    }
+    if (ch === "!") {
+      push("NOT");
+      i += 1;
+      continue;
+    }
+    if (ch === "|") {
+      push("OR");
+      i += 1;
+      continue;
+    }
+    if (ch === "&") {
+      push("AND");
+      i += 1;
+      continue;
+    }
+    if (/[A-Za-z0-9_.-]/.test(ch)) {
+      let j = i + 1;
+      while (j < text.length && /[A-Za-z0-9_.-]/.test(text[j])) {
+        j += 1;
+      }
+      const word = text.slice(i, j);
+      const lower = word.toLowerCase();
+      if (lower === "or") {
+        push("OR");
+      } else if (lower === "and") {
+        push("AND");
+      } else if (lower === "not") {
+        push("NOT");
+      } else {
+        push("IDENT", word);
+      }
+      i = j;
+      continue;
+    }
+    i += 1;
+  }
+  return tokens;
+};
+
+const parseConstraintAst = (text) => {
+  const tokens = tokenizeConstraint(text);
+  let idx = 0;
+  const peek = () => tokens[idx] || null;
+  const match = (type) => {
+    if (peek()?.type === type) {
+      idx += 1;
+      return true;
+    }
+    return false;
+  };
+  const parseExpression = () => parseIff();
+  const parseIff = () => {
+    let node = parseImplies();
+    while (match("IFF")) {
+      const right = parseImplies();
+      node = { type: "iff", left: node, right };
+    }
+    return node;
+  };
+  const parseImplies = () => {
+    const left = parseOr();
+    if (match("IMPLIES")) {
+      const right = parseImplies();
+      return { type: "implies", left, right };
+    }
+    return left;
+  };
+  const parseOr = () => {
+    let node = parseAnd();
+    while (match("OR")) {
+      const right = parseAnd();
+      node = { type: "or", left: node, right };
+    }
+    return node;
+  };
+  const parseAnd = () => {
+    let node = parseUnary();
+    while (match("AND")) {
+      const right = parseUnary();
+      node = { type: "and", left: node, right };
+    }
+    return node;
+  };
+  const parseUnary = () => {
+    if (match("NOT")) {
+      const expr = parseUnary();
+      return { type: "not", expr };
+    }
+    if (match("LPAREN")) {
+      const expr = parseExpression();
+      match("RPAREN");
+      return expr;
+    }
+    const token = peek();
+    if (token?.type === "IDENT") {
+      idx += 1;
+      return { type: "ident", name: token.value };
+    }
+    return null;
+  };
+  const ast = parseExpression();
+  return ast;
+};
+
+const parseConstraints = (lines) => {
+  const constraints = [];
+  for (const line of lines) {
+    const trimmed = stripInlineComment(line).trim();
+    if (!trimmed) {
+      continue;
+    }
+    const ast = parseConstraintAst(trimmed);
+    constraints.push({ text: trimmed, ast });
+  }
+  return constraints;
+};
+
+const extractLiteral = (node) => {
+  if (!node) return null;
+  if (node.type === "ident") {
+    return { name: node.name, negated: false };
+  }
+  if (node.type === "not" && node.expr?.type === "ident") {
+    return { name: node.expr.name, negated: true };
+  }
+  return null;
+};
+
+const extractImplicationRules = (ast) => {
+  if (!ast) return [];
+  if (ast.type === "iff") {
+    const leftLit = extractLiteral(ast.left);
+    const rightLit = extractLiteral(ast.right);
+    if (leftLit && rightLit) {
+      return [
+        { left: leftLit, right: rightLit },
+        { left: rightLit, right: leftLit },
+      ];
+    }
+    return [];
+  }
+  if (ast.type === "implies") {
+    const leftLit = extractLiteral(ast.left);
+    const rightLit = extractLiteral(ast.right);
+    if (leftLit && rightLit) {
+      return [{ left: leftLit, right: rightLit }];
+    }
+  }
+  return [];
 };
 
 const createImplicitGroup = (groups, features, parentFeatureId) => {
@@ -165,13 +376,26 @@ const parseUvl = (text) => {
   const groups = {};
   const roots = [];
   const stack = [];
+  const constraintLines = [];
   let featureCounter = 0;
   let groupCounter = 0;
+  let inConstraints = false;
 
   const lines = text.split(/\r?\n/);
   for (const rawLine of lines) {
     const trimmed = rawLine.trim();
     if (!trimmed || trimmed.startsWith("//")) {
+      continue;
+    }
+    if (trimmed === "constraints") {
+      inConstraints = true;
+      continue;
+    }
+    if (inConstraints) {
+      const cleaned = stripInlineComment(rawLine).trim();
+      if (cleaned) {
+        constraintLines.push(cleaned);
+      }
       continue;
     }
     if (trimmed.startsWith("namespace") || trimmed === "features") {
@@ -244,7 +468,664 @@ const parseUvl = (text) => {
     stack.push({ kind: "feature", id: featureId, indent });
   }
 
-  return { features, groups, roots };
+  const model = { features, groups, roots };
+  model.constraints = parseConstraints(constraintLines);
+  model.constraintRules = model.constraints.flatMap((item) => extractImplicationRules(item.ast));
+  model.featureNameIndex = Object.values(features).reduce((acc, feature) => {
+    if (feature?.name && !acc[feature.name]) {
+      acc[feature.name] = feature.id;
+    }
+    return acc;
+  }, {});
+  return model;
+};
+
+const evaluateConstraintAst = (ast, selection) => {
+  if (!ast) {
+    return true;
+  }
+  switch (ast.type) {
+    case "ident":
+      return selection[ast.name] === true;
+    case "not":
+      return !evaluateConstraintAst(ast.expr, selection);
+    case "and":
+      return evaluateConstraintAst(ast.left, selection) && evaluateConstraintAst(ast.right, selection);
+    case "or":
+      return evaluateConstraintAst(ast.left, selection) || evaluateConstraintAst(ast.right, selection);
+    case "implies": {
+      const left = evaluateConstraintAst(ast.left, selection);
+      const right = evaluateConstraintAst(ast.right, selection);
+      return !left || right;
+    }
+    case "iff": {
+      const left = evaluateConstraintAst(ast.left, selection);
+      const right = evaluateConstraintAst(ast.right, selection);
+      return left === right;
+    }
+    default:
+      return true;
+  }
+};
+
+const buildSelectionMap = (state) => {
+  const selection = {};
+  if (!state?.model?.features) {
+    return selection;
+  }
+  Object.values(state.model.features).forEach((feature) => {
+    selection[feature.name] = isFeatureActive(state, feature.id);
+  });
+  return selection;
+};
+
+const getFeatureIdByName = (model, name) => {
+  if (!model || !name) {
+    return null;
+  }
+  return model.featureNameIndex?.[name] ?? null;
+};
+
+const setFeatureActiveById = (state, featureId, enabled) => {
+  const { model } = state;
+  const feature = model.features[featureId];
+  if (!feature) {
+    return false;
+  }
+  const currentlyActive = isFeatureActive(state, featureId);
+  if (enabled && currentlyActive) {
+    return false;
+  }
+  if (!enabled && !currentlyActive) {
+    return false;
+  }
+  if (enabled) {
+    activateAncestors(state, featureId);
+    if (feature.relationType === "optional") {
+      state.optionalSelections[featureId] = true;
+    } else if (feature.relationType === "alternative" && feature.parentGroupId) {
+      state.alternativeSelections[feature.parentGroupId] = featureId;
+    }
+    return true;
+  }
+  if (feature.relationType === "optional") {
+    state.optionalSelections[featureId] = false;
+    state.featureValues[featureId] = "";
+  } else if (feature.relationType === "alternative" && feature.parentGroupId) {
+    const group = model.groups[feature.parentGroupId];
+    const fallback = group?.children?.find((childId) => childId !== featureId) ?? featureId;
+    state.alternativeSelections[feature.parentGroupId] = fallback;
+  }
+  return true;
+};
+
+const enforceFixedValues = (state) => {
+  const { model } = state;
+  for (const [name, value] of Object.entries(FIXED_FEATURE_VALUES_BY_NAME)) {
+    const featureId = getFeatureIdByName(model, name);
+    if (!featureId) {
+      continue;
+    }
+    if (isFeatureActive(state, featureId)) {
+      state.featureValues[featureId] = value;
+    } else {
+      state.featureValues[featureId] = "";
+    }
+  }
+};
+
+const applyConstraintsToState = (state) => {
+  const { model } = state;
+  if (!model?.constraints?.length) {
+    state.constraintViolations = [];
+    return;
+  }
+  const rules = model.constraintRules || [];
+  let changed = true;
+  let safety = 0;
+  while (changed && safety < 10) {
+    changed = false;
+    safety += 1;
+    for (const rule of rules) {
+      if (rule.left?.negated) {
+        continue;
+      }
+      const leftId = getFeatureIdByName(model, rule.left.name);
+      if (!leftId || !isFeatureActive(state, leftId)) {
+        continue;
+      }
+      const rightId = getFeatureIdByName(model, rule.right.name);
+      if (!rightId) {
+        continue;
+      }
+      const shouldEnable = !rule.right.negated;
+      const updated = setFeatureActiveById(state, rightId, shouldEnable);
+      if (updated) {
+        changed = true;
+      }
+    }
+  }
+  enforceFixedValues(state);
+  const selection = buildSelectionMap(state);
+  const violations = model.constraints.filter((item) => item.ast && !evaluateConstraintAst(item.ast, selection));
+  state.constraintViolations = violations;
+};
+
+const isScalarEnumParent = (state, feature) => {
+  if (!state?.kind || !feature?.name) {
+    return false;
+  }
+  const set = SCALAR_ENUM_PARENTS_BY_KIND[state.kind];
+  if (!set) {
+    return false;
+  }
+  return set.has(feature.name);
+};
+
+const isScalarEnumGroup = (state, group) => {
+  if (!group || group.type !== "alternative") {
+    return false;
+  }
+  const parentFeature = state.model?.features?.[group.parentFeatureId];
+  return isScalarEnumParent(state, parentFeature);
+};
+
+const isScalarEnumChild = (state, feature) => {
+  if (!feature?.parentGroupId) {
+    return false;
+  }
+  const group = state.model?.groups?.[feature.parentGroupId];
+  if (!group || group.type !== "alternative") {
+    return false;
+  }
+  const parentFeature = state.model?.features?.[group.parentFeatureId];
+  return isScalarEnumParent(state, parentFeature);
+};
+
+const getFixedFeatureValue = (feature) => {
+  if (!feature?.name) {
+    return null;
+  }
+  return FIXED_FEATURE_VALUES_BY_NAME[feature.name] ?? null;
+};
+
+const normalizeFromList = (from) => {
+  if (!from) {
+    return [];
+  }
+  const list = Array.isArray(from) ? from : [from];
+  return list
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+};
+
+const isTaskMappingEntry = (entry) => {
+  const fromList = normalizeFromList(entry?.from);
+  if (fromList.some((item) => TASK_FROM_PREFIXES.some((prefix) => item.startsWith(prefix)))) {
+    return true;
+  }
+  const toValue = entry?.to ? String(entry.to).trim() : "";
+  return TASK_TO_PREFIXES.some((prefix) => toValue.startsWith(prefix));
+};
+
+const formatDisplayPath = (prefix, path) => {
+  if (!prefix) {
+    return path;
+  }
+  if (path === prefix || path.startsWith(`${prefix}.`)) {
+    return path;
+  }
+  return `${prefix}.${path}`;
+};
+
+const buildActiveTranslationSummary = (entries, sources, prefix) => {
+  const translated = new Map();
+  const untranslated = new Map();
+  const sourceList = Array.isArray(sources) ? sources : [];
+  (entries || []).forEach((entry) => {
+    const fromList = normalizeFromList(entry?.from);
+    if (!fromList.length) {
+      return;
+    }
+    const isTranslated = entry?.kind !== "not_mapped" && entry?.to;
+    fromList.forEach((fromPath) => {
+      const active = sourceList.some((source) => {
+        if (!source || typeof source !== "object") {
+          return false;
+        }
+        return getValueAtPath(source, pathToParts(fromPath)).exists;
+      });
+      if (!active) {
+        return;
+      }
+      const displayPath = formatDisplayPath(prefix, fromPath);
+      if (isTranslated) {
+        const targetPath = entry?.to ? String(entry.to).trim() : "";
+        const key = `${displayPath}=>${targetPath}`;
+        if (!translated.has(key)) {
+          translated.set(key, {
+            from: displayPath,
+            to: targetPath,
+            notes: entry?.notes,
+          });
+        }
+      } else {
+        if (!untranslated.has(displayPath)) {
+          untranslated.set(displayPath, {
+            from: displayPath,
+            notes: entry?.notes,
+          });
+        }
+      }
+    });
+  });
+  const toSortedArray = (map) =>
+    Array.from(map.values()).sort((a, b) => a.from.localeCompare(b.from, "fr"));
+  return {
+    translated: toSortedArray(translated),
+    untranslated: toSortedArray(untranslated),
+  };
+};
+
+const buildActiveTranslationSummaryFromPaths = (entries, activePaths) => {
+  const translated = new Map();
+  const untranslated = new Map();
+  const paths = Array.isArray(activePaths) ? activePaths : [];
+  const byFrom = new Map();
+
+  (entries || []).forEach((entry) => {
+    const fromList = normalizeFromList(entry?.from);
+    if (!fromList.length) {
+      return;
+    }
+    fromList.forEach((fromPath) => {
+      if (!byFrom.has(fromPath)) {
+        byFrom.set(fromPath, []);
+      }
+      byFrom.get(fromPath).push(entry);
+    });
+  });
+
+  paths.forEach((path) => {
+    const matches = byFrom.get(path) || [];
+    if (!matches.length) {
+      if (!untranslated.has(path)) {
+        untranslated.set(path, { from: path, notes: "Aucune correspondance." });
+      }
+      return;
+    }
+    let hasTranslated = false;
+    matches.forEach((entry) => {
+      const isTranslated = entry?.kind !== "not_mapped" && entry?.to;
+      if (!isTranslated) {
+        return;
+      }
+      const targetPath = entry?.to ? String(entry.to).trim() : "";
+      const key = `${path}=>${targetPath}`;
+      if (!translated.has(key)) {
+        translated.set(key, { from: path, to: targetPath, notes: entry?.notes });
+      }
+      hasTranslated = true;
+    });
+    if (!hasTranslated && !untranslated.has(path)) {
+      const note = matches.find((entry) => entry?.notes)?.notes;
+      untranslated.set(path, { from: path, notes: note });
+    }
+  });
+
+  const toSortedArray = (map) =>
+    Array.from(map.values()).sort((a, b) => a.from.localeCompare(b.from, "fr"));
+  return {
+    translated: toSortedArray(translated),
+    untranslated: toSortedArray(untranslated),
+  };
+};
+
+const buildUnavailableSummary = (entries, prefix) => {
+  const unavailable = new Map();
+  (entries || []).forEach((entry) => {
+    const fromList = normalizeFromList(entry?.from);
+    if (!fromList.length) {
+      return;
+    }
+    const isUnavailable = entry?.kind === "not_mapped" || !entry?.to;
+    if (!isUnavailable) {
+      return;
+    }
+    fromList.forEach((fromPath) => {
+      const displayPath = formatDisplayPath(prefix, fromPath);
+      if (!unavailable.has(displayPath)) {
+        unavailable.set(displayPath, {
+          from: displayPath,
+          notes: entry?.notes,
+        });
+      }
+    });
+  });
+  return Array.from(unavailable.values()).sort((a, b) => a.from.localeCompare(b.from, "fr"));
+};
+
+const buildFixedSummary = (entries) => {
+  const fixed = new Map();
+  (entries || []).forEach((entry) => {
+    const fromList = normalizeFromList(entry?.from);
+    if (fromList.length) {
+      return;
+    }
+    if (!entry?.to || !("value" in entry)) {
+      return;
+    }
+    const target = String(entry.to).trim();
+    if (!target) {
+      return;
+    }
+    const value = entry.value;
+    const label = `${target} = ${value}`;
+    if (!fixed.has(label)) {
+      fixed.set(label, { label, notes: entry?.notes });
+    }
+  });
+  return Array.from(fixed.values()).sort((a, b) => a.label.localeCompare(b.label, "fr"));
+};
+
+const getFrameworkLimitations = (frameworkId, outputKey) => {
+  const framework = FRAMEWORK_LIMITATIONS?.[frameworkId];
+  if (!framework) {
+    return [];
+  }
+  if (outputKey === "global") {
+    return Object.values(framework)
+      .flatMap((items) => (Array.isArray(items) ? items : []))
+      .map((item) => {
+        const from = item?.from ? String(item.from).trim() : "";
+        if (!from) {
+          return null;
+        }
+        return {
+          from,
+          to: null,
+          kind: "not_mapped",
+          notes: item?.notes,
+        };
+      })
+      .filter(Boolean);
+  }
+  const items = framework[outputKey];
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => {
+      const from = item?.from ? String(item.from).trim() : "";
+      if (!from) {
+        return null;
+      }
+      return {
+        from,
+        to: null,
+        kind: "not_mapped",
+        notes: item?.notes,
+      };
+    })
+    .filter(Boolean);
+};
+
+const prefixMappingEntries = (entries, prefix) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  return entries
+    .map((entry) => {
+      if (!entry) {
+        return null;
+      }
+      const fromList = normalizeFromList(entry?.from);
+      if (!fromList.length) {
+        return { ...entry };
+      }
+      const prefixed = fromList.map((fromPath) => formatDisplayPath(prefix, fromPath));
+      return {
+        ...entry,
+        from: prefixed.length === 1 ? prefixed[0] : prefixed,
+      };
+    })
+    .filter(Boolean);
+};
+
+const buildSyntheticModuleEntries = (model, notesText) => {
+  if (!model?.featurePaths || !model?.features) {
+    return null;
+  }
+  const entries = Object.values(model.features)
+    .filter((feature) => isLeafFeature(model, feature.id))
+    .map((feature) => {
+      const pathParts = model.featurePaths?.[feature.id] ?? [];
+      if (pathParts.length <= 1) {
+        return null;
+      }
+      return {
+        from: pathParts.slice(1).join("."),
+        to: null,
+        kind: "not_mapped",
+        notes: notesText,
+      };
+    })
+    .filter(Boolean);
+  return entries;
+};
+
+const getMappingEntriesForOutput = (frameworkId, outputKey) => {
+  if (frameworkId === "crewai") {
+    if (outputKey === "agents") {
+      return Array.isArray(crewaiAgentMapping)
+        ? crewaiAgentMapping.filter((entry) => !isTaskMappingEntry(entry))
+        : null;
+    }
+    if (outputKey === "tasks") {
+      return Array.isArray(crewaiAgentMapping)
+        ? crewaiAgentMapping.filter((entry) => isTaskMappingEntry(entry))
+        : null;
+    }
+    if (outputKey === "modules") {
+      return buildSyntheticModuleEntries(moduleModel, "CrewAI ne supporte pas les modules.");
+    }
+    if (outputKey === "orchestration") {
+      return Array.isArray(crewaiMultiMapping) ? crewaiMultiMapping : null;
+    }
+  }
+  if (frameworkId === "adk") {
+    if (outputKey === "agents") {
+      return Array.isArray(adkAgentMapping) ? adkAgentMapping : null;
+    }
+    if (outputKey === "modules") {
+      return Array.isArray(adkModuleMapping) ? adkModuleMapping : null;
+    }
+    if (outputKey === "orchestration") {
+      return Array.isArray(adkMultiMapping) ? adkMultiMapping : null;
+    }
+  }
+  return null;
+};
+
+const getGlobalMappingEntriesForFramework = (frameworkId) => {
+  const entries = [];
+  if (frameworkId === "crewai") {
+    entries.push(...prefixMappingEntries(crewaiAgentMapping, "GearAgent"));
+    entries.push(...prefixMappingEntries(crewaiMultiMapping, "GearWorkflow"));
+    const synthetic = buildSyntheticModuleEntries(moduleModel, "CrewAI ne supporte pas les modules.");
+    entries.push(...prefixMappingEntries(synthetic, "GearModule"));
+    return entries.length ? entries : null;
+  }
+  if (frameworkId === "adk") {
+    entries.push(...prefixMappingEntries(adkAgentMapping, "GearAgent"));
+    entries.push(...prefixMappingEntries(adkModuleMapping, "GearModule"));
+    entries.push(...prefixMappingEntries(adkMultiMapping, "GearWorkflow"));
+    return entries.length ? entries : null;
+  }
+  return null;
+};
+
+const getTranslationRootPrefix = (frameworkId, outputKey) => {
+  if (outputKey === "agents" || outputKey === "tasks") {
+    return "GearAgent";
+  }
+  if (outputKey === "modules") {
+    return "GearModule";
+  }
+  if (outputKey === "orchestration") {
+    return "GearWorkflow";
+  }
+  return "";
+};
+
+const getTranslationSourcesForOutput = (frameworkId, outputKey, context) => {
+  const { gearAgents, gearModules, modulePresence, workflowYaml } = context || {};
+  if (frameworkId === "crewai") {
+    if (outputKey === "agents" || outputKey === "tasks") {
+      return gearAgents || [];
+    }
+    if (outputKey === "modules") {
+      const sources = [];
+      if (Array.isArray(gearModules)) {
+        sources.push(...gearModules);
+      }
+      if (Array.isArray(modulePresence)) {
+        sources.push(...modulePresence);
+      }
+      return sources;
+    }
+    if (outputKey === "orchestration") {
+      return workflowYaml ? [workflowYaml] : [];
+    }
+  }
+  if (frameworkId === "adk") {
+    if (outputKey === "agents") {
+      return gearAgents || [];
+    }
+    if (outputKey === "modules") {
+      const sources = [];
+      if (Array.isArray(gearModules)) {
+        sources.push(...gearModules);
+      }
+      if (Array.isArray(modulePresence)) {
+        sources.push(...modulePresence);
+      }
+      return sources;
+    }
+    if (outputKey === "orchestration") {
+      return workflowYaml ? [workflowYaml] : [];
+    }
+  }
+  return [];
+};
+
+const renderTranslationSummary = (outputId, entries, sources, activePaths) => {
+  const top = document.querySelector(`[data-translation-top="${outputId}"]`);
+  const bottom = document.querySelector(`[data-translation-bottom="${outputId}"]`);
+  const unavailablePanel = document.querySelector(`[data-translation-unavailable="${outputId}"]`);
+  if (!top || !bottom || !unavailablePanel) {
+    return;
+  }
+  const translatedList = top.querySelector('[data-translation-list="translated"]');
+  const untranslatedList = bottom.querySelector('[data-translation-list="untranslated"]');
+  const unavailableList = unavailablePanel.querySelector('[data-translation-list="unavailable"]');
+  const fixedList = bottom.querySelector('[data-translation-list="fixed"]');
+  if (!translatedList || !untranslatedList || !unavailableList || !fixedList) {
+    return;
+  }
+  translatedList.innerHTML = "";
+  untranslatedList.innerHTML = "";
+  unavailableList.innerHTML = "";
+  fixedList.innerHTML = "";
+
+  const outputKey = outputId.split("-").slice(1).join("-");
+  const frameworkId = outputId.split("-")[0];
+  const prefix = getTranslationRootPrefix(frameworkId, outputKey);
+  const limitations = getFrameworkLimitations(frameworkId, outputKey);
+  const combinedEntries = [...(entries || []), ...limitations];
+
+  if (!entries && !limitations.length) {
+    const makeItem = () => {
+      const item = document.createElement("li");
+      item.className = "empty-state";
+      item.textContent = "Mappings indisponibles.";
+      return item;
+    };
+    translatedList.appendChild(makeItem());
+    untranslatedList.appendChild(makeItem());
+    unavailableList.appendChild(makeItem());
+    fixedList.appendChild(makeItem());
+    return;
+  }
+
+  const summary = Array.isArray(activePaths)
+    ? buildActiveTranslationSummaryFromPaths(combinedEntries, activePaths)
+    : buildActiveTranslationSummary(combinedEntries, sources, prefix);
+  const unavailable = buildUnavailableSummary(combinedEntries, prefix);
+  const fixed = buildFixedSummary(combinedEntries);
+
+  const renderItem = (listEl, text, notes, className) => {
+    const li = document.createElement("li");
+    if (className) {
+      li.className = className;
+    }
+    li.textContent = text;
+    if (notes) {
+      const note = document.createElement("span");
+      note.className = "translation-note";
+      note.textContent = ` ${notes}`;
+      li.appendChild(note);
+    }
+    listEl.appendChild(li);
+  };
+
+  const fillList = (listEl, items, emptyLabel, mode = "plain") => {
+    if (!items.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-state";
+      empty.textContent = emptyLabel;
+      listEl.appendChild(empty);
+      return;
+    }
+    items.forEach((name) => {
+      if (mode === "translated") {
+        const toPart = name.to ? ` → ${name.to}` : "";
+        renderItem(listEl, `${name.from}${toPart}`, name.notes);
+        return;
+      }
+      if (mode === "untranslated") {
+        renderItem(listEl, `${name.from} → (non supporté)`, name.notes);
+        return;
+      }
+      if (mode === "unavailable") {
+        renderItem(listEl, `${name.from} → (non disponible)`, name.notes);
+        return;
+      }
+      if (mode === "fixed") {
+        renderItem(listEl, name.label, name.notes);
+        return;
+      }
+      renderItem(listEl, name, null);
+    });
+  };
+
+  const topSummary = top.querySelector("summary");
+  const bottomSummary = bottom.querySelector("summary");
+  const unavailableSummary = unavailablePanel.querySelector("summary");
+  if (topSummary) {
+    topSummary.textContent = `Traduits (actifs) · ${summary.translated.length}`;
+  }
+  if (bottomSummary) {
+    bottomSummary.textContent = `Non traduits (actifs) · ${summary.untranslated.length}`;
+  }
+  if (unavailableSummary) {
+    unavailableSummary.textContent = `Non disponibles · ${unavailable.length}`;
+  }
+
+  fillList(translatedList, summary.translated, "Aucun élément actif traduit.", "translated");
+  fillList(untranslatedList, summary.untranslated, "Aucun élément actif non traduit.", "untranslated");
+  fillList(unavailableList, unavailable, "Aucun élément indisponible.", "unavailable");
+  fillList(fixedList, fixed, "Aucune valeur imposée.", "fixed");
 };
 
 const setStatus = (message, isError = false, target = "agent") => {
@@ -302,6 +1183,9 @@ const buildFrameworkOutputs = (framework) => {
   }
   if (framework.id === "crewai" && mappings.agent) {
     outputs.push({ key: "tasks", label: "Tâches", title: `Tâches ${framework.label || framework.id}` });
+  }
+  if (mappings.module && framework.id !== "crewai" && framework.id !== "adk") {
+    outputs.push({ key: "modules", label: "Modules", title: `Modules ${framework.label || framework.id}` });
   }
   if (mappings.multiagent) {
     outputs.push({ key: "orchestration", label: "Workflow", title: `Workflow ${framework.label || framework.id}` });
@@ -386,6 +1270,31 @@ const renderOutputLayoutFromRegistry = (registry) => {
       panel.appendChild(section);
     });
     panel.prepend(outputTabs);
+    if (framework.id === "crewai" || framework.id === "adk") {
+      const summaryId = `${framework.id}-global`;
+      const summary = document.createElement("div");
+      summary.className = "translation-global";
+      summary.innerHTML = `
+        <h3>Correspondances Gear → ${framework.label || framework.id}</h3>
+        <details class="translation-toggle translation-toggle--translated" data-translation-top="${summaryId}">
+          <summary>Traduits (actifs)</summary>
+          <ul data-translation-list="translated"></ul>
+        </details>
+        <details class="translation-toggle translation-toggle--untranslated" data-translation-bottom="${summaryId}">
+          <summary>Non traduits (actifs)</summary>
+          <ul data-translation-list="untranslated"></ul>
+          <div class="translation-subsection">
+            <div class="translation-subtitle">Valeurs imposées (mapping)</div>
+            <ul data-translation-list="fixed"></ul>
+          </div>
+        </details>
+        <details class="translation-toggle translation-toggle--unavailable" data-translation-unavailable="${summaryId}">
+          <summary>Non disponibles</summary>
+          <ul data-translation-list="unavailable"></ul>
+        </details>
+      `;
+      panel.appendChild(summary);
+    }
     targetPanelsContainerEl.appendChild(panel);
   });
   refreshOutputDomRefs();
@@ -1394,16 +2303,6 @@ const buildAdkOutputs = () => {
         SubAgents: subAgents.map((name) => ({ Name: name })),
       },
     };
-    if (moduleConfig.strategy === "parallel" && moduleConfig.aggregator) {
-      const pipelineKey = ensureUniqueKey(`${moduleConfig.name}Pipeline`, "pipeline", index + 1, usedKeys);
-      adkAgents[pipelineKey] = {
-        BaseAgent: {
-          AgentType: "SequentialAgent",
-          Name: `${moduleConfig.name}Pipeline`,
-          SubAgents: [{ Name: moduleConfig.name }, { Name: moduleConfig.aggregator }],
-        },
-      };
-    }
   });
   return { agents: adkAgents };
 };
@@ -1453,14 +2352,12 @@ const buildModuleConfigs = () => {
         return null;
       }
       const parallelAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Parallel.SubAgents"));
-      const aggregator = String(getMappedValue(mappedModule, "Runtime.Module.Parallel.Aggregator") || "").trim();
       const loopAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Loop.SubAgents"));
       const turnCount = parseNumberValue(getMappedValue(mappedModule, "Runtime.Module.Loop.MaxIterations"));
       return {
         name,
         strategy,
         parallelAgents,
-        aggregator,
         loopAgents,
         turnCount,
       };
@@ -1753,6 +2650,25 @@ const parseBoolean = (rawValue) => {
 const isRequiredLeafFeature = (state, feature) =>
   feature.relationType === "mandatory" && isLeafFeature(state.model, feature.id);
 
+const featureRequiresValue = (state, feature) => {
+  if (!feature || !state?.model) {
+    return false;
+  }
+  if (!isLeafFeature(state.model, feature.id)) {
+    return false;
+  }
+  if (!isFeatureActive(state, feature.id)) {
+    return false;
+  }
+  if (!feature.abstract) {
+    return false;
+  }
+  if (isBooleanFeatureName(feature.name)) {
+    return false;
+  }
+  return true;
+};
+
 const hasMeaningfulValue = (value) => {
   if (Array.isArray(value)) {
     return value.length > 0;
@@ -1770,13 +2686,16 @@ const getMissingRequiredCount = (state) => {
   const { model } = state;
   let missing = 0;
   Object.values(model.features).forEach((feature) => {
-    if (!isRequiredLeafFeature(state, feature)) {
-      return;
-    }
-    if (!isFeatureActive(state, feature.id)) {
+    if (!featureRequiresValue(state, feature)) {
       return;
     }
     const value = state.featureValues[feature.id];
+    if (isNumberFeatureName(feature.name)) {
+      if (parseNumberValue(value) === null) {
+        missing += 1;
+      }
+      return;
+    }
     if (!hasMeaningfulValue(value)) {
       missing += 1;
     }
@@ -1806,6 +2725,7 @@ const createFeatureState = (kind, model, label = "") => {
     rootEl: null,
     els: {},
     builder: null,
+    constraintViolations: [],
   };
   resetFeatureState(state);
   return state;
@@ -1958,11 +2878,10 @@ const renderFeature = (state, featureId, parentActive) => {
     const isBoolean = isBooleanFeatureName(feature.name);
     const isNumber = isNumberFeatureName(feature.name);
     const parsedNumber = isNumber ? parseNumberValue(rawValue) : null;
-    const isRequired = isRequiredLeafFeature(state, feature);
+    const requiresValue = featureRequiresValue(state, feature);
     const isInvalid =
       active &&
-      isRequired &&
-      !isBoolean &&
+      requiresValue &&
       (isNumber ? parsedNumber === null : stringValue === "");
     if (isInvalid) {
       line.classList.add("is-invalid");
@@ -2065,7 +2984,7 @@ const renderFeature = (state, featureId, parentActive) => {
         event.stopPropagation();
       });
       line.appendChild(selectEl);
-    } else {
+    } else if (feature.abstract && !isBoolean) {
       const kind = valueInputKind(feature);
       const valueEl = document.createElement(kind === "textarea" ? "textarea" : "input");
       if (kind !== "textarea") {
@@ -2073,8 +2992,15 @@ const renderFeature = (state, featureId, parentActive) => {
       }
       valueEl.className = "feature-value";
       valueEl.placeholder = "valeur…";
+      const fixedValue = getFixedFeatureValue(feature);
+      if (fixedValue && active) {
+        state.featureValues[feature.id] = fixedValue;
+      }
       valueEl.value = state.featureValues[feature.id] ?? "";
       valueEl.disabled = !active;
+      if (fixedValue) {
+        valueEl.readOnly = true;
+      }
       if (isInvalid) {
         valueEl.classList.add("is-invalid");
       }
@@ -2084,11 +3010,10 @@ const renderFeature = (state, featureId, parentActive) => {
       const currentString = String(currentValue ?? "").trim();
       const currentIsNumber = isNumberFeatureName(feature.name);
       const currentParsed = currentIsNumber ? parseNumberValue(currentValue) : null;
-      const requiredNow = isRequiredLeafFeature(state, feature);
+      const requiredNow = featureRequiresValue(state, feature);
       const invalidNow =
         isFeatureActive(state, feature.id) &&
         requiredNow &&
-        !isBooleanFeatureName(feature.name) &&
         (currentIsNumber ? currentParsed === null : currentString === "");
       line.classList.toggle("is-invalid", invalidNow);
       valueEl.classList.toggle("is-invalid", invalidNow);
@@ -2152,35 +3077,63 @@ const renderFeature = (state, featureId, parentActive) => {
 const buildYamlObjectForAgent = (state) => {
   const { model } = state;
   const yamlObj = {};
+  const scalarEnumValues = new Map();
   const activeLeaves = Object.values(model.features).filter(
     (feature) => isFeatureActive(state, feature.id) && isLeafFeature(model, feature.id),
   );
 
   for (const feature of activeLeaves) {
+    if (isScalarEnumChild(state, feature)) {
+      const parentId = feature.parentFeatureId;
+      if (parentId) {
+        let value = null;
+        if (feature.abstract) {
+          const rawValue = state.featureValues[feature.id];
+          const text = rawValue !== undefined ? String(rawValue).trim() : "";
+          value = text !== "" ? text : null;
+        } else if (isBooleanFeatureName(feature.name)) {
+          value = true;
+        } else {
+          value = feature.name;
+        }
+        if (value !== null) {
+          scalarEnumValues.set(parentId, value);
+        }
+      }
+      continue;
+    }
     const pathParts = model.featurePaths?.[feature.id] ?? [];
     if (!pathParts.length) {
       continue;
     }
-    const rawValue = state.featureValues[feature.id];
     let value = null;
-    if (Array.isArray(rawValue)) {
-      value = rawValue.length ? rawValue : null;
-    } else {
-      const text = rawValue !== undefined ? String(rawValue).trim() : "";
-      if (text !== "") {
-        if (isBooleanFeatureName(feature.name)) {
-          const boolValue = parseBoolean(text);
-          value = boolValue === null ? true : boolValue;
-        } else if (isNumberFeatureName(feature.name)) {
-          const parsed = Number(text);
-          value = Number.isNaN(parsed) ? text : parsed;
-        } else {
-          value = text;
-        }
-      } else if (isBooleanFeatureName(feature.name)) {
+    if (!feature.abstract) {
+      if (isBooleanFeatureName(feature.name)) {
         value = true;
       } else {
-        value = null;
+        value = feature.name;
+      }
+    } else {
+      const rawValue = state.featureValues[feature.id];
+      if (Array.isArray(rawValue)) {
+        value = rawValue.length ? rawValue : null;
+      } else {
+        const text = rawValue !== undefined ? String(rawValue).trim() : "";
+        if (text !== "") {
+          if (isBooleanFeatureName(feature.name)) {
+            const boolValue = parseBoolean(text);
+            value = boolValue === null ? true : boolValue;
+          } else if (isNumberFeatureName(feature.name)) {
+            const parsed = Number(text);
+            value = Number.isNaN(parsed) ? text : parsed;
+          } else {
+            value = text;
+          }
+        } else if (isBooleanFeatureName(feature.name)) {
+          value = true;
+        } else {
+          value = null;
+        }
       }
     }
     if (value !== null) {
@@ -2188,7 +3141,61 @@ const buildYamlObjectForAgent = (state) => {
     }
   }
 
+  for (const [parentId, value] of scalarEnumValues.entries()) {
+    const pathParts = model.featurePaths?.[parentId] ?? [];
+    if (!pathParts.length) {
+      continue;
+    }
+    setNestedValue(yamlObj, pathParts, value);
+  }
+
   return yamlObj;
+};
+
+const collectActiveFeaturePaths = (state) => {
+  const { model } = state;
+  const paths = new Set();
+  const scalarParents = new Set();
+  const activeLeaves = Object.values(model.features).filter(
+    (feature) => isFeatureActive(state, feature.id) && isLeafFeature(model, feature.id),
+  );
+
+  for (const feature of activeLeaves) {
+    if (isScalarEnumChild(state, feature)) {
+      if (feature.parentFeatureId) {
+        scalarParents.add(feature.parentFeatureId);
+      }
+      continue;
+    }
+    const pathParts = model.featurePaths?.[feature.id] ?? [];
+    if (!pathParts.length) {
+      continue;
+    }
+    paths.add(pathParts.join("."));
+  }
+
+  scalarParents.forEach((parentId) => {
+    const pathParts = model.featurePaths?.[parentId] ?? [];
+    if (!pathParts.length) {
+      return;
+    }
+    paths.add(pathParts.join("."));
+  });
+
+  return Array.from(paths);
+};
+
+const collectActivePathsForStates = (states) => {
+  const paths = new Set();
+  (states || []).forEach((state) => {
+    if (!state?.model) {
+      return;
+    }
+    collectActiveFeaturePaths(state).forEach((path) => {
+      paths.add(path);
+    });
+  });
+  return Array.from(paths);
 };
 
 const dumpYaml = (data) => {
@@ -2574,6 +3581,23 @@ const setOutputText = (key, text) => {
 const updateOutputs = () => {
   const frameworks = Array.isArray(connectorsRegistry?.frameworks) ? connectorsRegistry.frameworks : [];
   const renderable = frameworks.filter((f) => f?.mappings && (f.mappings.agent || f.mappings.multiagent));
+  const workflowState = orchestrationStates[0] || null;
+  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
+  const gearModules = moduleStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
+  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
+  const workflowItems = workflowState ? buildWorkflowItems(workflowState) : [];
+  const activeAgentPaths = collectActivePathsForStates(agentStates);
+  const activeModulePaths = collectActivePathsForStates(moduleStates);
+  const activeWorkflowPaths = workflowState ? collectActivePathsForStates([workflowState]) : [];
+  const activePaths = [...new Set([...activeAgentPaths, ...activeModulePaths, ...activeWorkflowPaths])];
+  renderable.forEach((framework) => {
+    if (framework.id !== "crewai" && framework.id !== "adk") {
+      return;
+    }
+    const outputId = `${framework.id}-global`;
+    const entries = getGlobalMappingEntriesForFramework(framework.id);
+    renderTranslationSummary(outputId, entries, null, activePaths);
+  });
   if (!window.GearAssemblyEngine?.assemble) {
     renderable.forEach((framework) => {
       buildFrameworkOutputs(framework).forEach((out) => {
@@ -2582,11 +3606,6 @@ const updateOutputs = () => {
     });
     return;
   }
-  const workflowState = orchestrationStates[0] || null;
-  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
-  const gearModules = moduleStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
-  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
-  const workflowItems = workflowState ? buildWorkflowItems(workflowState) : [];
   const assembled = window.GearAssemblyEngine.assemble({
     gearAgents,
     gearModules,
@@ -2612,6 +3631,10 @@ const updateOutputs = () => {
       const payload = result.outputs || {};
       const value = payload[out.key];
       if (value === undefined || value === null) {
+        if (framework.id === "crewai" && out.key === "modules") {
+          setOutputText(outputKey, "# Modules CrewAI non supportés.");
+          return;
+        }
         setOutputText(outputKey, "# Sortie indisponible.");
         return;
       }
@@ -2626,6 +3649,10 @@ const updateOutputs = () => {
       if (framework.id === "adk" && out.key === "agents") {
         const adkAgentsYaml = addBlankLinesBetweenTopLevel(dumpYaml(value)).trim();
         setOutputText(outputKey, adkAgentsYaml);
+        return;
+      }
+      if (framework.id === "adk" && out.key === "modules") {
+        setOutputText(outputKey, dumpYaml(value));
         return;
       }
       setOutputText(outputKey, dumpYaml(value));
@@ -2751,7 +3778,8 @@ const renderMissingBadge = (state) => {
     return;
   }
   const missingCount = getMissingRequiredCount(state);
-  if (missingCount > 0) {
+  const constraintCount = state.constraintViolations?.length ?? 0;
+  if (missingCount > 0 || constraintCount > 0) {
     badge.hidden = false;
   } else {
     badge.hidden = true;
@@ -2781,6 +3809,42 @@ const loadStateFromYamlObject = (state, data) => {
 
   const alternativeGroups = Object.values(model.groups).filter((group) => group.type === "alternative");
   for (const group of alternativeGroups) {
+    if (isScalarEnumGroup(state, group)) {
+      const parentFeature = model.features[group.parentFeatureId];
+      const parentPath = parentFeature ? model.featurePaths?.[parentFeature.id] ?? [] : [];
+      const { exists, value } = parentPath.length ? getValueAtPath(data, parentPath) : { exists: false };
+      let selectedChild = state.alternativeSelections[group.id] ?? group.children[0] ?? null;
+      if (exists && !isExplicitFalse(value)) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          const objectKeys = Object.keys(value);
+          const keyMatch = group.children.find((childId) =>
+            objectKeys.includes(model.features[childId]?.name),
+          );
+          if (keyMatch) {
+            selectedChild = keyMatch;
+          }
+        } else {
+          const valueText = typeof value === "string" ? value : String(value);
+          const exactMatch = group.children.find(
+            (childId) => model.features[childId]?.name === valueText,
+          );
+          if (exactMatch) {
+            selectedChild = exactMatch;
+          } else {
+            const abstractChild = group.children.find((childId) => model.features[childId]?.abstract);
+            if (abstractChild) {
+              selectedChild = abstractChild;
+              state.featureValues[abstractChild] = scalarToString(value);
+            }
+          }
+        }
+      }
+      state.alternativeSelections[group.id] = selectedChild;
+      if (selectedChild) {
+        activateAncestors(state, selectedChild);
+      }
+      continue;
+    }
     let selectedChild = state.alternativeSelections[group.id] ?? group.children[0] ?? null;
     for (const childId of group.children) {
       const pathParts = model.featurePaths?.[childId] ?? [];
@@ -3045,6 +4109,7 @@ const renderAgent = (state) => {
   if (!state.rootEl) {
     return;
   }
+  applyConstraintsToState(state);
   renderAgentHeader(state);
   renderAgentTree(state);
   if (state.kind === "orchestration" && state.builder) {

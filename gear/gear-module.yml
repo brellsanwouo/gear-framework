@@ -16,8 +16,7 @@ properties:
           ParallelAgents:
             type: array
             items: { type: string }
-          Aggregator: { type: string }
-        required: [ParallelAgents, Aggregator]
+        required: [ParallelAgents]
         additionalProperties: false
       Loop:
         type: object

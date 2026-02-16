@@ -20,9 +20,9 @@
   kind: direct
 
 - from: LLMConfiguration.Provider
-  to: null
-  kind: not_mapped
-  notes: "Provider implicite via le nom du modele."
+  to: LLMAgentConfig.Provider
+  kind: partial
+  notes: "Expose le provider dans le YAML (en plus du modele)."
 
 - from: LLMConfiguration.APIKey
   to: null

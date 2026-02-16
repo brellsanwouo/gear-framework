@@ -18,9 +18,9 @@
   notes: Contexte/persona de l'agent.
 
 - from: LLMConfiguration.Provider
-  to: null
-  kind: not_mapped
-  notes: Le provider est implicite dans le nom du modele CrewAI.
+  to: LLM.provider
+  kind: partial
+  notes: "Expose le provider dans le YAML (en plus du modele)."
 
 - from: LLMConfiguration.Model
   to: LLMConfiguration.Model

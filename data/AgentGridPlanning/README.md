@@ -81,4 +81,4 @@ S . . # . . .
 | `P2` | 4 | sequentiel | `A1 -> A2 -> A3 -> A4` | |
 | `P3` | 8 | hybride | <code>A1 -> A2 -> (A3 &#124;&#124; A4 &#124;&#124; A5) -> A6 -> A7 -> A8</code> | 3 agents executes en parallele |
 | `P4` | 8 | hybride avec boucle | `A1 -> A2 -> [A3 <-> A4, 2 tours] -> A5 -> A6 -> A7 -> A8` | boucle de 2 tours sur 2 agents |
-| `P5` | 8 | hybride avec boucle | `A1 -> A2 -> [A3 <-> A4 <-> A5, 2 tours] -> A6 -> A7 -> A8` | boucle de 2 tours sur 3 agents |
+<!-- | `P5` | 8 | hybride avec boucle | `A1 -> A2 -> [A3 <-> A4 <-> A5, 2 tours] -> A6 -> A7 -> A8` | boucle de 2 tours sur 3 agents | -->
