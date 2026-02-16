@@ -324,7 +324,6 @@ def _ensure_kickoff(code: str) -> str:
 
 
 def _parse_trace_id(stderr: str) -> Optional[str]:
-    print(stderr)
     if "__GEAR_TRACE_START__" not in stderr:
         return None
     try:
@@ -491,6 +490,7 @@ def project_files(filename: str) -> Any:
 def analyze():
     data = request.json or {}
     selected_features = data.get("selected_features", [])
+    print(selected_features)
     fm_type = data.get("fm_type")
 
     tmp_path = ""
@@ -501,7 +501,7 @@ def analyze():
             tmp_path = tmp_file.name
 
         fm = FLAMAFeatureModel(f"gear/gear-{fm_type}.uvl")
-        response = {"valid": "", "config_count": "", "message": "Successful analysis"}
+        response = {"valid": fm.satisfiable_configuration(tmp_path,full_configuration=True), "config_count": fm.configurations_number(), "message": "Successful analysis"}
         return jsonify(response)
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 500
