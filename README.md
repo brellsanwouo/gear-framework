@@ -54,6 +54,7 @@ gear-framework/
 │        ├─ module.mapping.yml
 │        ├─ workflow.tmpl
 │        └─ assembly.plugin.js
+├─ data/AgentGridPlanning/           # Problem specs + templates (P0, P1, ...)
 ├─ SDK/gear_sdk/                     # Generic assembly engine (plugins + templates)
 ├─ server.py                         # Flask server + API for execution
 └─ README.md
@@ -123,8 +124,6 @@ uv tool list
 Create a `.env` in `gear-framework/`:
 ```
 OPENAI_API_KEY=sk-...
-GOOGLE_API_KEY=...
-GEMINI_API_KEY=...
 ```
 
 The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed.
@@ -272,96 +271,7 @@ Example YAML templates:
 
 ---
 
-## Agent templates (poet demo)
 
-Example agents used in demos (poem writing + evaluation):
-- `candidat_poete`
-- `juge_1`
-- `juge_2`
-- `juge_finale`
-- `anonceur`
-
-**Sample (trimmed)**:
-```
-GearAgent:
-  AgentIdentity:
-    Name: candidat_poete
-    Purpose: Write a short poem in two lines
-    ContextDescription: You are a young writer specialized in French poems.
-  LLMConfiguration:
-    Provider: openai
-    Model: gpt-4o-mini
-  TaskSpecification:
-    TaskDescription: Write a very short poem inspired by the name DAN PASCAL
-    ExpectedOutput: a short poem
-    TaskName: tache1
-  ExecutionControl:
-    VerbosityControl: true
-
-GearAgent:
-  AgentIdentity:
-    Name: juge_1
-    Purpose: Evaluate the poems for relevance
-    ContextDescription: You are an expert poet with years of experience.
-  LLMConfiguration:
-    Provider: openai
-    Model: gpt-4o-mini
-  TaskSpecification:
-    TaskDescription: Evaluate the poems
-    ExpectedOutput: one short sentence
-    TaskName: tache2
-  ExecutionControl:
-    VerbosityControl: true
-
-GearAgent:
-  AgentIdentity:
-    Name: juge_2
-    Purpose: Evaluate the poems for relevance
-    ContextDescription: You are an expert poet with years of experience.
-  LLMConfiguration:
-    Provider: openai
-    Model: gpt-4o-mini
-  TaskSpecification:
-    TaskDescription: Evaluate the poems
-    ExpectedOutput: one short sentence
-    TaskName: tache2
-  ExecutionControl:
-    VerbosityControl: true
-
-GearAgent:
-  AgentIdentity:
-    Name: juge_finale
-    Purpose: Summarize the poem evaluations
-    ContextDescription: You are an expert poet with years of experience.
-  LLMConfiguration:
-    Provider: openai
-    Model: gpt-4o-mini
-  TaskSpecification:
-    TaskDescription: Combine the evaluations
-    ExpectedOutput: one short sentence
-    TaskName: tache4
-  ExecutionControl:
-    VerbosityControl: true
-
-GearAgent:
-  AgentIdentity:
-    Name: anonceur
-    Purpose: Announce the final verdict
-    ContextDescription: You are an announcer who can say in one word if someone is rejected or not.
-  LLMConfiguration:
-    Provider: openai
-    Model: gpt-4o-mini
-  TaskSpecification:
-    TaskDescription: Announce the poem results
-    ExpectedOutput: two words max
-    TaskName: tache5
-  ExecutionControl:
-    VerbosityControl: true
-```
-
-Full samples are available in the repository root `README.md` and in `test-adk.py` / `test_crew.py`.
-
----
 
 ## Practical goal
 
@@ -370,6 +280,18 @@ This project helps you:
 - compare frameworks without rewriting everything,
 - keep one Gear model as the single source of truth,
 - translate and run across multiple frameworks.
+
+---
+
+## Problems (AgentGridPlanning)
+
+All benchmark problems live in `data/AgentGridPlanning/`.
+
+**Example: P0**
+- Goal: **afficher** le puzzle (grille, symboles, coordonnées) **sans résolution**.
+- Agent: `SystemDescriberAgent` décrit la grille et les règles.
+- Workflow: **séquentiel**, un seul agent.
+- Spec: `data/AgentGridPlanning/P0.md`.
 
 ---
 
