@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (runAborter) runAborter.abort();
             runAborter = new AbortController();
-            outputPre.textContent = `Execution of the workflow (${targetFramework})...`;
+            outputPre.textContent = `Execution of the workflow...`;
             outputPre.classList.remove('error');
 
             try {

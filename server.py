@@ -333,6 +333,19 @@ def _parse_trace_id(stderr: str) -> Optional[str]:
     except Exception:
         return None
 
+def _strip_gear_trace_markers(stderr: str) -> str:
+    if not stderr:
+        return ""
+    start = stderr.find("__GEAR_TRACE_START__")
+    if start == -1:
+        return stderr
+    end = stderr.find("__GEAR_TRACE_END__", start)
+    if end == -1:
+        return (stderr[:start]).rstrip()
+    end += len("__GEAR_TRACE_END__")
+    cleaned = (stderr[:start] + stderr[end:]).strip()
+    return cleaned
+
 
 @app.post("/api/run")
 def run_orchestration():
@@ -375,7 +388,10 @@ def run_orchestration():
     stdout = result.stdout or ""
     stderr = result.stderr or ""
 
+
     trace_id = _parse_trace_id(stderr)
+    stderr_user = _strip_gear_trace_markers(stderr)
+
     if not trace_id:
         return jsonify({"error": "trace_id missing", "stdout": stdout, "stderr": stderr}), 500
 
@@ -412,7 +428,7 @@ def run_orchestration():
     except Exception as e:
         return jsonify({"error": str(e), "stdout": stdout, "stderr": stderr, "trace_id": trace_id}), 500
 
-    return jsonify({"stdout": stdout, "stderr": stderr, "trace_id": trace_id})
+    return jsonify({"stdout": stdout, "stderr": stderr_user, "trace_id": trace_id})
 
 
 @app.post("/api/experiment/log_end")

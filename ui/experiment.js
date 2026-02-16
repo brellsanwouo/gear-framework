@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseScreen.classList.remove('hidden');
         const nextTask = state.sequence[state.currentIndex];
 
-        const modeLabel = nextTask.mode === 'GEAR' ? 'Gear mode' : 'Manual mode';
+        const modeLabel = nextTask.mode === 'GEAR' ? 'Gear' : 'Manual';
         nextTaskInfo.textContent = `Next task : ${nextTask.id} (${modeLabel})`;
     }
 

@@ -24,10 +24,10 @@
             <div class="exp-info">
                 <span class="exp-task-id">${taskId}</span>
                 <span style="font-size:0.9rem; opacity:0.8; margin-left: 8px;">
-                    ${mode === 'GEAR' ? 'Gear mode' : 'Manuel mode'}
+                    ${mode === 'GEAR' ? 'Gear' : 'Manual'}
                 </span>
             </div>
-            <div class="exp-timer" id="expTimer">Chargement...</div>
+            <div class="exp-timer" id="expTimer">Loading...</div>
             <div class="exp-actions">
                 <button class="exp-btn exp-btn-info" id="btnInstructions">Instructions</button>
                 <button class="exp-btn exp-btn-validate" id="btnValidate">Confirm & Finish</button>
@@ -46,39 +46,66 @@
     `;
     document.body.insertAdjacentHTML('beforeend', overlayHTML);
 
-    const durationSeconds = taskConfig.time_limit_seconds || 600;
-
-    const endTime = Date.now() + (durationSeconds * 1000);
     const timerEl = document.getElementById('expTimer');
 
-    function updateTimerDisplay() {
-        const now = Date.now();
-        const timeLeftMs = endTime - now;
+    // 0 => illimité, null/undefined => 600 par défaut
+    const durationSeconds = Number(taskConfig.time_limit_seconds ?? 600);
 
-        if (timeLeftMs <= 0) {
-            timerEl.textContent = "00:00";
-            timerEl.style.color = '#ef4444';
-            clearInterval(timerInterval);
-            forceEndTask();
+    let timerInterval = null;
+    let endTime = null;
+
+    function getUserCode() {
+        let userCode = "";
+        if (mode === 'MANUAL') {
+            const textarea = document.getElementById('manualInput');
+            userCode = textarea ? textarea.value : "";
+        } else {
+            const yamlPreview = document.querySelector('.yaml-output');
+            userCode = yamlPreview ? yamlPreview.value : "";
+        }
+        return userCode;
+    }
+
+    function startTimerIfNeeded() {
+        if (durationSeconds === 0) {
+            timerEl.textContent = "No time limit";
+            timerEl.style.color = "#ef4444";
             return;
         }
 
-        const totalSecondsLeft = Math.ceil(timeLeftMs / 1000);
-        const m = Math.floor(totalSecondsLeft / 60).toString().padStart(2, '0');
-        const s = (totalSecondsLeft % 60).toString().padStart(2, '0');
+        endTime = Date.now() + (durationSeconds * 1000);
 
-        timerEl.textContent = `${m}:${s}`;
+        function updateTimerDisplay() {
+            const now = Date.now();
+            const timeLeftMs = endTime - now;
 
-        if (totalSecondsLeft < 60) {
-            timerEl.style.color = '#ef4444';
-        } else {
-            timerEl.style.color = '#fbbf24';
+            if (timeLeftMs <= 0) {
+                timerEl.textContent = "00:00";
+                timerEl.style.color = '#ef4444';
+                clearInterval(timerInterval);
+                timerInterval = null;
+                forceEndTask();
+                return;
+            }
+
+            const totalSecondsLeft = Math.ceil(timeLeftMs / 1000);
+            const m = Math.floor(totalSecondsLeft / 60).toString().padStart(2, '0');
+            const s = (totalSecondsLeft % 60).toString().padStart(2, '0');
+
+            timerEl.textContent = `${m}:${s}`;
+
+            if (totalSecondsLeft < 60) {
+                timerEl.style.color = '#ef4444';
+            } else {
+                timerEl.style.color = '#fbbf24';
+            }
         }
+
+        updateTimerDisplay();
+        timerInterval = setInterval(updateTimerDisplay, 1000);
     }
 
-    updateTimerDisplay();
-
-    const timerInterval = setInterval(updateTimerDisplay, 1000);
+    startTimerIfNeeded();
 
     let logId = null;
     fetch('/api/experiment/log_start', {
@@ -100,15 +127,7 @@
     const btnValidate = document.getElementById('btnValidate');
 
     btnValidate.onclick = async () => {
-        let userCode = "";
-
-        if (mode === 'MANUAL') {
-            const textarea = document.getElementById('manualInput');
-            userCode = textarea ? textarea.value : "";
-        } else {
-            const yamlPreview = document.querySelector('.yaml-output');
-            userCode = yamlPreview ? yamlPreview.value : "";
-        }
+        const userCode = getUserCode();
 
         btnValidate.disabled = true;
         const originalText = btnValidate.textContent;
@@ -137,25 +156,30 @@
         }
     };
 
-    async function finishTask(code) {
-        message= "Task successfully completed!"
-        clearInterval(timerInterval);
-        if(message) showToast(message, 'success');
+    async function finishTask(code = "") {
+        const message = "Task successfully completed!";
+
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        if (message) showToast(message, 'success');
+
         if (logId) {
             await fetch('/api/experiment/log_end', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                log_id: logId,
-               // metrics: window.currentTaskMetrics || {},
-                code : code
-            })
-
+                    log_id: logId,
+                    // metrics: window.currentTaskMetrics || {},
+                    code: code
+                })
             });
         }
 
-        let idx = parseInt(localStorage.getItem('gear_index') || '0');
-        localStorage.setItem('gear_index', idx + 1);
+        let idx = parseInt(localStorage.getItem('gear_index') || '0', 10);
+        localStorage.setItem('gear_index', String(idx + 1));
 
         setTimeout(() => {
             window.location.href = '/experiment';
@@ -167,11 +191,14 @@
 
         const manualInput = document.getElementById('manualInput');
         if (manualInput) manualInput.disabled = true;
+
         btnValidate.disabled = true;
         btnValidate.textContent = "Time's up!";
 
+        const currentCode = getUserCode();
+
         await new Promise(resolve => setTimeout(resolve, 2000));
-        finishTask();
+        finishTask(currentCode);
     }
 
     function showToast(msg, type = 'info') {
