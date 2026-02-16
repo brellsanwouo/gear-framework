@@ -5,9 +5,9 @@
 ![ui](https://img.shields.io/badge/ui-vanilla%20JS-yellow)
 ![connectors](https://img.shields.io/badge/connectors-yaml%20%2B%20plugin-6b8cff)
 
-**Gear Framework** is a beginner-friendly tool to **model, translate, and run multi-agent systems** across different frameworks (currently **CrewAI** and **Google ADK**) from a single Gear source model.
+**Gear Framework** is a friendly tool to **model, translate, and run multi-agent systems** across different frameworks (currently **CrewAI** and **Google ADK**) from a single Gear source model.
 
-The goal is to help newcomers start quickly, reduce the cost of experimentation (time, money, tokens), and avoid locking into a single framework too early. You can **compare concepts across frameworks** and **translate from one to another** using the same Gear definitions.
+The goal is to help to start quickly, reduce the cost of experimentation (time, money, tokens), and avoid locking into a single framework too early. You can **compare concepts across frameworks** and **translate from one to another** using the same Gear definitions.
 
 ---
 
