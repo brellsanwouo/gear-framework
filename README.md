@@ -288,9 +288,9 @@ This project helps you:
 All benchmark problems live in `data/AgentGridPlanning/`.
 
 **Example: P0**
-- Goal: **afficher** le puzzle (grille, symboles, coordonnées) **sans résolution**.
-- Agent: `SystemDescriberAgent` décrit la grille et les règles.
-- Workflow: **séquentiel**, un seul agent.
+- Goal: **display** the puzzle (grid, symbols, coordinates) **without solving it**.
+- Agent: `SystemDescriberAgent` describes the grid and rules.
+- Workflow: **sequential**, single agent.
 - Spec: `data/AgentGridPlanning/P0.md`.
 
 ---
