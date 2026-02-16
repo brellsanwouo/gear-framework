@@ -53,11 +53,18 @@
     setIfMeaningful(config, "role", getMappedValue(mapped, "Identity.Role"));
     setIfMeaningful(config, "goal", getMappedValue(mapped, "Identity.Goal"));
     setIfMeaningful(config, "backstory", getMappedValue(mapped, "Identity.Backstory"));
-    const modelValue = toCrewaiModel(
-      gearAgent.LLMConfiguration?.Provider,
-      getMappedValue(mapped, "LLMConfiguration.Model"),
-    );
-    setIfMeaningful(config, "llm", modelValue);
+    const llmConfig = {};
+    setIfMeaningful(llmConfig, "provider", gearAgent.LLMConfiguration?.Provider);
+    setIfMeaningful(llmConfig, "model", getMappedValue(mapped, "LLMConfiguration.Model"));
+    if (Object.keys(llmConfig).length) {
+      setIfMeaningful(config, "llm", llmConfig);
+    } else {
+      const modelValue = toCrewaiModel(
+        gearAgent.LLMConfiguration?.Provider,
+        getMappedValue(mapped, "LLMConfiguration.Model"),
+      );
+      setIfMeaningful(config, "llm", modelValue);
+    }
     setIfMeaningful(config, "verbose", getMappedValue(mapped, "BehavioralControls.Verbose") === true);
     setIfMeaningful(
       config,

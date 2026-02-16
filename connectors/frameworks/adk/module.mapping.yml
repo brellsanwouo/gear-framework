@@ -14,11 +14,6 @@
   to: Runtime.Module.Parallel.SubAgents
   kind: direct
 
-- from: Strategy.Parallel.Aggregator
-  to: Runtime.Module.Parallel.Aggregator
-  kind: partial
-  notes: "Agent agregateur execute apres ParallelAgent (pipeline)."
-
 - from: Strategy.Loop
   to: Runtime.Module.ADKAgentType.LoopAgent
   kind: equivalent
@@ -31,4 +26,3 @@
 - from: Strategy.Loop.TurnCount
   to: Runtime.Module.Loop.MaxIterations
   kind: equivalent
-
