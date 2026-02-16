@@ -11,11 +11,11 @@
     let taskConfig = null;
     try {
         const res = await fetch(`/api/experiment/task_info/${taskId}`);
-        if (!res.ok) throw new Error("Tâche introuvable");
+        if (!res.ok) throw new Error("Can't find the task");
         taskConfig = await res.json();
     } catch (e) {
-        console.error("Erreur chargement config task", e);
-        alert("Erreur critique : Impossible de charger les instructions.");
+        console.error("Error when loading config task", e);
+        alert("Can't find instructions");
         return;
     }
 
@@ -24,13 +24,13 @@
             <div class="exp-info">
                 <span class="exp-task-id">${taskId}</span>
                 <span style="font-size:0.9rem; opacity:0.8; margin-left: 8px;">
-                    ${mode === 'GEAR' ? 'Mode ASSISTÉ' : 'Mode MANUEL'}
+                    ${mode === 'GEAR' ? 'Gear mode' : 'Manuel mode'}
                 </span>
             </div>
             <div class="exp-timer" id="expTimer">Chargement...</div>
             <div class="exp-actions">
                 <button class="exp-btn exp-btn-info" id="btnInstructions">Instructions</button>
-                <button class="exp-btn exp-btn-validate" id="btnValidate">Valider & Terminer</button>
+                <button class="exp-btn exp-btn-validate" id="btnValidate">Confirm & Finish</button>
             </div>
         </div>
 
@@ -40,7 +40,7 @@
                 <button class="close-drawer" id="btnCloseDrawer">×</button>
             </div>
             <div class="drawer-content">
-                ${taskConfig.description || '<p>Aucune instruction disponible.</p>'}
+                ${taskConfig.description || '<p>No available instructions.</p>'}
             </div>
         </div>
     `;
@@ -91,7 +91,7 @@
       logId = d.log_id;
       window.currentLogId = logId;
     })
-    .catch(e => console.error("Erreur log start (non bloquant)", e));
+    .catch(e => console.error("Error log start", e));
 
     const drawer = document.getElementById('expDrawer');
     document.getElementById('btnInstructions').onclick = () => drawer.classList.add('open');
@@ -112,7 +112,7 @@
 
         btnValidate.disabled = true;
         const originalText = btnValidate.textContent;
-        btnValidate.textContent = "Vérification...";
+        btnValidate.textContent = "Verification...";
 
         try {
             const res = await fetch('/api/experiment/validate_task', {
@@ -125,20 +125,20 @@
             if (result.valid) {
                 finishTask(userCode);
             } else {
-                showToast(result.message || "Configuration invalide.", 'error');
+                showToast(result.message || "Invalid configuration.", 'error');
                 btnValidate.disabled = false;
                 btnValidate.textContent = originalText;
             }
         } catch (e) {
             console.error(e);
-            showToast("Erreur de connexion au serveur.", 'error');
+            showToast("Error connecting to the server.", 'error');
             btnValidate.disabled = false;
             btnValidate.textContent = originalText;
         }
     };
 
     async function finishTask(code) {
-        message= "Tâche validée avec succès !"
+        message= "Task successfully completed!"
         clearInterval(timerInterval);
         if(message) showToast(message, 'success');
         if (logId) {
@@ -163,12 +163,12 @@
     }
 
     async function forceEndTask() {
-        showToast("Temps écoulé ! Enregistrement et passage à la pause...", 'warning');
+        showToast("Time's up! Recording and switching to pause...", 'warning');
 
         const manualInput = document.getElementById('manualInput');
         if (manualInput) manualInput.disabled = true;
         btnValidate.disabled = true;
-        btnValidate.textContent = "Temps écoulé";
+        btnValidate.textContent = "Time's up!";
 
         await new Promise(resolve => setTimeout(resolve, 2000));
         finishTask();

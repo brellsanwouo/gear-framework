@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,7 +15,7 @@
     <header class="page-header">
       <div>
         <h1>Gear Framework</h1>
-        <p class="hint">UI Gear + connecteurs extensibles.</p>
+        <p class="hint">Gear UI + extensible connectors.</p>
       </div>
     </header>
 
@@ -48,7 +48,7 @@
             <!-- <h3>Instances d’agents</h3>
             <p class="hint">Chaque agent a son propre formulaire et son propre YAML.</p> -->
           </div>
-          <button id="addAgent" type="button">Ajouter un agent</button>
+          <button id="addAgent" type="button">Add agent</button>
         </div>
 
         <div id="agentsContainer" class="agents-container" aria-live="polite"></div>
@@ -80,7 +80,7 @@
           <div>
             <!-- <h3>Instances de modules</h3> -->
           </div>
-          <button id="addModule" type="button">Ajouter un module</button>
+          <button id="addModule" type="button">Add module</button>
         </div>
 
         <div id="modulesContainer" class="agents-container" aria-live="polite"></div>
@@ -120,8 +120,8 @@
 
         <section class="panel section-panel">
           <div class="panel-header">
-            <h2>Connecteurs</h2>
-            <p class="hint">Frameworks branchables depuis <code>connectors/registry.yml</code>.</p>
+            <h2>Connectors</h2>
+            <p class="hint">Pluggable frameworks from <code>connectors/registry.yml</code>.</p>
           </div>
           <div id="connectorsStatus" class="status" role="status" aria-live="polite"></div>
           <ul id="connectorsList" class="connector-list"></ul>
@@ -130,9 +130,9 @@
 
       <aside class="panel output-panel">
         <div class="output-header">
-          <h2>Traduction en YAML</h2>
-          <p>Le rendu suit la table de conversion sélectionnée.</p>
-          <div id="targetTabs" class="segmented tabs" role="tablist" aria-label="Cible de conversion"></div>
+          <h2>YAML Translation</h2>
+          <p>The output follows the selected conversion mapping.</p>
+          <div id="targetTabs" class="segmented tabs" role="tablist" aria-label="Conversion target"></div>
         </div>
         <div id="targetPanelsContainer"></div>
       </aside>
@@ -142,23 +142,23 @@
       <details class="agent-card" open>
         <summary>
           <div>
-            Agent : <span class="agent-title">(nouvel agent)</span>
+            Agent: <span class="agent-title">(new agent)</span>
           </div>
           <div class="summary-actions">
-            <span class="missing-badge" data-missing-badge hidden>Configuration non valide</span>
-            <button type="button" class="secondary accent" data-duplicate-agent>Dupliquer</button>
-            <button type="button" class="remove-agent secondary danger">Supprimer</button>
+            <span class="missing-badge" data-missing-badge hidden>Invalid configuration</span>
+            <button type="button" class="secondary accent" data-duplicate-agent>Duplicate</button>
+            <button type="button" class="remove-agent secondary danger">Delete</button>
           </div>
         </summary>
         <div class="agent-tabs">
-          <div class="segmented tabs" role="tablist" aria-label="Vue agent">
+          <div class="segmented tabs" role="tablist" aria-label="Agent view">
             <label class="segmented-item" role="tab" aria-selected="true">
               <input type="radio" name="agentTab" value="features" checked data-default-tab="features" />
               Features
             </label>
             <label class="segmented-item" role="tab" aria-selected="false">
               <input type="radio" name="agentTab" value="yaml" data-default-tab="yaml" />
-              Résumé YAML
+              YAML Summary
             </label>
           </div>
         </div>
@@ -166,22 +166,22 @@
           <section class="agent-tab-panel" data-tab-panel="features">
             <div class="agent-column">
               <h3>Features</h3>
-              <div class="tree" data-agent-tree aria-label="Arbre des features"></div>
+              <div class="tree" data-agent-tree aria-label="Feature tree"></div>
             </div>
           </section>
           <section class="agent-tab-panel" data-tab-panel="yaml">
             <div class="agent-column agent-column--summary">
               <div class="summary-block">
-                <h3>Résumé YAML</h3>
-                <p class="hint">Coller un YAML ici met à jour instantanément l’agent.</p>
+                <h3>YAML Summary</h3>
+                <p class="hint">Pasting YAML here instantly updates the agent.</p>
                 <div class="yaml-editor">
-                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># Aperçu YAML</pre>
-                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="Le YAML résumé apparaîtra ici..." spellcheck="false"></textarea>
+                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># YAML Preview</pre>
+                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="The summarized YAML will appear here..." spellcheck="false"></textarea>
                 </div>
                 <div class="yaml-actions">
-                  <button type="button" class="secondary" data-agent-copy-yaml>Copier</button>
-                  <button type="button" class="secondary" data-agent-download-yaml>Télécharger</button>
-                  <button type="button" data-agent-load-yaml>Charger le YAML</button>
+                  <button type="button" class="secondary" data-agent-copy-yaml>Copy</button>
+                  <button type="button" class="secondary" data-agent-download-yaml>Download</button>
+                  <button type="button" data-agent-load-yaml>Load YAML</button>
                 </div>
               </div>
             </div>
@@ -193,17 +193,17 @@
          <div class="analysis-panel">
           <div class="analysis-controls">
             <button type="button" class="secondary" data-analyze-agent-btn>
-              Analyser la configuration
+              Analyze configuration
             </button>
           </div>
 
           <div class="analysis-results" data-analysis-results-agent hidden>
             <div class="stat-row">
-              <span class="stat-label">Validité :</span>
+              <span class="stat-label">Validity:</span>
               <span class="stat-value" data-stat-valid-agent>-</span>
             </div>
             <div class="stat-row">
-              <span class="stat-label">Configs possibles :</span>
+              <span class="stat-label">Possible configurations:</span>
               <span class="stat-value" data-stat-count-agent>-</span>
             </div>
           </div>
@@ -217,23 +217,23 @@
       <details class="agent-card" open>
         <summary>
           <div>
-            Module : <span class="agent-title">(nouveau module)</span>
+            Module: <span class="agent-title">(new module)</span>
           </div>
           <div class="summary-actions">
-            <span class="missing-badge" data-missing-badge hidden>Configuration non valide</span>
-            <button type="button" class="secondary accent" data-duplicate-module>Dupliquer</button>
-            <button type="button" class="remove-agent secondary danger">Supprimer</button>
+            <span class="missing-badge" data-missing-badge hidden>Invalid configuration</span>
+            <button type="button" class="secondary accent" data-duplicate-module>Duplicate</button>
+            <button type="button" class="remove-agent secondary danger">Delete</button>
           </div>
         </summary>
         <div class="agent-tabs">
-          <div class="segmented tabs" role="tablist" aria-label="Vue module">
+          <div class="segmented tabs" role="tablist" aria-label="Module view">
             <label class="segmented-item" role="tab" aria-selected="true">
               <input type="radio" name="moduleTab" value="features" checked data-default-tab="features" />
               Features
             </label>
             <label class="segmented-item" role="tab" aria-selected="false">
               <input type="radio" name="moduleTab" value="yaml" data-default-tab="yaml" />
-              Résumé YAML
+              YAML Summary
             </label>
           </div>
         </div>
@@ -241,22 +241,22 @@
           <section class="agent-tab-panel" data-tab-panel="features">
             <div class="agent-column">
               <h3>Features</h3>
-              <div class="tree" data-agent-tree aria-label="Arbre des features"></div>
+              <div class="tree" data-agent-tree aria-label="Feature tree"></div>
             </div>
           </section>
           <section class="agent-tab-panel" data-tab-panel="yaml">
             <div class="agent-column agent-column--summary">
               <div class="summary-block">
-                <h3>Résumé YAML</h3>
-                <p class="hint">Coller un YAML ici met à jour instantanément le module.</p>
+                <h3>YAML Summary</h3>
+                <p class="hint">Pasting YAML here instantly updates the module.</p>
                 <div class="yaml-editor">
-                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># Aperçu YAML</pre>
-                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="Le YAML résumé apparaîtra ici..." spellcheck="false"></textarea>
+                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># YAML Preview</pre>
+                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="The summarized YAML will appear here..." spellcheck="false"></textarea>
                 </div>
                 <div class="yaml-actions">
-                  <button type="button" class="secondary" data-agent-copy-yaml>Copier</button>
-                  <button type="button" class="secondary" data-agent-download-yaml>Télécharger</button>
-                  <button type="button" data-agent-load-yaml>Charger le YAML</button>
+                  <button type="button" class="secondary" data-agent-copy-yaml>Copy</button>
+                  <button type="button" class="secondary" data-agent-download-yaml>Download</button>
+                  <button type="button" data-agent-load-yaml>Load YAML</button>
                 </div>
               </div>
             </div>
@@ -291,14 +291,14 @@
       <details class="agent-card" open>
         <summary class="summary-hidden"></summary>
         <div class="agent-tabs">
-          <div class="segmented tabs" role="tablist" aria-label="Vue workflow">
+          <div class="segmented tabs" role="tablist" aria-label="Workflow view">
             <label class="segmented-item" role="tab" aria-selected="true">
               <input type="radio" name="orchestrationTab" value="features" checked data-default-tab="features" />
               Features
             </label>
             <label class="segmented-item" role="tab" aria-selected="false">
               <input type="radio" name="orchestrationTab" value="yaml" data-default-tab="yaml" />
-              Résumé YAML
+              YAML Summary
             </label>
           </div>
         </div>
@@ -306,7 +306,7 @@
           <section class="agent-tab-panel" data-tab-panel="features">
             <div class="agent-column">
               <h3>Features</h3>
-              <div class="tree" data-agent-tree aria-label="Arbre des features"></div>
+              <div class="tree" data-agent-tree aria-label="Feature tree"></div>
               <div class="orchestration-builder" data-orchestration-builder>
                 <div class="builder-grid builder-grid--simple">
                   <div class="builder-block">
@@ -323,11 +323,11 @@
                   <div class="builder-actions builder-actions--inside">
                     <label class="memory-toggle">
                       <input type="checkbox" data-orch-memory />
-                      Mémoire
+                      Memory
                     </label>
                     <div class="builder-actions-bottom">
-                      <button type="button" class="secondary danger" data-clear-last>Effacer le dernier</button>
-                      <button type="button" class="secondary danger" data-clear-all>Tout effacer</button>
+                      <button type="button" class="secondary danger" data-clear-last>Clear last</button>
+                      <button type="button" class="secondary danger" data-clear-all>Clear all</button>
                     </div>
                   </div>
                   <div class="graph-panel">
@@ -340,16 +340,16 @@
           <section class="agent-tab-panel" data-tab-panel="yaml">
             <div class="agent-column agent-column--summary">
               <div class="summary-block">
-                <h3>Résumé YAML</h3>
-                <p class="hint">Coller un YAML ici met à jour instantanément le workflow.</p>
+                <h3>YAML Summary</h3>
+                <p class="hint">Pasting YAML here instantly updates the workflow.</p>
                 <div class="yaml-editor">
-                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># Aperçu YAML</pre>
-                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="Le YAML résumé apparaîtra ici..." spellcheck="false"></textarea>
+                  <pre class="code-sample yaml-highlight" data-agent-yaml-preview># YAML Preview</pre>
+                  <textarea class="yaml-output yaml-input" rows="18" data-agent-yaml placeholder="The summarized YAML will appear here..." spellcheck="false"></textarea>
                 </div>
                 <div class="yaml-actions">
-                  <button type="button" class="secondary" data-agent-copy-yaml>Copier</button>
-                  <button type="button" class="secondary" data-agent-download-yaml>Télécharger</button>
-                  <button type="button" data-agent-load-yaml>Charger le YAML</button>
+                  <button type="button" class="secondary" data-agent-copy-yaml>Copy</button>
+                  <button type="button" class="secondary" data-agent-download-yaml>Download</button>
+                  <button type="button" data-agent-load-yaml>Load YAML</button>
                 </div>
               </div>
             </div>

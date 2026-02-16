@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mode Manuel - Éditeur de Code</title>
+    <title>Manual Mode - Code Editor</title>
     <link rel="stylesheet" href="manual.css">
 
     <link rel="stylesheet" href="overlay.css">
@@ -16,16 +16,16 @@
     <main class="main-card">
 
         <div class="editor-column">
-            <h3 class="section-title">Éditeur de script</h3>
+            <h3 class="section-title">Script Editor</h3>
             <div class="editor-container">
                 <textarea
                     id="manualInput"
-                    placeholder="# Sélectionnez votre framework à droite, puis collez votre code ici...
-# Exemple CrewAI :
+                    placeholder="# Select your framework on the right, then paste your code here...
+# CrewAI example:
 from crewai import Agent, Task, Crew
 ...
 
-# Exemple Google ADK :
+# Google ADK example:
 from google.adk.agents import Agent
 ..."
                     spellcheck="false"></textarea>
@@ -36,7 +36,7 @@ from google.adk.agents import Agent
             <h3 class="section-title">Configuration</h3>
 
             <div class="control-group">
-                <label for="frameworkTarget">Framework Cible :</label>
+                <label for="frameworkTarget">Target Framework:</label>
                 <select id="frameworkTarget" class="framework-select">
                     <option value="crewai">CrewAI</option>
                     <option value="adk">Google ADK</option>
@@ -44,13 +44,13 @@ from google.adk.agents import Agent
             </div>
 
             <div class="run-actions">
-                <button type="button" id="runWorkflowBtn" class="secondary action-btn">▶ Exécuter le workflow</button>
-                <button type="button" id="stopWorkflowBtn" class="secondary danger action-btn">■ Arrêter</button>
+                <button type="button" id="runWorkflowBtn" class="secondary action-btn">▶ Run workflow</button>
+                <button type="button" id="stopWorkflowBtn" class="secondary danger action-btn">■ Stop</button>
             </div>
 
             <div class="output-wrapper">
-                <label>Sortie console :</label>
-                <pre id="runOutput" class="code-sample run-output"># En attente d'exécution...</pre>
+                <label>Console output:</label>
+                <pre id="runOutput" class="code-sample run-output"># Waiting for execution...</pre>
             </div>
         </aside>
 

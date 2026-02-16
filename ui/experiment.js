@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const res = await fetch('/api/experiment/start', { method: 'POST' });
-            if (!res.ok) throw new Error("Erreur serveur lors du démarrage");
+            if (!res.ok) throw new Error("Error when starting");
 
             const data = await res.json();
 
@@ -47,9 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error(error);
-            alert("Impossible de démarrer l'expérience. Vérifiez la connexion.");
+            alert("Can't start the experiments. Check your connexion.");
             startBtn.disabled = false;
-            startBtn.textContent = "Commencer l'expérience";
+            startBtn.textContent = "Start the experiment";
         }
     });
 
@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseScreen.classList.remove('hidden');
         const nextTask = state.sequence[state.currentIndex];
 
-        const modeLabel = nextTask.mode === 'GEAR' ? 'Mode Assisté (Gear)' : 'Mode Manuel';
-        nextTaskInfo.textContent = `Prochaine tâche : ${nextTask.id} (${modeLabel})`;
+        const modeLabel = nextTask.mode === 'GEAR' ? 'Gear mode' : 'Manual mode';
+        nextTaskInfo.textContent = `Next task : ${nextTask.id} (${modeLabel})`;
     }
 
     function launchTask() {

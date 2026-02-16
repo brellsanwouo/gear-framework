@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runBtn.addEventListener('click', async () => {
             const code = inputArea.value;
             if (!code || !code.trim()) {
-                outputPre.textContent = "# Veuillez entrer du code avant d'exécuter.";
+                outputPre.textContent = "Write the code before executing.";
                 return;
             }
 
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (runAborter) runAborter.abort();
             runAborter = new AbortController();
-            outputPre.textContent = `# Exécution du workflow (${targetFramework})...`;
+            outputPre.textContent = `Execution of the workflow (${targetFramework})...`;
             outputPre.classList.remove('error');
 
             try {
@@ -72,14 +72,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const stderr = payload?.stderr || "";
                 const combined = [stdout, stderr].filter(Boolean).join("\n");
 
-                outputPre.textContent = combined || "# Exécution terminée (aucun résultat affichable).";
+                outputPre.textContent = combined || "\nExecution finished (no results).";
 
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    outputPre.textContent += "\n# Exécution arrêtée par l'utilisateur.";
+                    outputPre.textContent += "\nExecution stopped.";
                 } else {
                     console.error(error);
-                    outputPre.textContent = `# Erreur : ${error.message || error}`;
+                    outputPre.textContent = `# Error : ${error.message || error}`;
                     outputPre.classList.add('error');
                 }
             } finally {
