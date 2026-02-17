@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const introScreen = document.getElementById('introScreen');
     const pauseScreen = document.getElementById('pauseScreen');
     const endScreen = document.getElementById('endScreen');
-    const nextTaskInfo = document.getElementById('nextTaskInfo');
+    const nextTaskName = document.getElementById('nextTaskName');
     const startBtn = document.getElementById('startBtn');
     const nextBtn = document.getElementById('nextBtn');
 
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextTask = state.sequence[state.currentIndex];
 
         const modeLabel = nextTask.mode === 'GEAR' ? 'Gear' : 'Manual';
-        nextTaskInfo.textContent = `Next task : ${nextTask.id} (${modeLabel})`;
+        nextTaskName.textContent = `${nextTask.id} (${modeLabel})`;
     }
 
     function launchTask() {

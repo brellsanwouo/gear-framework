@@ -430,7 +430,6 @@ def run_orchestration():
 
     return jsonify({"stdout": stdout, "stderr": stderr_user, "trace_id": trace_id})
 
-
 @app.post("/api/experiment/log_end")
 def log_task_end():
     try:
