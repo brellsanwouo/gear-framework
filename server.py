@@ -247,19 +247,17 @@ def validate_task():
     return jsonify({"valid": True, "message": "Valid configuration."})
 
 
-TASK_IDS = [f"T{i}" for i in range(6)]
+
+TASK_IDS = [f"T{i}" for i in range(1, 5)]
 
 
 @app.post("/api/experiment/start")
 def start_experiment():
     user_id = str(uuid.uuid4())
 
-    experiment_sequence = []
-    for tid in TASK_IDS:
-        modes = ["GEAR", "MANUAL"]
-        random.shuffle(modes)
-        for m in modes:
-            experiment_sequence.append({"id": tid, "mode": m})
+    chosen_mode = random.choice(["GEAR", "MANUAL"])
+
+    experiment_sequence = [{"id": tid, "mode": chosen_mode} for tid in TASK_IDS]
 
     try:
         conn = get_db_connection()
@@ -277,6 +275,7 @@ def start_experiment():
     return jsonify(
         {
             "user_id": user_id,
+            "mode": chosen_mode,
             "sequence": experiment_sequence,
             "first_task": experiment_sequence[0],
             "total_tasks": len(experiment_sequence),
