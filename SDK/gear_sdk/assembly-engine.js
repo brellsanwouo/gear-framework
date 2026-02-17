@@ -60,16 +60,41 @@
     return result.exists ? result.value : undefined;
   };
 
+  const isOpenAIResponsesModel = (modelName) => {
+    const name = String(modelName || "").trim().toLowerCase();
+    return !!name && name.includes("codex");
+  };
+
   const toCrewaiModel = (provider, model) => {
     const modelText = String(model || "").trim();
     if (!modelText) return "";
+
+    const lowerModel = modelText.toLowerCase();
+    if (lowerModel.startsWith("openai/") && !lowerModel.startsWith("openai/responses/")) {
+      const rest = modelText.slice("openai/".length);
+      if (isOpenAIResponsesModel(rest)) {
+        return `openai/responses/${rest}`;
+      }
+    }
+
     if (modelText.includes("/")) return modelText;
     if (modelText.includes(":")) {
       const [prov, rest] = modelText.split(":", 2);
-      if (prov && rest) return `${prov}/${rest}`;
+      if (prov && rest) {
+        if (prov.toLowerCase() === "openai" && isOpenAIResponsesModel(rest)) {
+          return `openai/responses/${rest}`;
+        }
+        return `${prov}/${rest}`;
+      }
     }
     const provText = String(provider || "").trim();
-    return provText ? `${provText}/${modelText}` : modelText;
+    if (provText) {
+      if (provText.toLowerCase() === "openai" && isOpenAIResponsesModel(modelText)) {
+        return `openai/responses/${modelText}`;
+      }
+      return `${provText}/${modelText}`;
+    }
+    return modelText;
   };
 
   const ensureUniqueKey = (base, prefix, index, used) => {

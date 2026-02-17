@@ -49,6 +49,7 @@ const CREWAI_MULTI_MAPPING_PATH = "connectors/frameworks/crewai/multiagent.mappi
 const ADK_AGENT_MAPPING_PATH = "connectors/frameworks/adk/agent.mapping.yml";
 const ADK_MULTI_MAPPING_PATH = "connectors/frameworks/adk/multiagent.mapping.yml";
 const ADK_MODULE_MAPPING_PATH = "connectors/frameworks/adk/module.mapping.yml";
+const FEATURE_POLICY_PATH = "ui/feature-policy.yml";
 
 const SCALAR_ENUM_PARENTS_BY_KIND = {
   agent: new Set(["Provider", "Model"]),
@@ -73,6 +74,8 @@ const FRAMEWORK_LIMITATIONS = {
 let agentModel = null;
 let moduleModel = null;
 let orchestrationModel = null;
+let featurePolicy = null;
+let featurePolicyIndex = { enabled: false, byKind: {} };
 let agentStates = [];
 let moduleStates = [];
 let orchestrationStates = [];
@@ -559,6 +562,87 @@ const setFeatureActiveById = (state, featureId, enabled) => {
   return true;
 };
 
+const applyFeaturePolicyToState = (state) => {
+  const policy = getPolicyForState(state);
+  if (!policy || !state?.model) {
+    return;
+  }
+  const { model } = state;
+
+  policy.forced.forEach((value, parentName) => {
+    const parent = findFeatureByNormalizedName(model, parentName);
+    if (!parent) {
+      return;
+    }
+    const groupId = (parent.groups || []).find((id) => model.groups[id]?.type === "alternative");
+    if (!groupId) {
+      return;
+    }
+    const group = model.groups[groupId];
+    const normalizedValue = normalizeFeatureName(value);
+    let selectedId = group.children.find(
+      (childId) => normalizeFeatureName(model.features[childId]?.name) === normalizedValue,
+    );
+    if (!selectedId) {
+      const abstractChild = group.children.find((childId) => model.features[childId]?.abstract);
+      if (abstractChild) {
+        selectedId = abstractChild;
+        state.featureValues[abstractChild] = String(value);
+      }
+    }
+    if (selectedId) {
+      state.alternativeSelections[groupId] = selectedId;
+      activateAncestors(state, selectedId);
+    }
+  });
+
+  if (!policy.disabled.size) {
+    return;
+  }
+
+  Object.values(model.features).forEach((feature) => {
+    if (!policy.disabled.has(normalizeFeatureName(feature.name))) {
+      return;
+    }
+    if (feature.relationType === "optional") {
+      state.optionalSelections[feature.id] = false;
+      state.featureValues[feature.id] = "";
+      return;
+    }
+    if (feature.relationType === "alternative" && feature.parentGroupId) {
+      const group = model.groups[feature.parentGroupId];
+      if (!group) {
+        return;
+      }
+      const parent = model.features[group.parentFeatureId];
+      const forcedValue = parent ? policy.forced.get(normalizeFeatureName(parent.name)) : null;
+      let fallbackId = null;
+      if (forcedValue) {
+        const normalizedValue = normalizeFeatureName(forcedValue);
+        fallbackId = group.children.find(
+          (childId) => normalizeFeatureName(model.features[childId]?.name) === normalizedValue,
+        );
+      }
+      if (!fallbackId) {
+        fallbackId = group.children.find(
+          (childId) => !policy.disabled.has(normalizeFeatureName(model.features[childId]?.name)),
+        );
+      }
+      if (fallbackId) {
+        state.alternativeSelections[group.id] = fallbackId;
+      }
+    }
+  });
+};
+
+const applyPolicyToAllStates = () => {
+  [...agentStates, ...moduleStates, ...orchestrationStates].forEach((state) => {
+    if (state?.rootEl) {
+      renderAgent(state);
+    }
+  });
+};
+
 const enforceFixedValues = (state) => {
   const { model } = state;
   for (const [name, value] of Object.entries(FIXED_FEATURE_VALUES_BY_NAME)) {
@@ -576,6 +660,7 @@ const enforceFixedValues = (state) => {
 
 const applyConstraintsToState = (state) => {
   const { model } = state;
+  applyFeaturePolicyToState(state);
   if (!model?.constraints?.length) {
     state.constraintViolations = [];
     return;
@@ -781,8 +866,9 @@ const buildActiveTranslationSummaryFromPaths = (entries, activePaths) => {
   };
 };
 
-const buildUnavailableSummary = (entries, prefix) => {
+const buildUnavailableSummary = (entries, prefix, activePaths) => {
   const unavailable = new Map();
+  const activeSet = Array.isArray(activePaths) ? new Set(activePaths) : null;
   (entries || []).forEach((entry) => {
     const fromList = normalizeFromList(entry?.from);
     if (!fromList.length) {
@@ -794,6 +880,9 @@ const buildUnavailableSummary = (entries, prefix) => {
     }
     fromList.forEach((fromPath) => {
       const displayPath = formatDisplayPath(prefix, fromPath);
+      if (activeSet && !activeSet.has(displayPath)) {
+        return;
+      }
       if (!unavailable.has(displayPath)) {
         unavailable.set(displayPath, {
           from: displayPath,
@@ -1061,7 +1150,7 @@ const renderTranslationSummary = (outputId, entries, sources, activePaths) => {
   const summary = Array.isArray(activePaths)
     ? buildActiveTranslationSummaryFromPaths(combinedEntries, activePaths)
     : buildActiveTranslationSummary(combinedEntries, sources, prefix);
-  const unavailable = buildUnavailableSummary(combinedEntries, prefix);
+  const unavailable = buildUnavailableSummary(combinedEntries, prefix, activePaths);
   const fixed = buildFixedSummary(combinedEntries);
 
   const renderItem = (listEl, text, notes, className) => {
@@ -1428,6 +1517,16 @@ const loadScriptFromUrlCandidates = async (relativePath) => {
   throw lastError || new Error("Chargement script impossible");
 };
 
+const loadFeaturePolicy = async () => {
+  try {
+    featurePolicy = await loadYamlFromUrlCandidates(FEATURE_POLICY_PATH);
+  } catch (error) {
+    featurePolicy = null;
+  }
+  featurePolicyIndex = normalizeFeaturePolicy(featurePolicy);
+  applyPolicyToAllStates();
+};
+
 // Load CrewAI mappings used by the assembly plugins.
 const loadCrewaiMappings = async () => {
   try {
@@ -1770,22 +1869,42 @@ const getMappedValue = (mapped, path) => {
   return result.exists ? result.value : undefined;
 };
 
+const isOpenAIResponsesModel = (modelName) => {
+  const name = String(modelName || "").trim().toLowerCase();
+  return !!name && name.includes("codex");
+};
+
 const toCrewaiModel = (provider, model) => {
   const modelText = String(model || "").trim();
   if (!modelText) {
     return "";
   }
+
+  const lowerModel = modelText.toLowerCase();
+  if (lowerModel.startsWith("openai/") && !lowerModel.startsWith("openai/responses/")) {
+    const rest = modelText.slice("openai/".length);
+    if (isOpenAIResponsesModel(rest)) {
+      return `openai/responses/${rest}`;
+    }
+  }
+
   if (modelText.includes("/")) {
     return modelText;
   }
   if (modelText.includes(":")) {
     const [prov, rest] = modelText.split(":", 2);
     if (prov && rest) {
+      if (prov.toLowerCase() === "openai" && isOpenAIResponsesModel(rest)) {
+        return `openai/responses/${rest}`;
+      }
       return `${prov}/${rest}`;
     }
   }
   const provText = String(provider || "").trim();
   if (provText) {
+    if (provText.toLowerCase() === "openai" && isOpenAIResponsesModel(modelText)) {
+      return `openai/responses/${modelText}`;
+    }
     return `${provText}/${modelText}`;
   }
   return modelText;
@@ -2633,6 +2752,93 @@ const NUMBER_FEATURES = new Set([
 
 const normalizeFeatureName = (featureName) => String(featureName || "").trim().toLowerCase();
 
+const normalizePolicyList = (value) => {
+  if (!value) {
+    return [];
+  }
+  const list = Array.isArray(value) ? value : [value];
+  return list.map((item) => normalizeFeatureName(item)).filter(Boolean);
+};
+
+const normalizePolicyForceMap = (value) => {
+  const map = new Map();
+  if (!value || typeof value !== "object") {
+    return map;
+  }
+  Object.entries(value).forEach(([key, item]) => {
+    const normalizedKey = normalizeFeatureName(key);
+    if (!normalizedKey) {
+      return;
+    }
+    if (item === null || item === undefined) {
+      return;
+    }
+    map.set(normalizedKey, item);
+  });
+  return map;
+};
+
+const normalizeFeaturePolicy = (policy) => {
+  const enabled = Boolean(policy?.enabled);
+  const byKind = {};
+  ["agent", "module", "orchestration"].forEach((kind) => {
+    const entry = policy?.[kind];
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const disabled = new Set(normalizePolicyList(entry.disable || entry.disabled));
+    const forced = normalizePolicyForceMap(entry.force || entry.forced);
+    byKind[kind] = { disabled, forced };
+  });
+  return { enabled, byKind };
+};
+
+const getPolicyForState = (state) => {
+  if (!featurePolicyIndex?.enabled || !state?.kind) {
+    return null;
+  }
+  return featurePolicyIndex.byKind?.[state.kind] || null;
+};
+
+const findFeatureByNormalizedName = (model, normalizedName) => {
+  if (!model || !normalizedName) {
+    return null;
+  }
+  return (
+    Object.values(model.features).find(
+      (feature) => normalizeFeatureName(feature.name) === normalizedName,
+    ) || null
+  );
+};
+
+const isFeatureDisabledByPolicy = (state, feature) => {
+  const policy = getPolicyForState(state);
+  if (!policy || !feature?.name) {
+    return false;
+  }
+  return policy.disabled.has(normalizeFeatureName(feature.name));
+};
+
+const isFeatureLockedByPolicy = (state, feature) => {
+  const policy = getPolicyForState(state);
+  if (!policy || !feature) {
+    return false;
+  }
+  if (isFeatureDisabledByPolicy(state, feature)) {
+    return true;
+  }
+  if (feature.parentGroupId) {
+    const group = state.model?.groups?.[feature.parentGroupId];
+    if (group?.type === "alternative") {
+      const parent = state.model?.features?.[group.parentFeatureId];
+      if (parent && policy.forced.has(normalizeFeatureName(parent.name))) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 const isBooleanFeatureName = (featureName) => BOOLEAN_FEATURES.has(normalizeFeatureName(featureName));
 
 const isNumberFeatureName = (featureName) => NUMBER_FEATURES.has(normalizeFeatureName(featureName));
@@ -2677,6 +2883,29 @@ const hasMeaningfulValue = (value) => {
     return value.trim() !== "";
   }
   return true;
+};
+
+const isFeatureDefinedInState = (state, feature) => {
+  if (!state?.model || !feature) {
+    return false;
+  }
+  if (!isLeafFeature(state.model, feature.id)) {
+    return false;
+  }
+  if (!isFeatureActive(state, feature.id)) {
+    return false;
+  }
+  if (!feature.abstract) {
+    return true;
+  }
+  if (isBooleanFeatureName(feature.name)) {
+    return true;
+  }
+  const value = state.featureValues[feature.id];
+  if (isNumberFeatureName(feature.name)) {
+    return parseNumberValue(value) !== null;
+  }
+  return hasMeaningfulValue(value);
 };
 
 const getMissingRequiredCount = (state) => {
@@ -2797,6 +3026,7 @@ const renderFeature = (state, featureId, parentActive) => {
   const feature = model.features[featureId];
   const active = parentActive && isFeatureActive(state, featureId);
   const hasChildren = featureHasChildren(model, feature.id);
+  const lockedByPolicy = isFeatureLockedByPolicy(state, feature);
 
   const li = document.createElement("li");
   li.className = "tree-node";
@@ -2824,7 +3054,7 @@ const renderFeature = (state, featureId, parentActive) => {
     radio.type = "radio";
     radio.name = `${state.id}::${feature.parentGroupId}`;
     radio.checked = active;
-    radio.disabled = !parentActive;
+    radio.disabled = !parentActive || lockedByPolicy;
     radio.addEventListener("change", () => {
       state.alternativeSelections[feature.parentGroupId] = feature.id;
       renderAgent(state);
@@ -2839,7 +3069,7 @@ const renderFeature = (state, featureId, parentActive) => {
     checkbox.checked = active;
     const disabledByParent = !parentActive;
     const disabledByRelation = groupType === "mandatory";
-    checkbox.disabled = disabledByParent || disabledByRelation;
+    checkbox.disabled = disabledByParent || disabledByRelation || lockedByPolicy;
     checkbox.addEventListener("change", () => {
       state.optionalSelections[feature.id] = checkbox.checked;
       renderAgent(state);
@@ -2869,6 +3099,13 @@ const renderFeature = (state, featureId, parentActive) => {
     line.appendChild(abstractBadge);
   }
 
+  if (lockedByPolicy) {
+    const lockedBadge = document.createElement("span");
+    lockedBadge.className = "badge";
+    lockedBadge.textContent = "verrouille";
+    line.appendChild(lockedBadge);
+  }
+
   if (isLeafFeature(model, feature.id)) {
     const rawValue = state.featureValues[feature.id];
     const stringValue = Array.isArray(rawValue) ? "" : String(rawValue ?? "").trim();
@@ -2888,7 +3125,7 @@ const renderFeature = (state, featureId, parentActive) => {
       selectEl.className = "feature-value";
       selectEl.multiple = true;
       selectEl.size = 4;
-      selectEl.disabled = !active;
+      selectEl.disabled = !active || lockedByPolicy;
 
       const options = buildAgentOptionList();
       for (const option of options) {
@@ -2921,7 +3158,7 @@ const renderFeature = (state, featureId, parentActive) => {
       selectEl.className = "feature-value";
       selectEl.multiple = true;
       selectEl.size = 4;
-      selectEl.disabled = !active;
+      selectEl.disabled = !active || lockedByPolicy;
 
       const options = buildModuleOptionList();
       for (const option of options) {
@@ -2952,7 +3189,7 @@ const renderFeature = (state, featureId, parentActive) => {
     } else if (isAgentRefFeature(state, feature)) {
       const selectEl = document.createElement("select");
       selectEl.className = "feature-value";
-      selectEl.disabled = !active;
+      selectEl.disabled = !active || lockedByPolicy;
 
       const placeholder = document.createElement("option");
       placeholder.value = "";
@@ -2994,7 +3231,7 @@ const renderFeature = (state, featureId, parentActive) => {
         state.featureValues[feature.id] = fixedValue;
       }
       valueEl.value = state.featureValues[feature.id] ?? "";
-      valueEl.disabled = !active;
+      valueEl.disabled = !active || lockedByPolicy;
       if (fixedValue) {
         valueEl.readOnly = true;
       }
@@ -3153,8 +3390,8 @@ const collectActiveFeaturePaths = (state) => {
   const { model } = state;
   const paths = new Set();
   const scalarParents = new Set();
-  const activeLeaves = Object.values(model.features).filter(
-    (feature) => isFeatureActive(state, feature.id) && isLeafFeature(model, feature.id),
+  const activeLeaves = Object.values(model.features).filter((feature) =>
+    isFeatureDefinedInState(state, feature),
   );
 
   for (const feature of activeLeaves) {
@@ -4877,9 +5114,11 @@ const bindOutputUiInteractions = () => {
   }
 };
 
-loadDefaultAgentModel();
-loadDefaultModuleModel();
-loadDefaultOrchestrationModel();
+loadFeaturePolicy().finally(() => {
+  loadDefaultAgentModel();
+  loadDefaultModuleModel();
+  loadDefaultOrchestrationModel();
+});
 loadConnectorsRegistry();
 Promise.all([loadCrewaiMappings(), loadAdkMappings()]).then(() => {
   refreshOutputDomRefs();

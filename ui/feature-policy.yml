@@ -1,0 +1,13 @@
+# Feature policy for evaluation mode.
+# Set enabled: false to re-enable all options.
+enabled: true
+agent:
+  force:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  disable:
+    - ollama
+    - OtherProvider
+    - OtherModel
+    - ModelParameters
+    - ExecutionControl
