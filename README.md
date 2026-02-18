@@ -295,6 +295,20 @@ All benchmark problems live in `data/AgentGridPlanning/`.
 
 ---
 
+## Evaluation Note (participants)
+
+For evaluation, the UI applies a policy that:
+- blocks selection of `ollama`, `OtherProvider`, `OtherModel`, `ModelParameters`, `ExecutionControl`
+- forces `Provider=openai` and `Model=gpt-5.1-codex-mini`
+
+This policy is defined in `ui/feature-policy.yml`.
+
+To re-enable:
+1. Open `ui/feature-policy.yml` and set `enabled: false` (or delete the file).
+2. Optional: remove the `force` / `disable` lists if you want to return to defaults.
+
+---
+
 ## Contact
 
 For questions, collaborations, or bug reports, reach out to:
