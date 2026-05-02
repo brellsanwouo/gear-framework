@@ -5,30 +5,37 @@
 ![ui](https://img.shields.io/badge/ui-vanilla%20JS-yellow)
 ![connectors](https://img.shields.io/badge/connectors-yaml%20%2B%20plugin-6b8cff)
 
-**Gear Framework** is a friendly tool to **model, translate, and run multi-agent systems** across different frameworks (currently **CrewAI** and **Google ADK**) from a single Gear source model.
+**Gear Framework** helps design multi-agent systems (SMA) independently from the execution framework that will run them. Instead of starting directly from CrewAI, Google ADK, or another framework-specific API, Gear lets you first describe the system at the design level: agents, modules, workflows, constraints, and variation points.
 
-The goal is to help to start quickly, reduce the cost of experimentation (time, money, tokens), and avoid locking into a single framework too early. You can **compare concepts across frameworks** and **translate from one to another** using the same Gear definitions.
+From that same Gear design, the tool can generate framework-specific YAML and executable code for several targets. This improves portability: one design can be reused, compared, and translated across frameworks without rewriting the SMA from scratch each time.
 
 ---
 
 ## Why this project exists
 
-Gear Framework is designed for who want to explore multi‑agent systems without committing to a single framework too early. It helps you:
+Most agent frameworks mix two concerns: the conceptual design of the SMA and the concrete code needed to execute it. That makes experimentation costly, because changing frameworks often means redesigning the system in another API.
 
-- **Save time and tokens** by reusing the same Gear definition across frameworks.
-- **Compare concepts** (agents, tasks, workflows, memory) side by side.
-- **Translate** one framework to another (CrewAI ↔ ADK for now).
-- **Stay extensible**: new frameworks are added via mappings + plugins (no hardcoding).
+Gear Framework separates those concerns. It provides a framework-independent design layer, then maps that design to concrete frameworks when execution code is needed.
+
+It helps you:
+
+- **Design first, execute later**: model agents, modules, and workflows independently from CrewAI, Google ADK, or any future backend.
+- **Improve portability**: reuse the same SMA design across several frameworks and compare their generated implementations.
+- **Generate code automatically**: produce framework-specific YAML and runnable Python code from the Gear design.
+- **Manage variability explicitly**: use feature-model-based specification and variability management to represent optional features, alternatives, constraints, and valid configurations.
+- **Stay extensible**: add new target frameworks through mappings and assembler plugins instead of hardcoding translations.
 
 ---
 
 ## What this tool does
 
-- **Model and validate** agents, modules, and workflows with **Feature Models (UVL)**.
-- **Translate** Gear models to target frameworks via **YAML mappings** and **plugin-based assemblers**.
-- **Generate YAML** and **runnable workflow code** per framework.
-- **Execute workflows** directly from the UI.
-- **Extend** to new frameworks by adding connectors (no hardcoding).
+- **Framework-independent SMA design**: define agents, modules, workflows, memory, tools, execution control, and model configuration in Gear.
+- **Feature model specification**: maintain UVL feature models for Gear concepts and use them to analyze variability and configuration space.
+- **FeatureIDE diagrams**: display pre-generated FeatureIDE PNG diagrams for the agent, module, and workflow feature models.
+- **Translation to target frameworks**: map Gear designs to CrewAI and Google ADK through YAML mappings and plugin-based assemblers.
+- **Automatic artifact generation**: generate framework YAML and runnable workflow code from the same source design.
+- **Optional execution**: run generated workflows directly from the UI when the target framework dependencies and API keys are installed.
+- **Connector-based extensibility**: add frameworks by adding mappings, templates, and assembler plugins under `connectors/`.
 
 ---
 
@@ -64,22 +71,20 @@ gear-framework/
 
 ## How it works (high level)
 
-1) **User input**: define agents/modules/workflow via UI or YAML.
-2) **Validation**: Gear Feature Models (UVL) validate structure and optionality.
-3) **Translation**: mappings + plugins convert Gear → target framework.
-4) **Output**: framework YAML and executable workflow code.
-5) **Execution**: server runs the generated code and returns stdout/stderr.
+1) **Design**: define agents, modules, and workflows in Gear through the UI or YAML.
+2) **Specify variability**: use Gear feature models (UVL) to represent optional features, alternatives, constraints, and valid configurations.
+3) **Analyze and visualize**: inspect the feature models and run configuration analysis with Flamapy.
+4) **Translate**: apply mappings and assembler plugins to convert Gear designs into CrewAI or Google ADK artifacts.
+5) **Generate code**: produce framework-specific YAML and executable Python workflow code.
+6) **Execute when needed**: run the generated code only when the target framework dependencies and API keys are available.
 
 ---
 
 ## Prerequisites
 
 - Python **>= 3.10** and **< 3.14** (CrewAI requirement)
-- Flask + Flask-CORS
-- PyYAML + python-dotenv
-- **CrewAI** (recommended installation below)
-- **Google ADK**
-- **LiteLLM** (for model routing)
+- Python dependencies declared in `pyproject.toml`:
+  Flask, Flamapy, CrewAI, Google ADK, LiteLLM, PyYAML, python-dotenv, MLflow, MySQL connector, Markdown
 - API keys (at minimum `OPENAI_API_KEY` for execution)
 
 ---
@@ -97,24 +102,12 @@ source .venv/bin/activate
 ### 2) Install base dependencies
 ```
 pip install --upgrade pip
-pip install flask flask-cors pyyaml python-dotenv flamapy
-pip install google-adk litellm
+pip install -e .
 ```
 
-### 3) Install CrewAI (official uv tool)
+Verify the app command is available:
 ```
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install crewai
-```
-
-If the shell warns about PATH:
-```
-uv tool update-shell
-```
-
-Verify:
-```
-uv tool list
+gear
 ```
 
 ---
@@ -133,17 +126,12 @@ The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if 
 ## Run the server
 
 ```
-python gear-framework/server.py
+python server.py
 ```
 
 Default UI:
 ```
 http://127.0.0.1:8200/ui/
-```
-
-Custom port:
-```
-PORT=8300 python gear-framework/server.py
 ```
 
 ---

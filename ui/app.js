@@ -21,6 +21,16 @@ const connectorsStatusEl = document.getElementById("connectorsStatus");
 const connectorsListEl = document.getElementById("connectorsList");
 const targetTabsEl = document.getElementById("targetTabs");
 const targetPanelsContainerEl = document.getElementById("targetPanelsContainer");
+const featureModelModalEl = document.querySelector("[data-feature-model-modal]");
+const featureModelCloseButton = document.querySelector("[data-feature-model-close]");
+const featureModelZoomInButton = document.querySelector("[data-feature-model-zoom-in]");
+const featureModelZoomOutButton = document.querySelector("[data-feature-model-zoom-out]");
+const featureModelZoomResetButton = document.querySelector("[data-feature-model-zoom-reset]");
+const featureModelDownloadLink = document.querySelector("[data-feature-model-download]");
+const featureModelZoomLabelEl = document.querySelector("[data-feature-model-zoom-label]");
+const featureModelSourceEl = document.querySelector("[data-feature-model-source]");
+const featureModelRenderEl = document.querySelector("[data-feature-model-render]");
+const featureModelErrorEl = document.querySelector("[data-feature-model-error]");
 let targetTabLabels = [];
 let targetPanels = [];
 let outputTabLabels = [];
@@ -28,6 +38,7 @@ let outputBlocks = [];
 let outputTextBlocks = [];
 let outputCopyButtons = [];
 let connectorsRegistry = null;
+let featureModelZoom = 1;
 let runCrewaiWorkflowButton = null;
 let crewaiRunOutput = null;
 let stopCrewaiWorkflowButton = null;
@@ -4408,6 +4419,9 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
   const analyzeAgentButton = fragment.querySelector("[data-analyze-agent-btn]");
   const analyzeModuleButton = fragment.querySelector("[data-analyze-module-btn]");
   const analyzeMultiAgentButton = fragment.querySelector("[data-analyze-multi-agent-btn]");
+  const showAgentFeatureModelButton = fragment.querySelector("[data-show-feature-model-agent-btn]");
+  const showModuleFeatureModelButton = fragment.querySelector("[data-show-feature-model-module-btn]");
+  const showWorkflowFeatureModelButton = fragment.querySelector("[data-show-feature-model-workflow-btn]");
 
   state.rootEl = rootEl;
   state.els = {
@@ -4454,7 +4468,10 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
     memoryToggle,
     analyzeAgentButton,
     analyzeModuleButton,
-    analyzeMultiAgentButton
+    analyzeMultiAgentButton,
+    showAgentFeatureModelButton,
+    showModuleFeatureModelButton,
+    showWorkflowFeatureModelButton
   };
 
   if (rootEl) {
@@ -4541,34 +4558,64 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
 
 
   if (analyzeAgentButton) {
-  analyzeAgentButton.addEventListener("click", async () => {
-    try {
-      await runFlamapyAnalysis(state,"agent");
-    } catch (err) {
-      console.error(err);
-    }
-  });
-}
+    analyzeAgentButton.addEventListener("click", async () => {
+      try {
+        await runFlamapyAnalysis(state, "agent");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
 
-    if (analyzeModuleButton) {
-  analyzeModuleButton.addEventListener("click", async () => {
-    try {
-      await runFlamapyAnalysis(state,"module");
-    } catch (err) {
-      console.error(err);
-    }
-  });
-}
+  if (showAgentFeatureModelButton) {
+    showAgentFeatureModelButton.addEventListener("click", async () => {
+      try {
+        await showFeatureModel("agent");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
 
-      if (analyzeMultiAgentButton) {
-  analyzeMultiAgentButton.addEventListener("click", async () => {
-    try {
-      await runFlamapyAnalysis(state,"multiagent");
-    } catch (err) {
-      console.error(err);
-    }
-  });
-}
+  if (showModuleFeatureModelButton) {
+    showModuleFeatureModelButton.addEventListener("click", async () => {
+      try {
+        await showFeatureModel("module");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  if (showWorkflowFeatureModelButton) {
+    showWorkflowFeatureModelButton.addEventListener("click", async () => {
+      try {
+        await showFeatureModel("workflow");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  if (analyzeModuleButton) {
+    analyzeModuleButton.addEventListener("click", async () => {
+      try {
+        await runFlamapyAnalysis(state, "module");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  if (analyzeMultiAgentButton) {
+    analyzeMultiAgentButton.addEventListener("click", async () => {
+      try {
+        await runFlamapyAnalysis(state, "multiagent");
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
 
   containerEl.appendChild(fragment);
   renderAgent(state);
@@ -4639,6 +4686,140 @@ const updateFlamapyAnalysisUI = (state, result,fm_type) => {
 
   resultsEl.hidden = false;
 };
+
+const clearFeatureModelModal = () => {
+  if (featureModelSourceEl) {
+    featureModelSourceEl.textContent = "";
+  }
+  if (featureModelRenderEl) {
+    featureModelRenderEl.replaceChildren();
+  }
+  if (featureModelErrorEl) {
+    featureModelErrorEl.textContent = "";
+    featureModelErrorEl.hidden = true;
+  }
+  if (featureModelDownloadLink) {
+    featureModelDownloadLink.removeAttribute("href");
+    featureModelDownloadLink.removeAttribute("download");
+    featureModelDownloadLink.hidden = true;
+  }
+};
+
+const showFeatureModelLoading = () => {
+  clearFeatureModelModal();
+  if (featureModelSourceEl) {
+    featureModelSourceEl.textContent = "Chargement du diagramme FeatureIDE...";
+  }
+};
+
+const applyFeatureModelZoom = () => {
+  const clampedZoom = Math.min(3, Math.max(0.35, featureModelZoom));
+  featureModelZoom = clampedZoom;
+  if (featureModelRenderEl) {
+    featureModelRenderEl.style.width = `${Math.round(clampedZoom * 100)}%`;
+  }
+  if (featureModelZoomLabelEl) {
+    featureModelZoomLabelEl.textContent = `${Math.round(clampedZoom * 100)}%`;
+  }
+};
+
+const setFeatureModelZoom = (nextZoom) => {
+  featureModelZoom = nextZoom;
+  applyFeatureModelZoom();
+};
+
+const openFeatureModelModal = () => {
+  if (featureModelModalEl) {
+    featureModelModalEl.hidden = false;
+    featureModelCloseButton?.focus();
+  }
+};
+
+const closeFeatureModelModal = () => {
+  if (featureModelModalEl) {
+    featureModelModalEl.hidden = true;
+  }
+};
+
+const renderFeatureModelModal = (data) => {
+  clearFeatureModelModal();
+  if (featureModelSourceEl) {
+    featureModelSourceEl.textContent = data.source
+      ? `Diagramme FeatureIDE ${data.source}`
+      : "Diagramme FeatureIDE";
+  }
+  if (featureModelRenderEl && data.image) {
+    const image = document.createElement("img");
+    image.src = data.image;
+    image.alt = "Feature model rendu par FeatureIDE";
+    featureModelRenderEl.append(image);
+    if (featureModelDownloadLink) {
+      featureModelDownloadLink.href = data.image;
+      featureModelDownloadLink.download = `feature-model-${data.fm_type || "model"}.png`;
+      featureModelDownloadLink.hidden = false;
+    }
+    setFeatureModelZoom(1);
+  } else if (featureModelRenderEl && data.svg) {
+    featureModelRenderEl.innerHTML = data.svg;
+    setFeatureModelZoom(1);
+  }
+};
+
+const showFeatureModelError = (message) => {
+  if (featureModelErrorEl) {
+    featureModelErrorEl.textContent = message || "Erreur lors du chargement du feature model.";
+    featureModelErrorEl.hidden = false;
+  }
+};
+
+const showFeatureModel = async (fmType) => {
+  showFeatureModelLoading();
+  openFeatureModelModal();
+  try {
+    const response = await fetch("/api/feature-model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fm_type: fmType }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Erreur lors du chargement du feature model.");
+    }
+    renderFeatureModelModal(data);
+  } catch (error) {
+    showFeatureModelError(error.message);
+  }
+};
+
+if (featureModelCloseButton) {
+  featureModelCloseButton.addEventListener("click", closeFeatureModelModal);
+}
+
+if (featureModelZoomInButton) {
+  featureModelZoomInButton.addEventListener("click", () => setFeatureModelZoom(featureModelZoom + 0.2));
+}
+
+if (featureModelZoomOutButton) {
+  featureModelZoomOutButton.addEventListener("click", () => setFeatureModelZoom(featureModelZoom - 0.2));
+}
+
+if (featureModelZoomResetButton) {
+  featureModelZoomResetButton.addEventListener("click", () => setFeatureModelZoom(1));
+}
+
+if (featureModelModalEl) {
+  featureModelModalEl.addEventListener("click", (event) => {
+    if (event.target === featureModelModalEl) {
+      closeFeatureModelModal();
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && featureModelModalEl && !featureModelModalEl.hidden) {
+    closeFeatureModelModal();
+  }
+});
 
 
 const runFlamapyAnalysis = async (state,fm_type) => {

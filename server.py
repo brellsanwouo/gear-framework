@@ -23,6 +23,25 @@ from markdown import markdown
 
 BASE_DIR = Path(__file__).resolve().parent
 UI_DIR = BASE_DIR / "ui"
+FEATURE_MODEL_IMAGE_DIR = UI_DIR / "assets" / "feature-models"
+FEATURE_MODEL_IMAGES = {
+    "agent": {
+        "source": "gear/gear-agent.uvl",
+        "image": "agent.png",
+    },
+    "module": {
+        "source": "gear/gear-module.uvl",
+        "image": "module.png",
+    },
+    "workflow": {
+        "source": "gear/gear-multiagent.uvl",
+        "image": "workflow.png",
+    },
+    "multiagent": {
+        "source": "gear/gear-multiagent.uvl",
+        "image": "workflow.png",
+    },
+}
 
 load_dotenv()
 
@@ -522,6 +541,28 @@ def analyze():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+@app.post("/api/feature-model")
+def feature_model() -> Any:
+    payload = request.get_json(silent=True) or {}
+    fm_type = payload.get("fm_type", "agent")
+    model_image = FEATURE_MODEL_IMAGES.get(fm_type)
+    if model_image is None:
+        return jsonify({"error": "Type de feature model inconnu."}), 400
+
+    image_path = FEATURE_MODEL_IMAGE_DIR / model_image["image"]
+    if not image_path.exists():
+        return jsonify({"error": f"Image FeatureIDE absente: {image_path.relative_to(BASE_DIR)}"}), 500
+
+    image_url = f"/ui/assets/feature-models/{model_image['image']}?v={image_path.stat().st_mtime_ns}"
+    return jsonify(
+        {
+            "fm_type": fm_type,
+            "source": model_image["source"],
+            "renderer": "featureide-pregenerated-png",
+            "image": image_url,
+        }
+    )
 
 
 def main() -> None:

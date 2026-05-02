@@ -195,6 +195,9 @@
             <button type="button" class="secondary" data-analyze-agent-btn>
               Analyze configuration
             </button>
+            <button type="button" class="secondary" data-show-feature-model-agent-btn>
+              Show Feature model
+            </button>
           </div>
 
           <div class="analysis-results" data-analysis-results-agent hidden>
@@ -212,6 +215,29 @@
       </section>
       <!-- FIN ANALYSE FLAMAPY -->
     </template>
+
+    <div class="modal-backdrop" data-feature-model-modal hidden>
+      <div class="feature-model-modal" role="dialog" aria-modal="true" aria-labelledby="featureModelTitle">
+        <div class="feature-model-modal__header">
+          <div>
+            <h2 id="featureModelTitle">Feature model</h2>
+            <p data-feature-model-source></p>
+          </div>
+          <div class="feature-model-modal__actions">
+            <button type="button" class="secondary" data-feature-model-zoom-out title="Dézoomer">-</button>
+            <span data-feature-model-zoom-label>100%</span>
+            <button type="button" class="secondary" data-feature-model-zoom-in title="Zoomer">+</button>
+            <button type="button" class="secondary" data-feature-model-zoom-reset>100%</button>
+            <a class="secondary button-link" data-feature-model-download hidden>Télécharger</a>
+            <button type="button" class="secondary" data-feature-model-close>Fermer</button>
+          </div>
+        </div>
+        <div class="feature-model-image-frame">
+          <div data-feature-model-render></div>
+        </div>
+        <div class="analysis-error" data-feature-model-error hidden></div>
+      </div>
+    </div>
 
     <template id="moduleTemplate">
       <details class="agent-card" open>
@@ -264,26 +290,29 @@
         </div>
       </details>
       <!-- START ANALYSE FLAMAPY-->
-<!--      <section class="flamapy analysis">-->
-<!--         <div class="analysis-panel">-->
-<!--          <div class="analysis-controls">-->
-<!--            <button type="button" class="secondary" data-analyze-module-btn>-->
-<!--              Analyser la configuration-->
-<!--            </button>-->
-<!--          </div>-->
-<!--          <div class="analysis-results" data-analysis-results-module hidden>-->
-<!--            <div class="stat-row">-->
-<!--              <span class="stat-label">Validité :</span>-->
-<!--              <span class="stat-value" data-stat-valid-module>-</span>-->
-<!--            </div>-->
-<!--            <div class="stat-row">-->
-<!--              <span class="stat-label">Configs possibles :</span>-->
-<!--              <span class="stat-value" data-stat-count-module>-</span>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--          <div class="analysis-error" data-analysis-error-module hidden></div>-->
-<!--        </div>-->
-<!--      </section>-->
+      <section class="flamapy analysis">
+         <div class="analysis-panel">
+          <div class="analysis-controls">
+            <button type="button" class="secondary" data-analyze-module-btn>
+              Analyze configuration
+            </button>
+            <button type="button" class="secondary" data-show-feature-model-module-btn>
+              Show Feature model
+            </button>
+          </div>
+          <div class="analysis-results" data-analysis-results-module hidden>
+            <div class="stat-row">
+              <span class="stat-label">Validity:</span>
+              <span class="stat-value" data-stat-valid-module>-</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Possible configurations:</span>
+              <span class="stat-value" data-stat-count-module>-</span>
+            </div>
+          </div>
+          <div class="analysis-error" data-analysis-error-module hidden></div>
+        </div>
+      </section>
       <!-- FIN ANALYSE FLAMAPY -->
     </template>
 
@@ -356,28 +385,30 @@
           </section>
         </div>
       </details>
-<!--      &lt;!&ndash; START ANALYSE FLAMAPY&ndash;&gt;-->
-<!--      <section class="flamapy analysis">-->
-<!--         <div class="analysis-panel">-->
-<!--          <div class="analysis-controls">-->
-<!--            <button type="button" class="secondary" data-analyze-multi-agent-btn>-->
-<!--              Analyser la configuration-->
-<!--            </button>-->
-<!--          </div>-->
-
-<!--          <div class="analysis-results" data-analysis-results-multiagent hidden>-->
-<!--            <div class="stat-row">-->
-<!--              <span class="stat-label">Validité :</span>-->
-<!--              <span class="stat-value" data-stat-valid-multiagent>-</span>-->
-<!--            </div>-->
-<!--            <div class="stat-row">-->
-<!--              <span class="stat-label">Configs possibles :</span>-->
-<!--              <span class="stat-value" data-stat-count-multiagent>-</span>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--          <div class="analysis-error" data-analysis-error-multiagent hidden></div>-->
-<!--        </div>-->
-<!--      </section>-->
+      <!-- START ANALYSE FLAMAPY-->
+      <section class="flamapy analysis">
+         <div class="analysis-panel">
+          <div class="analysis-controls">
+            <button type="button" class="secondary" data-analyze-multi-agent-btn>
+              Analyze configuration
+            </button>
+            <button type="button" class="secondary" data-show-feature-model-workflow-btn>
+              Show Feature model
+            </button>
+          </div>
+          <div class="analysis-results" data-analysis-results-multiagent hidden>
+            <div class="stat-row">
+              <span class="stat-label">Validity:</span>
+              <span class="stat-value" data-stat-valid-multiagent>-</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Possible configurations:</span>
+              <span class="stat-value" data-stat-count-multiagent>-</span>
+            </div>
+          </div>
+          <div class="analysis-error" data-analysis-error-multiagent hidden></div>
+        </div>
+      </section>
       <!-- FIN ANALYSE FLAMAPY -->
     </template>
   </body>

@@ -1,1 +1,9 @@
 /.claude
+/.codex
+__pycache__/
+*.egg-info/
+.venv/
+mlflow.db
+mlruns/
+result.json
+result.txt

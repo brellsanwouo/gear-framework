@@ -7,12 +7,12 @@ UI minimale basée sur les UVL Gear.
 Depuis la racine du projet :
 
 ```bash
-python3 gear-framework/server.py
+python3 server.py
 ```
 
 Puis ouvre :
 
-- http://127.0.0.1:8010/ui/
+- http://127.0.0.1:8200/ui/
 
 Le serveur sert la racine de `gear-framework`, ce qui permet à l'UI de lire `/gear/gear-agent.uvl`.
 

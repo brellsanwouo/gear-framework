@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gear-framework"
+version = "0.1.0"
+description = "Gear Framework: model, translate, and run multi-agent workflows with CrewAI and Google ADK."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "crewai>=0.193,<1",
+  "flamapy>=2.0,<3",
+  "flamapy-bdd>=2.0,<3",
+  "flamapy-fm>=2.0,<3",
+  "flamapy-sat>=2.0,<3",
+  "flask>=3.0,<4",
+  "flask-cors>=6.0,<7",
+  "google-adk>=1.21,<2",
+  "litellm>=1.74,<2",
+  "Markdown>=3.8,<4",
+  "mlflow>=3.0,<4",
+  "mysql-connector-python>=9.0,<10",
+  "python-dotenv>=1.1,<2",
+  "PyYAML>=6.0,<7",
+]
+
+[project.scripts]
+gear = "server:main"
+
+[tool.setuptools]
+py-modules = ["server"]
