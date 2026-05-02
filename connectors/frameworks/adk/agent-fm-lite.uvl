@@ -1,7 +1,7 @@
 namespace AgentDefinition
 
 features
-	AgentDefinition {abstract}
+	ADKAgent {abstract}
 		mandatory
 			BaseAgent {abstract}
 				mandatory

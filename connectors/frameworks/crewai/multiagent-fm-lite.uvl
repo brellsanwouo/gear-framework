@@ -1,46 +1,44 @@
 namespace CrewAIMultiAgent
 
 features
-	CrewAIMultiAgent {abstract}
-		mandatory
-			Crew {abstract}
-				mandatory
-					EssentialComponents {abstract}
-						mandatory
-							Tasks {abstract}
-							Agents {abstract}
-						optional
-							Process {abstract}
-								alternative
-									Sequential
-									Hierarchical
-				optional
-					ConfigurationAndControl {abstract}
-						optional
-							Verbose {abstract}
-							ManagerLLM {abstract}
-							FunctionCallingLLM {abstract}
-							Config {abstract}
-							MaxRPM {abstract}
-					MemoryAndPerformance {abstract}
-						optional
-							Memory {abstract}
-							EmbedderProviders {abstract}
-							Cache {abstract}
-					// ExecutionAndOutput {abstract}
-					// 	optional
-					// 		StepCallback {abstract}
-					// 		TaskCallback {abstract}
-					// 		OutputLogFile {abstract}
-					// 		Stream {abstract}
-					OutputLogFileFormat {abstract}
-					AdvancedFeatures {abstract}
-						optional
-							ManagerAgent {abstract}
-							PromptFile {abstract}
-							Planning {abstract}
-							PlanningLLM {abstract}
-							KnowledgeSources {abstract}
+		CrewAIMultiAgent {abstract}
+			mandatory
+				EssentialComponents {abstract}
+					mandatory
+						Tasks {abstract}
+						Agents {abstract}
+					optional
+						Process {abstract}
+							alternative
+								Sequential
+								Hierarchical
+			optional
+				ConfigurationAndControl {abstract}
+					optional
+						Verbose {abstract}
+						ManagerLLM {abstract}
+						FunctionCallingLLM {abstract}
+						Config {abstract}
+						MaxRPM {abstract}
+				MemoryAndPerformance {abstract}
+					optional
+						Memory {abstract}
+						EmbedderProviders {abstract}
+						Cache {abstract}
+				// ExecutionAndOutput {abstract}
+				// 	optional
+				// 		StepCallback {abstract}
+				// 		TaskCallback {abstract}
+				// 		OutputLogFile {abstract}
+				// 		Stream {abstract}
+				OutputLogFileFormat {abstract}
+				AdvancedFeatures {abstract}
+					optional
+						ManagerAgent {abstract}
+						PromptFile {abstract}
+						Planning {abstract}
+						PlanningLLM {abstract}
+						KnowledgeSources {abstract}
 
 constraints
 	Hierarchical => ManagerLLM
