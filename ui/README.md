@@ -12,7 +12,7 @@ python3 server.py
 
 Puis ouvre :
 
-- http://127.0.0.1:8200/ui/
+- http://127.0.0.1:8200/
 
 Le serveur sert la racine de `gear-framework`, ce qui permet à l'UI de lire `/gear/gear-agent.uvl`.
 

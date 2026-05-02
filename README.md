@@ -131,14 +131,14 @@ python server.py
 
 Default UI:
 ```
-http://127.0.0.1:8200/ui/
+http://127.0.0.1:8200/
 ```
 
 ---
 
 ## Quickstart (beginner friendly)
 
-1) Open the UI: `http://127.0.0.1:8200/ui/`
+1) Open the UI: `http://127.0.0.1:8200/`
 2) The Gear models are already loaded by default:
    - `gear/gear-agent.uvl`
    - `gear/gear-module.uvl`

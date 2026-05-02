@@ -17,7 +17,7 @@ import mysql.connector
 import yaml
 from dotenv import load_dotenv
 from flamapy.interfaces.python import FLAMAFeatureModel
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_cors import CORS
 from markdown import markdown
 
@@ -502,9 +502,10 @@ def index() -> Any:
     return send_from_directory(UI_DIR, "index.html")
 
 
+@app.get("/ui")
 @app.get("/ui/")
 def index_ui() -> Any:
-    return send_from_directory(UI_DIR, "index.html")
+    return redirect("/")
 
 
 @app.get("/ui/<path:filename>")
