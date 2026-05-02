@@ -5,8 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gear-framework"
 version = "0.1.0"
-description = "Gear Framework: model, translate, and run multi-agent workflows with CrewAI and Google ADK."
+description = "Gear Framework: design portable multi-agent systems with feature-model based specifications and generate code for multiple execution frameworks."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10,<3.14"
 dependencies = [
   "crewai>=0.193,<1",

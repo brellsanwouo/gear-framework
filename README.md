@@ -297,6 +297,14 @@ To re-enable:
 
 ---
 
+## License
+
+Gear Framework is released under the MIT License.
+
+You are free to use, modify, distribute, and build upon the project, including for research and educational purposes, under the terms defined in the `LICENSE` file.
+
+---
+
 ## Contact
 
 For questions, collaborations, or bug reports, reach out to:
