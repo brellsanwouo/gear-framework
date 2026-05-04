@@ -43,27 +43,51 @@ It helps you:
 
 ```
 gear-framework/
-├─ ui/                               # Web UI: edit Gear, view translations, run workflows
-├─ gear/                             # Gear models (UVL + YAML defaults)
-├─ connectors/                       # Framework connectors (all translations live here)
-│  ├─ registry.yml                   # Framework registry
-│  ├─ README.md                      # How to add a new connector
+├─ server.py                         # Flask server, API routes, execution entry point
+├─ pyproject.toml                    # Python package metadata and dependencies
+├─ requirements.txt                  # Pinned/legacy dependency entry point
+├─ config.yml                        # Runtime configuration
+├─ ui/                               # Browser UI and static assets
+│  ├─ index.html                     # Main Gear design and translation UI
+│  ├─ app.js                         # Main UI logic
+│  ├─ styles.css                     # Main UI styles
+│  ├─ manual.html/js/css             # Manual authoring workflow
+│  ├─ experiment.html/js/css         # Experiment workflow UI
+│  ├─ overlay.js/css                 # Shared overlay components
+│  ├─ feature-policy.yml             # UI feature policy/configuration
+│  └─ assets/feature-models/         # Pre-rendered FeatureIDE diagrams
+├─ gear/                             # Framework-independent Gear models
+│  ├─ gear-agent.uvl / .yml          # Agent feature model and defaults
+│  ├─ gear-module.uvl / .yml         # Module feature model and defaults
+│  └─ gear-multiagent.uvl / .yml     # Multi-agent/workflow feature model and defaults
+├─ connectors/                       # Target-framework connectors and mappings
+│  ├─ registry.yml                   # Connector registry consumed by the UI/engine
+│  ├─ README.md                      # Connector authoring guide
 │  └─ frameworks/
 │     ├─ _template/                  # Connector skeleton
 │     ├─ crewai/
-│     │  ├─ agent.mapping.yml
-│     │  ├─ multiagent.mapping.yml
-│     │  ├─ workflow.tmpl
-│     │  └─ assembly.plugin.js
+│     │  ├─ *.mapping.yml            # Gear-to-CrewAI mappings
+│     │  ├─ *-fm-full/lite.uvl       # CrewAI-specific feature models
+│     │  ├─ workflow.tmpl            # Generated workflow template
+│     │  └─ assembly.plugin.js       # CrewAI assembler plugin
 │     └─ adk/
-│        ├─ agent.mapping.yml
-│        ├─ multiagent.mapping.yml
-│        ├─ module.mapping.yml
-│        ├─ workflow.tmpl
-│        └─ assembly.plugin.js
-├─ data/AgentGridPlanning/           # Problem specs + templates (P0, P1, ...)
-├─ SDK/gear_sdk/                     # Generic assembly engine (plugins + templates)
-├─ server.py                         # Flask server + API for execution
+│        ├─ *.mapping.yml            # Gear-to-ADK mappings
+│        ├─ *-fm-full/lite.uvl       # ADK-specific feature models
+│        ├─ workflow.tmpl            # Generated workflow template
+│        └─ assembly.plugin.js       # ADK assembler plugin
+├─ SDK/gear_sdk/
+│  └─ assembly-engine.js             # Shared client-side assembly engine
+├─ data/AgentGridPlanning/           # Example problem set and scenario assets
+│  ├─ P0.md ... P4.md                # Problem descriptions
+│  ├─ images/                        # Scenario diagrams
+│  ├─ mermaid code/                  # Mermaid sources for diagrams
+│  └─ template yaml/                 # Scenario YAML templates
+├─ test-adk.py                       # ADK smoke/test script
+├─ test-crewai.py                    # CrewAI smoke/test script
+├─ tasks.json                        # Local task data
+├─ result.json / result.txt          # Local generated results
+├─ mlflow.db                         # Local MLflow tracking database
+├─ mlruns/                           # Local MLflow run artifacts
 └─ README.md
 ```
 
