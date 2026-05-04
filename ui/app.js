@@ -76,8 +76,8 @@ const TASK_TO_PREFIXES = ["Task."];
 const FRAMEWORK_LIMITATIONS = {
   crewai: {
     orchestration: [
-      { from: "GearWorkflow.Process.Parallel", notes: "CrewAI ne supporte pas le workflow parallele." },
-      { from: "GearWorkflow.Process.Loop", notes: "CrewAI ne supporte pas le workflow en boucle." },
+      { from: "GearWorkflow.Process.Parallel", notes: "CrewAI does not support parallel workflows." },
+      { from: "GearWorkflow.Process.Loop", notes: "CrewAI does not support loop workflows." },
     ],
   },
 };
@@ -126,15 +126,15 @@ const ensureModuleTemplate = () => {
   template.innerHTML = agentTemplate.innerHTML;
   const summaryTitle = template.content.querySelector("summary > div");
   if (summaryTitle) {
-    summaryTitle.innerHTML = 'Module : <span class="agent-title">(nouveau module)</span>';
+    summaryTitle.innerHTML = 'Module: <span class="agent-title">(new module)</span>';
   }
   const hint = template.content.querySelector(".summary-block .hint");
   if (hint) {
-    hint.textContent = "Coller un YAML ici met à jour instantanément le module.";
+    hint.textContent = "Pasting YAML here instantly updates the module.";
   }
   const tabs = template.content.querySelector(".segmented.tabs");
   if (tabs) {
-    tabs.setAttribute("aria-label", "Vue module");
+    tabs.setAttribute("aria-label", "Module view");
   }
   document.body.appendChild(template);
   return template;
@@ -846,7 +846,7 @@ const buildActiveTranslationSummaryFromPaths = (entries, activePaths) => {
     const matches = byFrom.get(path) || [];
     if (!matches.length) {
       if (!untranslated.has(path)) {
-        untranslated.set(path, { from: path, notes: "Aucune correspondance." });
+        untranslated.set(path, { from: path, notes: "No mapping." });
       }
       return;
     }
@@ -1194,11 +1194,11 @@ const renderTranslationSummary = (outputId, entries, sources, activePaths) => {
         return;
       }
       if (mode === "untranslated") {
-        renderItem(listEl, `${name.from} → (non supporté)`, name.notes);
+        renderItem(listEl, `${name.from} → (unsupported)`, name.notes);
         return;
       }
       if (mode === "unavailable") {
-        renderItem(listEl, `${name.from} → (non disponible)`, name.notes);
+        renderItem(listEl, `${name.from} → (unavailable)`, name.notes);
         return;
       }
       if (mode === "fixed") {
@@ -1213,19 +1213,19 @@ const renderTranslationSummary = (outputId, entries, sources, activePaths) => {
   const bottomSummary = bottom.querySelector("summary");
   const unavailableSummary = unavailablePanel.querySelector("summary");
   if (topSummary) {
-    topSummary.textContent = `Traduits (actifs) · ${summary.translated.length}`;
+    topSummary.textContent = `Translated (active) · ${summary.translated.length}`;
   }
   if (bottomSummary) {
-    bottomSummary.textContent = `Non traduits (actifs) · ${summary.untranslated.length}`;
+    bottomSummary.textContent = `Untranslated (active) · ${summary.untranslated.length}`;
   }
   if (unavailableSummary) {
-    unavailableSummary.textContent = `Non disponibles · ${unavailable.length}`;
+    unavailableSummary.textContent = `Unavailable · ${unavailable.length}`;
   }
 
-  fillList(translatedList, summary.translated, "Aucun élément actif traduit.", "translated");
-  fillList(untranslatedList, summary.untranslated, "Aucun élément actif non traduit.", "untranslated");
-  fillList(unavailableList, unavailable, "Aucun élément indisponible.", "unavailable");
-  fillList(fixedList, fixed, "Aucune valeur imposée.", "fixed");
+  fillList(translatedList, summary.translated, "No translated active items.", "translated");
+  fillList(untranslatedList, summary.untranslated, "No untranslated active items.", "untranslated");
+  fillList(unavailableList, unavailable, "No unavailable items.", "unavailable");
+  fillList(fixedList, fixed, "No forced values.", "fixed");
 };
 
 const setStatus = (message, isError = false, target = "agent") => {
@@ -1282,7 +1282,7 @@ const buildFrameworkOutputs = (framework) => {
     outputs.push({ key: "agents", label: "Agents", title: `Agents ${framework.label || framework.id}` });
   }
   if (framework.id === "crewai" && mappings.agent) {
-    outputs.push({ key: "tasks", label: "Tâches", title: `Tâches ${framework.label || framework.id}` });
+    outputs.push({ key: "tasks", label: "Tasks", title: `Tasks ${framework.label || framework.id}` });
   }
   if (mappings.module && framework.id !== "crewai" && framework.id !== "adk") {
     outputs.push({ key: "modules", label: "Modules", title: `Modules ${framework.label || framework.id}` });
@@ -1322,7 +1322,7 @@ const renderOutputLayoutFromRegistry = (registry) => {
     const outputTabs = document.createElement("div");
     outputTabs.className = "segmented tabs";
     outputTabs.setAttribute("role", "tablist");
-    outputTabs.setAttribute("aria-label", `Sortie ${framework.label || framework.id}`);
+    outputTabs.setAttribute("aria-label", `${framework.label || framework.id} output`);
     const outputs = buildFrameworkOutputs(framework);
     outputs.forEach((out, oIndex) => {
       const outputId = `${framework.id}-${out.key}`;
@@ -1346,8 +1346,8 @@ const renderOutputLayoutFromRegistry = (registry) => {
       section.innerHTML = `
         <h3>${out.title}</h3>
         <div class="output-code">
-          <button type="button" class="icon-button" aria-label="Copier"><span>⧉</span></button>
-          <pre class="code-sample" data-output="${outputId}"># Ici apparaîtra le rendu ${framework.label || framework.id}</pre>
+          <button type="button" class="icon-button" aria-label="Copy"><span>⧉</span></button>
+          <pre class="code-sample" data-output="${outputId}"># ${framework.label || framework.id} output will appear here</pre>
         </div>
       `;
       if (out.key === "orchestration" && (framework.id === "crewai" || framework.id === "adk")) {
@@ -1356,12 +1356,12 @@ const renderOutputLayoutFromRegistry = (registry) => {
           `
           <div class="run-panel">
             <div class="run-actions">
-              <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">▶ Exécuter le workflow</button>
-              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">■ Arrêter</button>
+              <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">▶ Run workflow</button>
+              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">■ Stop</button>
             </div>
             <div class="output-wrapper">
-                <label>Sortie console :</label>
-                <pre class="code-sample run-output" id="${framework.id === "crewai" ? "crewaiRunOutput" : "adkRunOutput"}"> Résultat d'exécution</pre>
+                <label>Console output:</label>
+                <pre class="code-sample run-output" id="${framework.id === "crewai" ? "crewaiRunOutput" : "adkRunOutput"}">Execution result</pre>
             </div>
           </div>
         `,
@@ -1375,21 +1375,21 @@ const renderOutputLayoutFromRegistry = (registry) => {
       const summary = document.createElement("div");
       summary.className = "translation-global";
       summary.innerHTML = `
-        <h3>Correspondances Gear → ${framework.label || framework.id}</h3>
+        <h3>Gear → ${framework.label || framework.id} mappings</h3>
         <details class="translation-toggle translation-toggle--translated" data-translation-top="${summaryId}">
-          <summary>Traduits (actifs)</summary>
+          <summary>Translated (active)</summary>
           <ul data-translation-list="translated"></ul>
         </details>
         <details class="translation-toggle translation-toggle--untranslated" data-translation-bottom="${summaryId}">
-          <summary>Non traduits (actifs)</summary>
+          <summary>Untranslated (active)</summary>
           <ul data-translation-list="untranslated"></ul>
           <div class="translation-subsection">
-            <div class="translation-subtitle">Valeurs imposées (mapping)</div>
+            <div class="translation-subtitle">Forced values (mapping)</div>
             <ul data-translation-list="fixed"></ul>
           </div>
         </details>
         <details class="translation-toggle translation-toggle--unavailable" data-translation-unavailable="${summaryId}">
-          <summary>Non disponibles</summary>
+          <summary>Unavailable</summary>
           <ul data-translation-list="unavailable"></ul>
         </details>
       `;
@@ -1507,7 +1507,7 @@ const loadYamlFromUrlCandidates = async (relativePath) => {
       lastError = error;
     }
   }
-  throw lastError || new Error("Chargement impossible");
+  throw lastError || new Error("Unable to load");
 };
 
 const loadScriptFromUrlCandidates = async (relativePath) => {
@@ -1520,7 +1520,7 @@ const loadScriptFromUrlCandidates = async (relativePath) => {
         script.src = url;
         script.defer = true;
         script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Script introuvable: ${url}`));
+        script.onerror = () => reject(new Error(`Script not found: ${url}`));
         document.head.appendChild(script);
       });
       return;
@@ -1528,7 +1528,7 @@ const loadScriptFromUrlCandidates = async (relativePath) => {
       lastError = error;
     }
   }
-  throw lastError || new Error("Chargement script impossible");
+  throw lastError || new Error("Unable to load script");
 };
 
 const loadFeaturePolicy = async () => {
@@ -1546,12 +1546,12 @@ const loadCrewaiMappings = async () => {
   try {
     crewaiAgentMapping = await loadYamlFromUrlCandidates(CREWAI_AGENT_MAPPING_PATH);
     crewaiMultiMapping = await loadYamlFromUrlCandidates(CREWAI_MULTI_MAPPING_PATH);
-    setConnectorsStatus("Connecteurs chargés.", false);
+    setConnectorsStatus("Connectors loaded.", false);
   } catch (error) {
     console.error(error);
     crewaiAgentMapping = null;
     crewaiMultiMapping = null;
-    setConnectorsStatus("Mappings CrewAI introuvables. Vérifie connectors/frameworks/crewai/.", true);
+    setConnectorsStatus("CrewAI mappings not found. Check connectors/frameworks/crewai/.", true);
   }
 };
 
@@ -1566,7 +1566,7 @@ const loadAdkMappings = async () => {
     adkAgentMapping = null;
     adkMultiMapping = null;
     adkModuleMapping = null;
-    setConnectorsStatus("Mappings ADK introuvables. Vérifie connectors/frameworks/adk/ (agent, multiagent, module).", true);
+    setConnectorsStatus("ADK mappings not found. Check connectors/frameworks/adk/ (agent, multiagent, module).", true);
   }
 };
 
@@ -1579,7 +1579,7 @@ const renderConnectors = (registry) => {
   if (!frameworks.length) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = "Aucun connecteur défini.";
+    empty.textContent = "No connectors defined.";
     connectorsListEl.appendChild(empty);
     return;
   }
@@ -1609,7 +1609,7 @@ const loadConnectorsRegistry = async () => {
   if (!connectorsStatusEl || !connectorsListEl) {
     return;
   }
-  setConnectorsStatus(`Chargement de ${CONNECTORS_REGISTRY_PATH}…`);
+  setConnectorsStatus(`Loading ${CONNECTORS_REGISTRY_PATH}...`);
   try {
     const registry = await loadYamlFromUrlCandidates(CONNECTORS_REGISTRY_PATH);
     connectorsRegistry = registry;
@@ -1620,7 +1620,7 @@ const loadConnectorsRegistry = async () => {
         await loadScriptFromUrlCandidates(ASSEMBLY_ENGINE_PATH);
       } catch (error) {
         console.error(error);
-        setConnectorsStatus("Moteur d'assemblage indisponible.", true);
+        setConnectorsStatus("Assembly engine unavailable.", true);
       }
     }
     if (window.GearAssemblyEngine?.loadTemplates) {
@@ -1628,7 +1628,7 @@ const loadConnectorsRegistry = async () => {
         await window.GearAssemblyEngine.loadTemplates(BASE_PREFIX, registry);
       } catch (error) {
         console.error(error);
-        setConnectorsStatus("Impossible de charger les templates workflow.", true);
+        setConnectorsStatus("Unable to load workflow templates.", true);
       }
     }
     if (window.GearAssemblyEngine?.loadPlugins) {
@@ -1636,15 +1636,15 @@ const loadConnectorsRegistry = async () => {
         await window.GearAssemblyEngine.loadPlugins(BASE_PREFIX, registry);
       } catch (error) {
         console.error(error);
-        setConnectorsStatus("Impossible de charger les plugins d'assemblage.", true);
+        setConnectorsStatus("Unable to load assembly plugins.", true);
       }
     }
     bindOutputUiInteractions();
     scheduleOutputsUpdate();
-    setConnectorsStatus("Connecteurs chargés.");
+    setConnectorsStatus("Connectors loaded.");
   } catch (error) {
     console.error(error);
-    setConnectorsStatus("Impossible de charger les connecteurs.", true);
+    setConnectorsStatus("Unable to load connectors.", true);
   }
 };
 
@@ -1702,8 +1702,8 @@ const featurePath = (model, featureId) => {
 };
 
 const groupLabel = (type) => {
-  if (type === "mandatory") return "obligatoire";
-  if (type === "optional") return "optionnel";
+  if (type === "mandatory") return "mandatory";
+  if (type === "optional") return "optional";
   if (type === "alternative") return "alternative";
   return type;
 };
@@ -2136,11 +2136,11 @@ const getCrewaiOrderedAgents = (state, agentNameMap, agentKeys) => {
 
 const buildCrewaiWorkflowCode = (agentsPayload, tasksPayload, workflowState) => {
   if (!Array.isArray(crewaiMultiMapping) || !crewaiMultiMapping.length) {
-    return "# Mapping CrewAI workflow indisponible. Vérifie connectors/frameworks/crewai/multiagent.mapping.yml";
+    return "# CrewAI workflow mapping unavailable. Check connectors/frameworks/crewai/multiagent.mapping.yml";
   }
   const agentKeys = Object.keys(agentsPayload || {});
   if (!agentKeys.length) {
-    return "# Aucun agent CrewAI defini.";
+    return "# No CrewAI agent defined.";
   }
 
   const importLines = [
@@ -2302,7 +2302,7 @@ const buildCrewaiOutputs = () => {
     return {
       agents: {},
       tasks: {},
-      error: "# Mapping CrewAI indisponible. Vérifie connectors/frameworks/crewai/agent.mapping.yml",
+      error: "# CrewAI mapping unavailable. Check connectors/frameworks/crewai/agent.mapping.yml",
     };
   }
   const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
@@ -2404,7 +2404,7 @@ const buildAdkOutputs = () => {
   if (!mappingEntries) {
     return {
       agents: {},
-      error: "# Mapping ADK indisponible. Vérifie connectors/frameworks/adk/agent.mapping.yml",
+      error: "# ADK mapping unavailable. Check connectors/frameworks/adk/agent.mapping.yml",
     };
   }
   const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
@@ -2465,7 +2465,7 @@ const parseNumberValue = (value) => {
 const buildModuleConfigs = () => {
   const mappingEntries = Array.isArray(adkModuleMapping) && adkModuleMapping.length ? adkModuleMapping : null;
   if (!mappingEntries) {
-    return { items: [], error: "# Mapping ADK module indisponible. Vérifie connectors/frameworks/adk/module.mapping.yml" };
+    return { items: [], error: "# ADK module mapping unavailable. Check connectors/frameworks/adk/module.mapping.yml" };
   }
   return {
     items: moduleStates
@@ -2498,11 +2498,11 @@ const buildModuleConfigs = () => {
 
 const buildAdkWorkflowCode = (workflowState) => {
   if (!Array.isArray(adkMultiMapping) || !adkMultiMapping.length) {
-    return "# Mapping ADK workflow indisponible. Vérifie connectors/frameworks/adk/multiagent.mapping.yml";
+    return "# ADK workflow mapping unavailable. Check connectors/frameworks/adk/multiagent.mapping.yml";
   }
   const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
   if (!gearAgents.length) {
-    return "# Aucun agent ADK defini.";
+    return "# No ADK agent defined.";
   }
   const moduleConfigResult = buildModuleConfigs();
   if (moduleConfigResult.error) {
@@ -3849,7 +3849,7 @@ const updateOutputs = () => {
   if (!window.GearAssemblyEngine?.assemble) {
     renderable.forEach((framework) => {
       buildFrameworkOutputs(framework).forEach((out) => {
-        setOutputText(`${framework.id}-${out.key}`, "# Moteur d'assemblage indisponible.");
+        setOutputText(`${framework.id}-${out.key}`, "# Assembly engine unavailable.");
       });
     });
     return;
@@ -3880,10 +3880,10 @@ const updateOutputs = () => {
       const value = payload[out.key];
       if (value === undefined || value === null) {
         if (framework.id === "crewai" && out.key === "modules") {
-          setOutputText(outputKey, "# Modules CrewAI non supportés.");
+          setOutputText(outputKey, "# CrewAI modules are unsupported.");
           return;
         }
-        setOutputText(outputKey, "# Sortie indisponible.");
+        setOutputText(outputKey, "# Output unavailable.");
         return;
       }
       if (typeof value === "string") {
@@ -3945,7 +3945,7 @@ const renderAgentSummary = (state) => {
   if (!visibleActive.length) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = "Aucune feature concrète active.";
+    empty.textContent = "No concrete active feature.";
     activeEl.appendChild(empty);
   } else {
     for (const feature of visibleActive) {
@@ -3967,7 +3967,7 @@ const renderAgentSummary = (state) => {
   if (!shownGroups.length) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = "Aucune alternative active.";
+    empty.textContent = "No active alternative.";
     altEl.appendChild(empty);
     return;
   }
@@ -3977,7 +3977,7 @@ const renderAgentSummary = (state) => {
     const selectedFeature = selectedId ? model.features[selectedId] : null;
     const item = document.createElement("li");
     const parentPath = featurePath(model, group.parentFeatureId);
-    const selectedName = selectedFeature ? selectedFeature.name : "(aucun)";
+    const selectedName = selectedFeature ? selectedFeature.name : "(none)";
     item.textContent = `${parentPath} → ${selectedName}`;
     altEl.appendChild(item);
   }
@@ -4172,34 +4172,34 @@ const loadFromYamlText = (state, text, options = {}) => {
   const { silent = false } = options;
   if (!state.model) {
     if (!silent) {
-      setStatusForState(state, "Charge d'abord un UVL.", true);
+      setStatusForState(state, "Load a UVL first.", true);
     }
     return;
   }
   const trimmed = text.trim();
   if (!trimmed) {
     if (!silent) {
-      setStatusForState(state, "Le YAML est vide.", true);
+      setStatusForState(state, "YAML is empty.", true);
     }
     return;
   }
   try {
     const parsed = window.jsyaml?.load ? window.jsyaml.load(trimmed) : JSON.parse(trimmed);
     if (!parsed || typeof parsed !== "object") {
-      throw new Error("YAML non valide");
+      throw new Error("Invalid YAML");
     }
     if (state.kind === "orchestration") {
       loadOrchestrationFromYamlObject(state, parsed);
     }
     loadStateFromYamlObject(state, parsed);
     if (!silent) {
-      setStatusForState(state, "YAML chargé dans l'UI.");
+      setStatusForState(state, "YAML loaded into the UI.");
     }
     renderAgent(state);
   } catch (error) {
     console.error(error);
     if (!silent) {
-      setStatusForState(state, "Impossible de parser ce YAML. Vérifie l'indentation et les clés.", true);
+      setStatusForState(state, "Unable to parse this YAML. Check indentation and keys.", true);
     }
   }
 };
@@ -4211,15 +4211,15 @@ const copyYamlToClipboard = async (state) => {
   }
   const text = yamlEl.value.trim();
   if (!text) {
-    setStatusForState(state, "Rien à copier pour le moment.", true);
+    setStatusForState(state, "Nothing to copy yet.", true);
     return;
   }
   try {
     await navigator.clipboard.writeText(text);
-    setStatusForState(state, "YAML copié dans le presse-papiers.");
+    setStatusForState(state, "YAML copied to clipboard.");
   } catch (error) {
     console.error(error);
-    setStatusForState(state, "Impossible de copier automatiquement. Copie-le manuellement.", true);
+    setStatusForState(state, "Unable to copy automatically. Copy it manually.", true);
   }
 };
 
@@ -4230,7 +4230,7 @@ const downloadYaml = (state) => {
   }
   const text = yamlEl.value.trim();
   if (!text) {
-    setStatusForState(state, "Rien à télécharger pour le moment.", true);
+    setStatusForState(state, "Nothing to download yet.", true);
     return;
   }
   const blob = new Blob([text], { type: "text/yaml;charset=utf-8" });
@@ -4248,7 +4248,7 @@ const downloadYaml = (state) => {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  setStatusForState(state, "YAML téléchargé.");
+  setStatusForState(state, "YAML downloaded.");
 };
 
 const attachYamlSync = (state) => {
@@ -4623,7 +4623,7 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
 
 const addAgent = () => {
   if (!agentModel) {
-    setStatus("Charge un UVL avant d'ajouter des agents.", true, "agent");
+    setStatus("Load a UVL before adding agents.", true, "agent");
     return;
   }
   const state = createFeatureState("agent", agentModel);
@@ -4650,7 +4650,7 @@ const addModule = async () => {
     await loadDefaultModuleModel();
   }
   if (!moduleModel && !ensureModuleModel()) {
-    setStatus("Charge un UVL avant d'ajouter des modules.", true, "module");
+    setStatus("Load a UVL before adding modules.", true, "module");
     return;
   }
   createModuleInstance();
@@ -4677,7 +4677,7 @@ const updateFlamapyAnalysisUI = (state, result,fm_type) => {
 
   // Success
   if (validEl) {
-    validEl.textContent = result.valid ? "Valide" : "Invalid";
+    validEl.textContent = result.valid ? "Valid" : "Invalid";
   }
 
   if (countEl) {
@@ -4708,7 +4708,7 @@ const clearFeatureModelModal = () => {
 const showFeatureModelLoading = () => {
   clearFeatureModelModal();
   if (featureModelSourceEl) {
-    featureModelSourceEl.textContent = "Chargement du diagramme FeatureIDE...";
+    featureModelSourceEl.textContent = "Loading FeatureIDE diagram...";
   }
 };
 
@@ -4745,13 +4745,13 @@ const renderFeatureModelModal = (data) => {
   clearFeatureModelModal();
   if (featureModelSourceEl) {
     featureModelSourceEl.textContent = data.source
-      ? `Diagramme FeatureIDE ${data.source}`
-      : "Diagramme FeatureIDE";
+      ? `FeatureIDE diagram ${data.source}`
+      : "FeatureIDE diagram";
   }
   if (featureModelRenderEl && data.image) {
     const image = document.createElement("img");
     image.src = data.image;
-    image.alt = "Feature model rendu par FeatureIDE";
+    image.alt = "Feature model rendered by FeatureIDE";
     featureModelRenderEl.append(image);
     if (featureModelDownloadLink) {
       featureModelDownloadLink.href = data.image;
@@ -4767,7 +4767,7 @@ const renderFeatureModelModal = (data) => {
 
 const showFeatureModelError = (message) => {
   if (featureModelErrorEl) {
-    featureModelErrorEl.textContent = message || "Erreur lors du chargement du feature model.";
+    featureModelErrorEl.textContent = message || "Error loading the feature model.";
     featureModelErrorEl.hidden = false;
   }
 };
@@ -4783,7 +4783,7 @@ const showFeatureModel = async (fmType) => {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "Erreur lors du chargement du feature model.");
+      throw new Error(data.error || "Error loading the feature model.");
     }
     renderFeatureModelModal(data);
   } catch (error) {
@@ -4835,7 +4835,7 @@ const runFlamapyAnalysis = async (state,fm_type) => {
           }
       });
 
-      const response = await fetch('http://localhost:8200/api/analyze', {
+      const response = await fetch("/api/analyze", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4850,7 +4850,7 @@ const runFlamapyAnalysis = async (state,fm_type) => {
     } catch (error) {
       console.error(error);
       updateFlamapyAnalysisUI(state, {
-        error: error.message || "Erreur lors de l’analyse",fm_type
+        error: error.message || "Error during analysis",fm_type
       });
     } finally {
     }
@@ -4859,7 +4859,7 @@ const runFlamapyAnalysis = async (state,fm_type) => {
 
 const addOrchestration = () => {
   if (!orchestrationModel) {
-    setStatus("Charge un UVL de workflow avant d’ajouter un workflow.", true, "orchestration");
+    setStatus("Load a workflow UVL before adding a workflow.", true, "orchestration");
     return;
   }
   if (orchestrationStates.length) {
@@ -4903,38 +4903,38 @@ const resetOrchestrationForModel = () => {
 const loadAgentFromText = (text, sourceLabel) => {
   const parsed = parseUvl(text);
   if (!parsed.roots.length) {
-    throw new Error("Aucune feature racine détectée.");
+    throw new Error("No root feature detected.");
   }
   parsed.featurePaths = buildPathIndex(parsed);
   agentModel = parsed;
   resetAgentsForModel();
-  setStatus(`Modèle agents chargé depuis ${sourceLabel}.`, false, "agent");
+  setStatus(`Agent model loaded from ${sourceLabel}.`, false, "agent");
 };
 
 const loadModuleFromText = (text, sourceLabel) => {
   const parsed = parseUvl(text);
   if (!parsed.roots.length) {
-    throw new Error("Aucune feature racine détectée.");
+    throw new Error("No root feature detected.");
   }
   parsed.featurePaths = buildPathIndex(parsed);
   moduleModel = parsed;
   resetModulesForModel();
-  setStatus(`Modèle modules chargé depuis ${sourceLabel}.`, false, "module");
+  setStatus(`Module model loaded from ${sourceLabel}.`, false, "module");
 };
 
 const loadOrchestrationFromText = (text, sourceLabel) => {
   const parsed = parseUvl(text);
   if (!parsed.roots.length) {
-    throw new Error("Aucune feature racine détectée.");
+    throw new Error("No root feature detected.");
   }
   parsed.featurePaths = buildPathIndex(parsed);
   orchestrationModel = parsed;
   resetOrchestrationForModel();
-  setStatus(`Modèle workflow chargé depuis ${sourceLabel}.`, false, "orchestration");
+  setStatus(`Workflow model loaded from ${sourceLabel}.`, false, "orchestration");
 };
 
 const loadDefaultAgentModel = async () => {
-  setStatus(`Chargement de ${DEFAULT_AGENT_UVL_PATH}…`, false, "agent");
+  setStatus(`Loading ${DEFAULT_AGENT_UVL_PATH}...`, false, "agent");
   try {
     const text = await (async () => {
       const urls = buildUrlCandidates(DEFAULT_AGENT_UVL_PATH);
@@ -4951,12 +4951,12 @@ const loadDefaultAgentModel = async () => {
           lastError = error;
         }
       }
-      throw lastError || new Error("Chargement impossible");
+      throw lastError || new Error("Unable to load");
     })();
     loadAgentFromText(text, DEFAULT_AGENT_UVL_PATH);
   } catch (error) {
     console.error(error);
-    setStatus(`Impossible de charger le modèle agents. Lance le serveur depuis la racine du projet.`, true, "agent");
+    setStatus(`Unable to load the agent model. Start the server from the project root.`, true, "agent");
   }
 };
 
@@ -4968,7 +4968,7 @@ if (loadDefaultButton) {
 
 const loadDefaultModuleModel = async () => {
   ensureModuleModel();
-  setStatus(`Chargement de ${DEFAULT_MODULE_UVL_PATH}…`, false, "module");
+  setStatus(`Loading ${DEFAULT_MODULE_UVL_PATH}...`, false, "module");
   try {
     const text = await (async () => {
       const urls = buildUrlCandidates(DEFAULT_MODULE_UVL_PATH);
@@ -4985,7 +4985,7 @@ const loadDefaultModuleModel = async () => {
           lastError = error;
         }
       }
-      throw lastError || new Error("Chargement impossible");
+      throw lastError || new Error("Unable to load");
     })();
     loadModuleFromText(text, DEFAULT_MODULE_UVL_PATH);
     return true;
@@ -4993,11 +4993,11 @@ const loadDefaultModuleModel = async () => {
     console.error(error);
   }
   try {
-    loadModuleFromText(DEFAULT_MODULE_UVL_FALLBACK, "module intégré");
+    loadModuleFromText(DEFAULT_MODULE_UVL_FALLBACK, "built-in module");
     return true;
   } catch (error) {
     console.error(error);
-    setStatus(`Impossible de charger le modèle modules. Lance le serveur depuis la racine du projet.`, true, "module");
+    setStatus(`Unable to load the module model. Start the server from the project root.`, true, "module");
     return false;
   }
 };
@@ -5014,13 +5014,13 @@ if (moduleUvlFileInput) {
     if (!file) {
       return;
     }
-    setStatus(`Chargement de ${file.name}…`, false, "module");
+    setStatus(`Loading ${file.name}...`, false, "module");
     try {
       const text = await file.text();
       loadModuleFromText(text, file.name);
     } catch (error) {
       console.error(error);
-      setStatus(`Impossible de lire ${file.name}.`, true, "module");
+      setStatus(`Unable to read ${file.name}.`, true, "module");
     }
   });
 }
@@ -5031,13 +5031,13 @@ if (uvlFileInput) {
     if (!file) {
       return;
     }
-    setStatus(`Chargement de ${file.name}…`, false, "agent");
+    setStatus(`Loading ${file.name}...`, false, "agent");
     try {
       const text = await file.text();
       loadAgentFromText(text, file.name);
     } catch (error) {
       console.error(error);
-      setStatus(`Impossible de lire ${file.name}.`, true, "agent");
+      setStatus(`Unable to read ${file.name}.`, true, "agent");
     }
   });
 }
@@ -5052,7 +5052,7 @@ const syncFileLabel = (inputEl) => {
     return;
   }
   const file = inputEl.files?.[0];
-  nameEl.textContent = file ? file.name : "Choisir un fichier";
+  nameEl.textContent = file ? file.name : "Choose a file";
 };
 
 if (uvlFileInput) {
@@ -5086,7 +5086,7 @@ if (addOrchestrationButton) {
 }
 
 const loadDefaultOrchestrationModel = async () => {
-  setStatus(`Chargement de ${DEFAULT_ORCHESTRATION_UVL_PATH}…`, false, "orchestration");
+  setStatus(`Loading ${DEFAULT_ORCHESTRATION_UVL_PATH}...`, false, "orchestration");
   try {
     const text = await (async () => {
       const urls = buildUrlCandidates(DEFAULT_ORCHESTRATION_UVL_PATH);
@@ -5103,12 +5103,12 @@ const loadDefaultOrchestrationModel = async () => {
           lastError = error;
         }
       }
-      throw lastError || new Error("Chargement impossible");
+      throw lastError || new Error("Unable to load");
     })();
     loadOrchestrationFromText(text, DEFAULT_ORCHESTRATION_UVL_PATH);
   } catch (error) {
     console.error(error);
-    setStatus(`Impossible de charger ${DEFAULT_ORCHESTRATION_UVL_PATH}.`, true, "orchestration");
+    setStatus(`Unable to load ${DEFAULT_ORCHESTRATION_UVL_PATH}.`, true, "orchestration");
   }
 };
 
@@ -5124,13 +5124,13 @@ if (orchestrationUvlFileInput) {
     if (!file) {
       return;
     }
-    setStatus(`Chargement de ${file.name}…`, false, "orchestration");
+    setStatus(`Loading ${file.name}...`, false, "orchestration");
     try {
       const text = await file.text();
       loadOrchestrationFromText(text, file.name);
     } catch (error) {
       console.error(error);
-      setStatus(`Impossible de lire ${file.name}.`, true, "orchestration");
+      setStatus(`Unable to read ${file.name}.`, true, "orchestration");
     }
   });
 }
@@ -5189,17 +5189,17 @@ const bindOutputUiInteractions = () => {
     )?.textContent;
     if (!workflowCode || !workflowCode.trim()) {
       if (crewaiRunOutput) {
-        crewaiRunOutput.textContent = "# Aucun code CrewAI à exécuter.";
+        crewaiRunOutput.textContent = "# No CrewAI code to execute.";
       }
       return;
     }
       if (crewaiRunOutput) {
-        crewaiRunOutput.textContent = "# Exécution en cours...";
+        crewaiRunOutput.textContent = "# Execution in progress...";
       }
     try {
         const logId = window.currentLogId;
         if (!logId) {
-          crewaiRunOutput.textContent = "log_id manquant";
+          crewaiRunOutput.textContent = "Missing log_id";
           return;
         }
         const response = await fetch(CREWAI_RUN_ENDPOINT, {
@@ -5226,21 +5226,21 @@ const bindOutputUiInteractions = () => {
 
 
       if (!response.ok) {
-        throw new Error(payload?.error || "Erreur d'exécution");
+        throw new Error(payload?.error || "Execution error");
       }
       const stdout = payload?.stdout || "";
       const stderr = payload?.stderr || "";
       const combined = [stdout, stderr].filter(Boolean).join("\n");
       if (crewaiRunOutput) {
-        crewaiRunOutput.textContent = combined || "# Aucun résultat.";
+        crewaiRunOutput.textContent = combined || "# No result.";
       }
     } catch (error) {
       console.error(error);
       if (crewaiRunOutput) {
         const message =
           error?.name === "AbortError"
-            ? "# Exécution arrêtée."
-            : `# Erreur: ${error.message || error}`;
+            ? "# Execution stopped."
+            : `# Error: ${error.message || error}`;
         crewaiRunOutput.textContent = message;
       }
     } finally {
@@ -5270,18 +5270,18 @@ const bindOutputUiInteractions = () => {
     )?.textContent;
     if (!workflowCode || !workflowCode.trim()) {
       if (adkRunOutput) {
-        adkRunOutput.textContent = "# Aucun code ADK à exécuter.";
+        adkRunOutput.textContent = "# No ADK code to execute.";
       }
       return;
     }
     if (adkRunOutput) {
-      adkRunOutput.textContent = "# Exécution en cours...";
+      adkRunOutput.textContent = "# Execution in progress...";
     }
     try {
 
       const logId = window.currentLogId;
       if (!logId) {
-        crewaiRunOutput.textContent = "log_id manquant";
+        crewaiRunOutput.textContent = "Missing log_id";
         return;
       }
       const response = await fetch(CREWAI_RUN_ENDPOINT, {
@@ -5308,21 +5308,21 @@ const bindOutputUiInteractions = () => {
       // window.currentTaskMetrics.llm_calls += m.llm_calls || 0;
 
       if (!response.ok) {
-        throw new Error(payload?.error || "Erreur d'exécution");
+        throw new Error(payload?.error || "Execution error");
       }
       const stdout = payload?.stdout || "";
       const stderr = payload?.stderr || "";
       const combined = [stdout, stderr].filter(Boolean).join("\n");
       if (adkRunOutput) {
-        adkRunOutput.textContent = combined || "# Aucun résultat.";
+        adkRunOutput.textContent = combined || "# No result.";
       }
     } catch (error) {
       console.error(error);
       if (adkRunOutput) {
         const message =
           error?.name === "AbortError"
-            ? "# Exécution arrêtée."
-            : `# Erreur: ${error.message || error}`;
+            ? "# Execution stopped."
+            : `# Error: ${error.message || error}`;
         adkRunOutput.textContent = message;
       }
     } finally {

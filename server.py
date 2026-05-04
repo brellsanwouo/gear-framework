@@ -42,6 +42,12 @@ FEATURE_MODEL_IMAGES = {
         "image": "workflow.png",
     },
 }
+FEATURE_MODEL_FILES = {
+    "agent": BASE_DIR / "gear" / "gear-agent.uvl",
+    "module": BASE_DIR / "gear" / "gear-module.uvl",
+    "workflow": BASE_DIR / "gear" / "gear-multiagent.uvl",
+    "multiagent": BASE_DIR / "gear" / "gear-multiagent.uvl",
+}
 
 load_dotenv()
 
@@ -78,6 +84,37 @@ def get_db_connection():
         password=DB_PASS,
         database=DB_NAME,
     )
+
+
+def _feature_model_path(fm_type: str) -> Path:
+    model_path = FEATURE_MODEL_FILES.get(fm_type)
+    if model_path is None:
+        raise ValueError("Unknown feature model type.")
+    return model_path
+
+
+def _validate_feature_names(fm_type: str, selected_features: list[str]) -> None:
+    model_path = _feature_model_path(fm_type)
+    base_fm = FLAMAFeatureModel(str(model_path))
+    known_features = {feature.name for feature in base_fm.fm_model.get_features()}
+    unknown_features = sorted(set(selected_features) - known_features)
+    if unknown_features:
+        raise ValueError(f"Unknown features: {', '.join(unknown_features)}")
+
+
+def _constrained_feature_model_path(fm_type: str, selected_features: list[str]) -> str:
+    model_path = _feature_model_path(fm_type)
+    model_text = model_path.read_text(encoding="utf-8").rstrip() + "\n"
+    if selected_features:
+        if "\nconstraints" not in model_text:
+            model_text += "\nconstraints\n"
+        for feature_name in selected_features:
+            model_text += f"\t{feature_name}\n"
+
+    tmp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".uvl", delete=False, encoding="utf-8")
+    with tmp_file:
+        tmp_file.write(model_text)
+    return tmp_file.name
 
 
 def init_db():
@@ -388,7 +425,7 @@ def run_orchestration():
     env.setdefault("PYTHONUNBUFFERED", "1")
 
     if not env.get("OPENAI_API_KEY"):
-        return jsonify({"error": "OPENAI_API_KEY manquante côté serveur."}), 500
+        return jsonify({"error": "OPENAI_API_KEY is missing on the server."}), 500
 
     with tempfile.TemporaryDirectory() as temp_dir:
         script_path = Path(temp_dir) / "orchestration.py"
@@ -524,24 +561,26 @@ def project_files(filename: str) -> Any:
 def analyze():
     data = request.json or {}
     selected_features = data.get("selected_features", [])
-    print(selected_features)
     fm_type = data.get("fm_type")
 
-    tmp_path = ""
+    constrained_tmp_path = ""
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp_file:
-            csv_content = ",".join(selected_features)
-            tmp_file.write(csv_content)
-            tmp_path = tmp_file.name
-
-        fm = FLAMAFeatureModel(f"gear/gear-{fm_type}.uvl")
-        response = {"valid": fm.satisfiable_configuration(tmp_path,full_configuration=True), "config_count": fm.configurations_number(), "message": "Successful analysis"}
+        model_path = _feature_model_path(fm_type)
+        _validate_feature_names(fm_type, selected_features)
+        fm = FLAMAFeatureModel(str(model_path))
+        constrained_tmp_path = _constrained_feature_model_path(fm_type, selected_features)
+        constrained_fm = FLAMAFeatureModel(constrained_tmp_path)
+        response = {
+            "valid": constrained_fm.satisfiable(),
+            "config_count": fm.configurations_number(),
+            "message": "Successful analysis",
+        }
         return jsonify(response)
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 500
     finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+        if os.path.exists(constrained_tmp_path):
+            os.remove(constrained_tmp_path)
 
 @app.post("/api/feature-model")
 def feature_model() -> Any:
@@ -549,11 +588,11 @@ def feature_model() -> Any:
     fm_type = payload.get("fm_type", "agent")
     model_image = FEATURE_MODEL_IMAGES.get(fm_type)
     if model_image is None:
-        return jsonify({"error": "Type de feature model inconnu."}), 400
+        return jsonify({"error": "Unknown feature model type."}), 400
 
     image_path = FEATURE_MODEL_IMAGE_DIR / model_image["image"]
     if not image_path.exists():
-        return jsonify({"error": f"Image FeatureIDE absente: {image_path.relative_to(BASE_DIR)}"}), 500
+        return jsonify({"error": f"Missing FeatureIDE image: {image_path.relative_to(BASE_DIR)}"}), 500
 
     image_url = f"/ui/assets/feature-models/{model_image['image']}?v={image_path.stat().st_mtime_ns}"
     return jsonify(

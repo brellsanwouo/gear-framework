@@ -24,17 +24,17 @@
         <section class="panel section-panel">
         <div class="panel-header">
           <h2>Gear Agents</h2>
-          <!-- <p class="hint">Charge un UVL d’agent puis crée autant d’agents que nécessaire.</p> -->
+          <!-- <p class="hint">Load an agent UVL, then create as many agents as needed.</p> -->
         </div>
         <!--
         <div class="import-grid">
           <div class="import-block">
-            <h3>Importer un UVL d’agent</h3>
+            <h3>Import an agent UVL</h3>
             <div class="loader-controls">
-              <button id="loadDefault" type="button" class="secondary">Charger gear-agent.uvl</button>
+              <button id="loadDefault" type="button" class="secondary">Load gear-agent.uvl</button>
               <label class="file-input">
-                <span class="file-label">Charger un UVL d’agent</span>
-                <span class="file-name" data-file-name>Choisir un fichier</span>
+                <span class="file-label">Load an agent UVL</span>
+                <span class="file-name" data-file-name>Choose a file</span>
                 <input id="uvlFileInput" type="file" accept=".uvl,.txt" />
               </label>
             </div>
@@ -45,8 +45,8 @@
 
         <div class="agent-actions">
           <div>
-            <!-- <h3>Instances d’agents</h3>
-            <p class="hint">Chaque agent a son propre formulaire et son propre YAML.</p> -->
+            <!-- <h3>Agent instances</h3>
+            <p class="hint">Each agent has its own form and YAML.</p> -->
           </div>
           <button id="addAgent" type="button">Add agent</button>
         </div>
@@ -57,17 +57,17 @@
         <section class="panel section-panel">
         <div class="panel-header">
           <h2>Gear Modules</h2>
-          <!-- <p class="hint">Charge un UVL de module puis crée des modules réutilisables.</p> -->
+          <!-- <p class="hint">Load a module UVL, then create reusable modules.</p> -->
         </div>
         <!--
         <div class="import-grid">
           <div class="import-block">
-            <h3>Importer un UVL de module</h3>
+            <h3>Import a module UVL</h3>
             <div class="loader-controls">
-              <button id="loadModuleDefault" type="button" class="secondary">Charger gear-module.uvl</button>
+              <button id="loadModuleDefault" type="button" class="secondary">Load gear-module.uvl</button>
               <label class="file-input">
-                <span class="file-label">Charger un UVL de module</span>
-                <span class="file-name" data-file-name>Choisir un fichier</span>
+                <span class="file-label">Load a module UVL</span>
+                <span class="file-name" data-file-name>Choose a file</span>
                 <input id="moduleUvlFileInput" type="file" accept=".uvl,.txt" />
               </label>
             </div>
@@ -78,7 +78,7 @@
 
         <div class="agent-actions">
           <div>
-            <!-- <h3>Instances de modules</h3> -->
+            <!-- <h3>Module instances</h3> -->
           </div>
           <button id="addModule" type="button">Add module</button>
         </div>
@@ -89,17 +89,17 @@
         <section class="panel section-panel">
         <div class="panel-header">
           <h2>Gear Workflow</h2>
-          <!-- <p class="hint">Définis la structure multi-agent (nœuds, stratégies, liens).</p> -->
+          <!-- <p class="hint">Define the multi-agent structure (nodes, strategies, links).</p> -->
         </div>
         <!--
         <div class="import-grid">
           <div class="import-block">
-            <h3>Importer un UVL d’orchestration</h3>
+            <h3>Import an orchestration UVL</h3>
             <div class="loader-controls">
-              <button id="loadOrchestrationDefault" type="button" class="secondary">Charger gear-multiagent.uvl</button>
+              <button id="loadOrchestrationDefault" type="button" class="secondary">Load gear-multiagent.uvl</button>
               <label class="file-input">
-                <span class="file-label">Charger un UVL d’orchestration</span>
-                <span class="file-name" data-file-name>Choisir un fichier</span>
+                <span class="file-label">Load an orchestration UVL</span>
+                <span class="file-name" data-file-name>Choose a file</span>
                 <input id="orchestrationUvlFileInput" type="file" accept=".uvl,.txt" />
               </label>
             </div>
@@ -110,10 +110,10 @@
 
         <div class="agent-actions">
           <div>
-            <!-- <h3>Instances d’orchestration</h3>
-            <p class="hint">Chaque orchestration a son propre formulaire et son propre YAML.</p> -->
+            <!-- <h3>Orchestration instances</h3>
+            <p class="hint">Each orchestration has its own form and YAML.</p> -->
           </div>
-          <!-- <button id="addOrchestration" type="button">Ajouter un workflow</button> -->
+          <!-- <button id="addOrchestration" type="button">Add workflow</button> -->
         </div>
         <div id="orchestrationContainer" class="agents-container" aria-live="polite"></div>
         </section>
@@ -224,12 +224,12 @@
             <p data-feature-model-source></p>
           </div>
           <div class="feature-model-modal__actions">
-            <button type="button" class="secondary" data-feature-model-zoom-out title="Dézoomer">-</button>
+            <button type="button" class="secondary" data-feature-model-zoom-out title="Zoom out">-</button>
             <span data-feature-model-zoom-label>100%</span>
-            <button type="button" class="secondary" data-feature-model-zoom-in title="Zoomer">+</button>
+            <button type="button" class="secondary" data-feature-model-zoom-in title="Zoom in">+</button>
             <button type="button" class="secondary" data-feature-model-zoom-reset>100%</button>
-            <a class="secondary button-link" data-feature-model-download hidden>Télécharger</a>
-            <button type="button" class="secondary" data-feature-model-close>Fermer</button>
+            <a class="secondary button-link" data-feature-model-download hidden>Download</a>
+            <button type="button" class="secondary" data-feature-model-close>Close</button>
           </div>
         </div>
         <div class="feature-model-image-frame">

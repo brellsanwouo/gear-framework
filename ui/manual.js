@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const logId = window.currentLogId;
                 if (!logId) {
-                  outputPre.textContent = "log_id manquant";
+                  outputPre.textContent = "Missing log_id";
                   return;
                 }
                 const response = await fetch(API_RUN_ENDPOINT, {
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 if (!response.ok) {
-                    throw new Error(payload?.error || "Erreur d'exécution serveur");
+                    throw new Error(payload?.error || "Server execution error");
                 }
 
                 const stdout = payload?.stdout || "";

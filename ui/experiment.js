@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startBtn.addEventListener('click', async () => {
         startBtn.disabled = true;
-        startBtn.textContent = "Chargement...";
+        startBtn.textContent = "Loading...";
 
         try {
             const res = await fetch('/api/experiment/start', { method: 'POST' });
