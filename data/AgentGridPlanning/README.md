@@ -1,36 +1,36 @@
-# AgentGridPlanning (Inspiré de MiniGrid & BabyAI)
+# AgentGridPlanning (Inspired by MiniGrid & BabyAI)
 
-## Description du game
+## Game Description
 
-AgentGridPlanning est basé sur des abstractions classiques d’environnements en grille utilisés en intelligence artificielle et en apprentissage par renforcement.
+AgentGridPlanning is based on classic grid-environment abstractions used in artificial intelligence and reinforcement learning.
 
-Il s’inspire directement de [MiniGrid](https://arxiv.org/abs/2306.13831), un ensemble d’environnements de référence en RL reposant sur une navigation discrète en grille avec objets symboliques tels que clés, portes et objectifs (Chevalier-Boisvert et al., *MiniGrid & Miniworld*, NeurIPS 2023).
+It is directly inspired by [MiniGrid](https://arxiv.org/abs/2306.13831), a benchmark suite of RL environments based on discrete grid navigation with symbolic objects such as keys, doors, and goals (Chevalier-Boisvert et al., *MiniGrid & Miniworld*, NeurIPS 2023).
 
-La structure clé-porte-objectif de AgentGridPlanning est également proche des tâches proposées dans [BabyAI](https://arxiv.org/abs/1810.08272), conçues pour étudier le raisonnement séquentiel et la planification symbolique dans des environnements simples mais contraints.
+The key-door-goal structure of AgentGridPlanning is also close to the tasks proposed in [BabyAI](https://arxiv.org/abs/1810.08272), designed to study sequential reasoning and symbolic planning in simple but constrained environments.
 
 
-- `nom_du_game`: `AgentGridPlanning`
-- `univers`: puzzle 2D sur grille
-- `objectif_joueur`: atteindre `G` depuis `S` (les contraintes sur `K` et `D` varient selon `P1..P5`; `P0` sert a afficher le puzzle)
+- `game_name`: `AgentGridPlanning`
+- `universe`: 2D grid puzzle
+- `player_goal`: reach `G` from `S` (constraints on `K` and `D` vary across `P1..P5`; `P0` only displays the puzzle)
 
-## Entrée runtime
+## Runtime Input
 
-- `principe`: aucune entree externe n'est fournie pendant l'execution
-- `regle`: l'agent 1 (`SystemDescriber`) produit la description du systeme
+- `principle`: no external input is provided during execution
+- `rule`: agent 1 (`SystemDescriber`) produces the system description
 
-## Symboles de grille
+## Grid Symbols
 
-| Symbole | Signification |
+| Symbol | Meaning |
 | --- | --- |
-| `S` | Point de départ |
-| `G` | objectif |
-| `K` | cle |
-| `D` | porte |
-| `#` | mur bloquant |
-| `.` | case libre |
+| `S` | Start point |
+| `G` | Goal |
+| `K` | Key |
+| `D` | Door |
+| `#` | Blocking wall |
+| `.` | Free cell |
 
 
-## Vue grille
+## Grid View
 
 ```text
 S . . # . . .
@@ -40,45 +40,45 @@ S . . # . . .
 . . . . . . G
 ```
 
-## Definition des actions
+## Action Definitions
 
-- `U`: deplacement d'une case vers le haut
-- `D`: deplacement d'une case vers le bas
-- `L`: deplacement d'une case vers la gauche
-- `R`: deplacement d'une case vers la droite
-- `TAKE_K`: valide uniquement si l'avatar est sur la case `K`
-- `OPEN_D`: valide uniquement si la cle est deja prise et si l'avatar est adjacent (distance Manhattan 1) a `D`
+- `U`: move one cell up
+- `D`: move one cell down
+- `L`: move one cell left
+- `R`: move one cell right
+- `TAKE_K`: valid only if the avatar is on cell `K`
+- `OPEN_D`: valid only if the key has already been taken and the avatar is adjacent (Manhattan distance 1) to `D`
 
-## Regles de validite
+## Validity Rules
 
-- un deplacement hors grille est invalide
-- un deplacement vers `#` est invalide
-- un deplacement vers `D` est invalide tant que `OPEN_D` n'a pas ete execute
-- la sequence est valide si toutes les actions sont valides dans l'ordre
-- victoire si la position finale est `G`
+- a move outside the grid is invalid
+- a move into `#` is invalid
+- a move into `D` is invalid until `OPEN_D` has been executed
+- the sequence is valid if all actions are valid in order
+- victory is achieved if the final position is `G`
 
-## Sortie globale attendue
+## Expected Global Output
 
-- `format`: liste JSON de strings
-- `sortie_attendue_reference` (exemple de chemin le plus court):
+- `format`: JSON list of strings
+- `expected_reference_output` (example of the shortest path):
 
 ```json
 ["R", "R", "D", "D", "TAKE_K", "R", "R", "OPEN_D", "R", "D", "D", "R"]
 ```
 
-## Regles communes P0..P5
+## Common Rules P0..P5
 
-- le premier agent est toujours `SystemDescriber`
-- `SystemDescriber` decrit la grille et les actions autorisees
-- chaque `P` contient explicitement le JSON de `SystemDescriber` dans sa description, puis une section `Sortie attendue`
+- the first agent is always `SystemDescriber`
+- `SystemDescriber` describes the grid and the allowed actions
+- each `P` explicitly contains the `SystemDescriber` JSON in its description, followed by an `Expected Output` section
 
-## Declinaisons par orchestration
+## Orchestration Variants
 
-| P | Agents | Mode | Ordre | Note |
+| P | Agents | Mode | Order | Note |
 | --- | --- | --- | --- | --- |
-| `P0` | 1 | sequentiel | `A1` | affichage du puzzle uniquement |
-| `P1` | 2 | sequentiel | `A1 -> A2` | |
-| `P2` | 4 | sequentiel | `A1 -> A2 -> A3 -> A4` | |
-| `P3` | 8 | hybride | <code>A1 -> A2 -> (A3 &#124;&#124; A4 &#124;&#124; A5) -> A6 -> A7 -> A8</code> | 3 agents executes en parallele |
-| `P4` | 8 | hybride avec boucle | `A1 -> A2 -> [A3 <-> A4, 2 tours] -> A5 -> A6 -> A7 -> A8` | boucle de 2 tours sur 2 agents |
-<!-- | `P5` | 8 | hybride avec boucle | `A1 -> A2 -> [A3 <-> A4 <-> A5, 2 tours] -> A6 -> A7 -> A8` | boucle de 2 tours sur 3 agents | -->
+| `P0` | 1 | sequential | `A1` | puzzle display only |
+| `P1` | 2 | sequential | `A1 -> A2` | |
+| `P2` | 4 | sequential | `A1 -> A2 -> A3 -> A4` | |
+| `P3` | 8 | hybrid | <code>A1 -> A2 -> (A3 &#124;&#124; A4 &#124;&#124; A5) -> A6 -> A7 -> A8</code> | 3 agents executed in parallel |
+| `P4` | 8 | hybrid with loop | `A1 -> A2 -> [A3 <-> A4, 2 iterations] -> A5 -> A6 -> A7 -> A8` | 2-iteration loop over 2 agents |
+<!-- | `P5` | 8 | hybrid with loop | `A1 -> A2 -> [A3 <-> A4 <-> A5, 2 iterations] -> A6 -> A7 -> A8` | 2-iteration loop over 3 agents | -->

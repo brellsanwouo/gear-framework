@@ -5198,10 +5198,6 @@ const bindOutputUiInteractions = () => {
       }
     try {
         const logId = window.currentLogId;
-        if (!logId) {
-          crewaiRunOutput.textContent = "Missing log_id";
-          return;
-        }
         const response = await fetch(CREWAI_RUN_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -5280,10 +5276,6 @@ const bindOutputUiInteractions = () => {
     try {
 
       const logId = window.currentLogId;
-      if (!logId) {
-        crewaiRunOutput.textContent = "Missing log_id";
-        return;
-      }
       const response = await fetch(CREWAI_RUN_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -12,7 +12,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
-import mlflow
 import mysql.connector
 import yaml
 from dotenv import load_dotenv
@@ -69,6 +68,7 @@ DB_NAME = CONFIG["database"]["dbname"]
 DB_PASS = os.environ.get("DB_PASSWORD")
 
 TASKS_FILE_PATH = BASE_DIR / CONFIG["paths"]["tasks_file"]
+TRACKING_ENABLED = False
 
 app = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
 CORS(app)
@@ -169,7 +169,8 @@ def init_db():
         print(f"DB Error: {e}")
 
 
-init_db()
+if TRACKING_ENABLED:
+    init_db()
 
 TASKS_CONFIG = {}
 try:
@@ -315,18 +316,19 @@ def start_experiment():
 
     experiment_sequence = [{"id": tid, "mode": chosen_mode} for tid in TASK_IDS]
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO users (user_id, group_order, current_task_index) VALUES (%s, %s, %s)",
-            (user_id, json.dumps(experiment_sequence), 0),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if TRACKING_ENABLED:
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (user_id, group_order, current_task_index) VALUES (%s, %s, %s)",
+                (user_id, json.dumps(experiment_sequence), 0),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     return jsonify(
         {
@@ -335,12 +337,16 @@ def start_experiment():
             "sequence": experiment_sequence,
             "first_task": experiment_sequence[0],
             "total_tasks": len(experiment_sequence),
+            "tracking": TRACKING_ENABLED,
         }
     )
 
 
 @app.post("/api/experiment/log_start")
 def log_task_start():
+    if not TRACKING_ENABLED:
+        return jsonify({"log_id": None, "tracking": False})
+
     data = request.json or {}
     user_id = data.get("user_id")
     task_id = data.get("task_id")
@@ -411,15 +417,12 @@ def run_orchestration():
 
     if not code.strip():
         return jsonify({"error": "Empty code"}), 400
-    if not log_id:
-        return jsonify({"error": "log_id missing"}), 400
 
     if target in ("adk", "googleadk", "google-adk"):
         code = _prepend_google_adk_imports(code)
 
     code_to_run = code if target == "adk" else _ensure_kickoff(code)
-    prefix = get_instrumentation_prefix(target)
-    final_code = prefix + "\n" + code_to_run
+    final_code = code_to_run
 
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
@@ -443,50 +446,13 @@ def run_orchestration():
     stdout = result.stdout or ""
     stderr = result.stderr or ""
 
-
-    trace_id = _parse_trace_id(stderr)
-    stderr_user = _strip_gear_trace_markers(stderr)
-
-    if not trace_id:
-        return jsonify({"error": "trace_id missing", "stdout": stdout, "stderr": stderr}), 500
-
-    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
-    mlflow.set_tracking_uri(tracking_uri)
-
-    trace_json = None
-    last_err = None
-    for _ in range(5):
-        try:
-            trace = mlflow.get_trace(trace_id)
-            trace_json = trace.to_json()
-            break
-        except Exception as e:
-            last_err = e
-            time.sleep(0.2)
-
-    if not trace_json:
-        return jsonify({"error": f"get_trace failed: {last_err}", "stdout": stdout, "stderr": stderr, "trace_id": trace_id}), 500
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO task_runs (log_id, trace_id, trace_json)
-            VALUES (%s, %s, %s)
-            """,
-            (log_id, trace_id, trace_json),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        return jsonify({"error": str(e), "stdout": stdout, "stderr": stderr, "trace_id": trace_id}), 500
-
-    return jsonify({"stdout": stdout, "stderr": stderr_user, "trace_id": trace_id})
+    return jsonify({"stdout": stdout, "stderr": stderr, "returncode": result.returncode})
 
 @app.post("/api/experiment/log_end")
 def log_task_end():
+    if not TRACKING_ENABLED:
+        return jsonify({"success": True, "tracking": False})
+
     try:
         data = request.json or {}
         log_id = data.get("log_id")

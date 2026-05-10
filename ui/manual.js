@@ -28,10 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const logId = window.currentLogId;
-                if (!logId) {
-                  outputPre.textContent = "Missing log_id";
-                  return;
-                }
                 const response = await fetch(API_RUN_ENDPOINT, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },

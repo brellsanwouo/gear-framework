@@ -1,12 +1,10 @@
 GearAgent:
   AgentIdentity:
     Name: SystemDescriberAgent
-    Purpose: decrire de facon claire et comprehensible le probleme a resoudre.
+    Purpose: describe the problem to solve clearly and understandably.
     ContextDescription: >-
-      decrit le probleme AgentGridPlanning en fixant la grille de reference, les actions autorisees et les regles
-      d'execution afin de fournir une specification exploitable. La description du probleme contient le JSON de
-      description, la vue en grille et la definition des actions ci-dessous.
-        JSON de description du probleme:
+      describes the AgentGridPlanning problem by defining the reference grid, the allowed actions, and the execution rules in order to provide an exploitable specification. The problem description includes the JSON description, the grid view, and the action definitions below.
+        Problem description JSON:
 
       ```json
 
@@ -17,7 +15,7 @@ GearAgent:
       }
 
       ```
-        vue_grille_texte:
+        text_grid_view:
 
       ```text
 
@@ -32,135 +30,133 @@ GearAgent:
       . . . . . . G
 
       ```
-        definition_des_actions: `U` deplacement d'une case vers le haut; `D` deplacement d'une case vers le bas; `L` deplacement d'une case vers la gauche; `R` deplacement d'une case vers la droite; `TAKE_K` valide uniquement si l'avatar est sur la case `K`; `OPEN_D` valide uniquement si la cle est prise et si l'avatar est adjacent a `D`.
-        contraintes_de_deplacement: un deplacement est invalide si la case cible est hors grille; un deplacement est invalide si la case cible est un mur `#`; un deplacement vers la porte `D` est invalide tant que l'action `OPEN_D` n'a pas ete executee.
-        condition_de_victoire: atteindre `G` (le chemin retenu doit etre le plus court possible).
-        symboles_de_grille: `S` depart; `G` objectif; `K` cle; `D` porte; `#` mur; `.` case libre.
-        taille_matrice: 5 x 7 (lignes x colonnes).
-        systeme_coordonnees: (ligne, colonne) indexe a partir de 0.
-        coordonnees_elements: definies dans le champ `elements` du JSON (liste de tuples [symbole, ligne, colonne]).
+        action_definitions: `U` moves one cell up; `D` moves one cell down; `L` moves one cell left; `R` moves one cell right; `TAKE_K` is valid only if the avatar is on cell `K`; `OPEN_D` is valid only if the key has been taken and the avatar is adjacent to `D`.
+        movement_constraints: a move is invalid if the target cell is outside the grid; a move is invalid if the target cell is a wall `#`; a move to the door `D` is invalid until the action `OPEN_D` has been executed.
+        victory_condition: reach `G` (the selected path must be as short as possible).
+        grid_symbols: `S` start; `G` goal; `K` key; `D` door; `#` wall; `.` free cell.
+        matrix_size: 5 x 7 (rows x columns).
+        coordinate_system: (row, column) indexed from 0.
+        element_coordinates: defined in the JSON `elements` field (list of tuples [symbol, row, column]).
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: SystemDescriberTask
     TaskDescription: >-
-      decrire la grille de reference et ses elements (`S`, `G`, `K`, `D`, `#`, `.`), decrire les preconditions de
-      `TAKE_K` et `OPEN_D`, preciser les conditions d'invalidite des deplacements.
-    ExpectedOutput: specification du systeme (grille + actions + regles) exploitable.
+      describe the reference grid and its elements (`S`, `G`, `K`, `D`, `#`, `.`), describe the preconditions of `TAKE_K` and `OPEN_D`, and specify the invalid movement conditions.
+    ExpectedOutput: exploitable system specification (grid + actions + rules).
 
 
 
 GearAgent:
   AgentIdentity:
     Name: BlueprintPlannerAgent
-    Purpose: produire une trajectoire de haut niveau.
-    ContextDescription: prepare un plan de resolution macro.
+    Purpose: produce a high-level trajectory.
+    ContextDescription: prepares a macro resolution plan.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: BlueprintPlannerTask
     TaskDescription: >-
-      decouper la resolution en etapes et proposer un plan macro pour atteindre `G`.
-    ExpectedOutput: blueprint de resolution avec etapes macro ordonnees.
+      break the resolution into steps and propose a macro plan to reach `G`.
+    ExpectedOutput: resolution blueprint with ordered macro steps.
 
 
 
 GearAgent:
   AgentIdentity:
     Name: MovementAnalyzerAgent
-    Purpose: definir les contraintes de mouvement.
-    ContextDescription: analyse les deplacements possibles.
+    Purpose: define movement constraints.
+    ContextDescription: analyzes possible movements.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: MovementAnalyzerTask
     TaskDescription: >-
-      analyser les mouvements autorises, les limites et les blocages de la grille.
-    ExpectedOutput: contraintes de mouvement exploitables pour l'integration.
+      analyze the allowed movements, limits, and grid blockages.
+    ExpectedOutput: movement constraints usable for integration.
 
 
 
 GearAgent:
   AgentIdentity:
     Name: MechanicAnalyzerAgent
-    Purpose: imposer ordre et conditions de `TAKE_K` et `OPEN_D`.
-    ContextDescription: analyse les actions de mecanique.
+    Purpose: enforce the order and conditions of `TAKE_K` and `OPEN_D`.
+    ContextDescription: analyzes mechanic actions.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: MechanicAnalyzerTask
     TaskDescription: >-
-      verifier les preconditions de `TAKE_K` et `OPEN_D` et leurs effets.
-    ExpectedOutput: contraintes de mecanique (ordre et preconditions) valides.
+      verify the preconditions of `TAKE_K` and `OPEN_D` and their effects.
+    ExpectedOutput: valid mechanic constraints (order and preconditions).
 
 
 
 GearAgent:
   AgentIdentity:
     Name: SequenceCalibratorAgent
-    Purpose: garder une sequence courte et coherente.
-    ContextDescription: ajuste la sequence candidate.
+    Purpose: keep a short and coherent sequence.
+    ContextDescription: adjusts the candidate sequence.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: SequenceCalibratorTask
     TaskDescription: >-
-      estimer la longueur cible et s'assurer que la solution converge vers un chemin le plus court.
-    ExpectedOutput: recommandations de calibration de sequence (longueur/complexite).
+      estimate the target length and ensure the solution converges toward a shortest path.
+    ExpectedOutput: sequence calibration recommendations (length/complexity).
 
 
 
 GearAgent:
   AgentIdentity:
     Name: ActionListIntegratorAgent
-    Purpose: produire une sequence candidate coherente.
-    ContextDescription: fusionne les sorties du bloc parallele.
+    Purpose: produce a coherent candidate sequence.
+    ContextDescription: merges the outputs of the parallel block.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: ActionListIntegratorTask
     TaskDescription: >-
-      integrer contraintes de mouvement et de mecanique, puis resoudre les conflits dans la sequence.
-    ExpectedOutput: sequence candidate unifiee sans conflit.
+      integrate movement and mechanic constraints, then resolve conflicts in the sequence.
+    ExpectedOutput: unified conflict-free candidate sequence.
 
 
 
 GearAgent:
   AgentIdentity:
     Name: ActionListSolverAgent
-    Purpose: produire une sequence candidate gagnante.
-    ContextDescription: finalise la sequence complete.
+    Purpose: produce a winning candidate sequence.
+    ContextDescription: finalizes the complete sequence.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: ActionListSolverTask
     TaskDescription: >-
-      produire le chemin le plus court pour atteindre `G` en respectant les regles du systeme.
-    ExpectedOutput: sequence candidate complete et simulable (chemin le plus court).
+      produce the shortest path to reach `G` while respecting the system rules.
+    ExpectedOutput: complete and executable candidate sequence (shortest path).
 
 
 
 GearAgent:
   AgentIdentity:
     Name: OutputValidatorAgent
-    Purpose: livrer la liste d'actions de reference.
-    ContextDescription: valide et publie la sortie finale.
+    Purpose: deliver the reference action list.
+    ContextDescription: validates and publishes the final output.
   LLMConfiguration:
     Provider: openai
     Model: gpt-5.1-codex-mini
   TaskSpecification:
     TaskName: OutputValidatorTask
     TaskDescription: >-
-      verifier la legalite de chaque action et la victoire finale, puis publier le chemin le plus court.
+      verify the legality of each action and the final victory condition, then publish the shortest path.
     ExpectedOutput: >-
-      La sortie attendue est une liste JSON d'actions correspondant au chemin le plus court. pour presenter la sortie,
-      tu peux utiliser le template ci-dessous. Rassure toi de supprimer les caracteres pour echapper.  ```json
+      The expected output is a JSON action list corresponding to the shortest path. To present the output, you may use the template below. Make sure to remove escape characters.  ```json
       ["R", "R", "D", "D", "TAKE_K", "R", "R", "OPEN_D", "R", "D", "D", "R"]
       ```
