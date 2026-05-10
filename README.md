@@ -138,12 +138,17 @@ gear
 
 ## Configuration (.env)
 
-Create a `.env` in `gear-framework/`:
+Create a `.env` in `gear-framework/` from the provided template:
+```
+cp .env.example .env
+```
+
+Then set at least:
 ```
 OPENAI_API_KEY=sk-...
 ```
 
-The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed.
+The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed. For normal UI execution on `main`, no database or MLflow tracking configuration is required.
 
 ---
 
