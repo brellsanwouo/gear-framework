@@ -109,7 +109,7 @@ gear-framework/
 - Python **>= 3.10** and **< 3.14** (CrewAI requirement)
 - Python dependencies declared in `pyproject.toml`:
   Flask, Flamapy, CrewAI, Google ADK, LiteLLM, PyYAML, python-dotenv, MLflow, MySQL connector, Markdown
-- API keys (at minimum `OPENAI_API_KEY` for execution)
+- API keys are optional for launching the project. `OPENAI_API_KEY` is only required when executing generated framework workflows.
 
 ---
 
@@ -148,7 +148,9 @@ Then set at least:
 # OPENAI_API_KEY=sk-...
 ```
 
-Uncomment the `OPENAI_API_KEY` line in `.env` and replace the placeholder value with your own key before running generated workflows.
+The OpenAI key is not required to install the project, start the server, or use the UI for design and translation. It is only needed when you execute generated CrewAI, Google ADK, or other framework workflows that call an OpenAI model.
+
+Before running generated workflows, uncomment the `OPENAI_API_KEY` line in `.env` and replace the placeholder value with your own key.
 
 The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed. For normal UI execution on `main`, no database or MLflow tracking configuration is required.
 
