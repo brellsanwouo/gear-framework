@@ -145,8 +145,10 @@ cp .env.example .env
 
 Then set at least:
 ```
-OPENAI_API_KEY=sk-...
+# OPENAI_API_KEY=sk-...
 ```
+
+Uncomment the `OPENAI_API_KEY` line in `.env` and replace the placeholder value with your own key before running generated workflows.
 
 The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed. For normal UI execution on `main`, no database or MLflow tracking configuration is required.
 
