@@ -1,0 +1,115 @@
+name: Deploy GEAR to Inria VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: gear-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          INRIA_SSH_PRIVATE_KEY: ${{ secrets.INRIA_SSH_PRIVATE_KEY }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          JUMP_HOST: ${{ secrets.JUMP_HOST }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          echo "$INRIA_SSH_PRIVATE_KEY" > ~/.ssh/inria_deploy_key
+          chmod 600 ~/.ssh/inria_deploy_key
+
+          ssh-keyscan -H "$JUMP_HOST" >> ~/.ssh/known_hosts
+
+          cat > ~/.ssh/config <<EOF
+          Host inria-jump
+            HostName ${JUMP_HOST}
+            User ${DEPLOY_USER}
+            IdentityFile ~/.ssh/inria_deploy_key
+            StrictHostKeyChecking accept-new
+
+          Host gear-public
+            HostName ${DEPLOY_HOST}
+            User ${DEPLOY_USER}
+            IdentityFile ~/.ssh/inria_deploy_key
+            ProxyJump inria-jump
+            StrictHostKeyChecking accept-new
+          EOF
+
+          chmod 600 ~/.ssh/config
+
+      - name: Test SSH connection
+        run: |
+          ssh gear-public "hostname && whoami"
+
+      - name: Prepare remote temporary directory
+        run: |
+          ssh gear-public "rm -rf /tmp/gear-app-deploy && mkdir -p /tmp/gear-app-deploy"
+
+      - name: Upload application files
+        run: |
+          rsync -az --delete \
+            --exclude ".git/" \
+            --exclude ".github/" \
+            --exclude "__pycache__/" \
+            --exclude "*.pyc" \
+            --exclude ".env" \
+            --exclude "venv/" \
+            --exclude ".venv/" \
+            ./ gear-public:/tmp/gear-app-deploy/
+
+      - name: Deploy and restart service
+        run: |
+          ssh gear-public <<'EOF'
+          set -euo pipefail
+
+          echo "Checking Python syntax..."
+          /opt/gear/venv/bin/python -m py_compile /tmp/gear-app-deploy/server.py
+
+          echo "Copying files to /opt/gear/app..."
+          sudo rsync -az --delete \
+            --exclude "venv/" \
+            --exclude ".venv/" \
+            --exclude "__pycache__/" \
+            --exclude "*.pyc" \
+            /tmp/gear-app-deploy/ /opt/gear/app/
+
+          echo "Fixing ownership..."
+          sudo chown -R nzine:gear /opt/gear/app || true
+
+          echo "Installing dependencies..."
+          cd /opt/gear/app
+          if [ -f requirements.txt ]; then
+            /opt/gear/venv/bin/python -m pip install -r requirements.txt
+          fi
+
+          /opt/gear/venv/bin/python -m pip install psycopg2-binary
+
+          echo "Restarting gear-app..."
+          sudo systemctl daemon-reload
+          sudo systemctl restart gear-app
+
+          echo "Checking service..."
+          sleep 3
+          sudo systemctl is-active --quiet gear-app
+
+          echo "Testing local app..."
+          curl -fsS http://127.0.0.1:8000 > /dev/null
+
+          echo "Deployment successful."
+          EOF
