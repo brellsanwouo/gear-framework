@@ -21,48 +21,60 @@ jobs:
 
       - name: Configure SSH
         env:
-          INRIA_SSH_PRIVATE_KEY: ${{ secrets.INRIA_SSH_PRIVATE_KEY }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          JUMP_HOST: ${{ secrets.JUMP_HOST }}
+          INRIA_SSH_PRIVATE_KEY_B64: ${{ secrets.INRIA_SSH_PRIVATE_KEY_B64 }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          JUMP_HOST: ${{ vars.JUMP_HOST }}
         run: |
           set -euo pipefail
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          echo "$INRIA_SSH_PRIVATE_KEY" > ~/.ssh/inria_deploy_key
+          # Decode the base64 private key stored in GitHub Secrets.
+          printf '%s' "$INRIA_SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/inria_deploy_key
           chmod 600 ~/.ssh/inria_deploy_key
 
-          ssh-keyscan -H "$JUMP_HOST" >> ~/.ssh/known_hosts
+          # Register the jump host. The final VM host key will be accepted on first connection.
+          ssh-keyscan -H "$JUMP_HOST" >> ~/.ssh/known_hosts || true
 
           cat > ~/.ssh/config <<EOF
           Host inria-jump
             HostName ${JUMP_HOST}
             User ${DEPLOY_USER}
             IdentityFile ~/.ssh/inria_deploy_key
+            IdentitiesOnly yes
             StrictHostKeyChecking accept-new
 
           Host gear-public
             HostName ${DEPLOY_HOST}
             User ${DEPLOY_USER}
             IdentityFile ~/.ssh/inria_deploy_key
+            IdentitiesOnly yes
             ProxyJump inria-jump
             StrictHostKeyChecking accept-new
           EOF
 
           chmod 600 ~/.ssh/config
 
+          # Fail early if the private key cannot be parsed.
+          ssh-keygen -y -f ~/.ssh/inria_deploy_key > /tmp/inria_deploy_key.pub
+          echo "Private key loaded successfully."
+
       - name: Test SSH connection
         run: |
+          set -euo pipefail
           ssh gear-public "hostname && whoami"
 
       - name: Prepare remote temporary directory
         run: |
+          set -euo pipefail
           ssh gear-public "rm -rf /tmp/gear-app-deploy && mkdir -p /tmp/gear-app-deploy"
 
       - name: Upload application files
         run: |
+          set -euo pipefail
+
           rsync -az --delete \
             --exclude ".git/" \
             --exclude ".github/" \
@@ -75,11 +87,15 @@ jobs:
 
       - name: Deploy and restart service
         run: |
+          set -euo pipefail
+
           ssh gear-public <<'EOF'
           set -euo pipefail
 
           echo "Checking Python syntax..."
-          /opt/gear/venv/bin/python -m py_compile /tmp/gear-app-deploy/server.py
+          if [ -f /tmp/gear-app-deploy/server.py ]; then
+            /opt/gear/venv/bin/python -m py_compile /tmp/gear-app-deploy/server.py
+          fi
 
           echo "Copying files to /opt/gear/app..."
           sudo rsync -az --delete \
@@ -94,6 +110,7 @@ jobs:
 
           echo "Installing dependencies..."
           cd /opt/gear/app
+
           if [ -f requirements.txt ]; then
             /opt/gear/venv/bin/python -m pip install -r requirements.txt
           fi
@@ -104,11 +121,11 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl restart gear-app
 
-          echo "Checking service..."
+          echo "Checking service status..."
           sleep 3
           sudo systemctl is-active --quiet gear-app
 
-          echo "Testing local app..."
+          echo "Testing local Flask app..."
           curl -fsS http://127.0.0.1:8000 > /dev/null
 
           echo "Deployment successful."
