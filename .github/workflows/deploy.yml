@@ -109,7 +109,7 @@ jobs:
           sudo systemctl is-active --quiet gear-app
 
           echo "Testing local app..."
-          curl -fsS http://127.0.0.1:8000 > /dev/null
+          curl -fsS http://127.0.0.1:8200 > /dev/null
 
           echo "Deployment successful."
           EOF
