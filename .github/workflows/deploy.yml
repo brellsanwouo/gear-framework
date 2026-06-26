@@ -100,15 +100,15 @@ jobs:
 
           /opt/gear/venv/bin/python -m pip install psycopg2-binary
 
-          echo "Restarting gear-framework..."
+          echo "Restarting gear-app..."
           sudo systemctl daemon-reload
-          sudo systemctl restart gear-framework
+          sudo systemctl restart gear-app
 
           echo "Checking service..."
           sleep 3
-          sudo systemctl is-active --quiet gear-framework
+          sudo systemctl is-active --quiet gear-app
 
-          echo "Testing local gear-framework..."
+          echo "Testing local gear-app..."
           curl -fsS http://127.0.0.1:8200 > /dev/null
 
           echo "Deployment successful."
