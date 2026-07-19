@@ -1,0 +1,6 @@
+- {from: ModuleName, to: Team.name, kind: equivalent}
+- {from: Strategy.Parallel.ParallelAgents, to: asyncio.gather, kind: equivalent}
+- {from: Strategy.Parallel.Aggregator, to: AssistantAgent.run, kind: equivalent}
+- {from: Strategy.Loop.LoopAgents, to: RoundRobinGroupChat.participants, kind: direct}
+- {from: Strategy.Loop.TurnCount, to: RoundRobinGroupChat.max_turns, kind: equivalent}
+- {from: Strategy.Loop.StopCondition, to: Team.termination_metadata, kind: partial}

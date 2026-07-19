@@ -1,0 +1,19 @@
+id: openai-agents
+version: "0.1.0"
+label: OpenAI Agents SDK
+description: "OpenAI agents with deterministic Python orchestration and tracing"
+runtime:
+  language: python
+  packages:
+    - openai-agents>=0.18,<1
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: true
+limitations:
+  - The generated connector targets OpenAI models; non-OpenAI providers are rejected.
+  - Natural-language loop stop conditions remain instructions while TurnCount is the hard limit.

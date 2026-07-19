@@ -1,0 +1,23 @@
+- {from: AgentIdentity.Name, to: ChatCompletionAgent.name, kind: direct}
+- {from: AgentIdentity.Purpose, to: ChatCompletionAgent.description, kind: equivalent}
+- {from: AgentIdentity.ContextDescription, to: ChatCompletionAgent.instructions, kind: partial}
+- {from: LLMConfiguration.Provider, to: OpenAIChatCompletion, kind: equivalent}
+- {from: LLMConfiguration.Model, to: OpenAIChatCompletion.ai_model_id, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from OPENAI_API_KEY."}
+- {from: LLMConfiguration.BaseURL, to: AsyncOpenAI.base_url, kind: partial, notes: "Supported for OpenAI-compatible endpoints."}
+- {from: LLMConfiguration.Timeout, to: AsyncOpenAI.timeout, kind: direct}
+- {from: LLMConfiguration.MaxRetries, to: AsyncOpenAI.max_retries, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Temperature, to: OpenAIChatPromptExecutionSettings.temperature, kind: direct}
+- {from: LLMConfiguration.ModelParameters.MaxTokens, to: OpenAIChatPromptExecutionSettings.max_tokens, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopP, to: OpenAIChatPromptExecutionSettings.top_p, kind: direct}
+- {from: LLMConfiguration.ModelParameters.FrequencyPenalty, to: OpenAIChatPromptExecutionSettings.frequency_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.PresencePenalty, to: OpenAIChatPromptExecutionSettings.presence_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopK, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.StopSequences, to: OpenAIChatPromptExecutionSettings.stop, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Seed, to: OpenAIChatPromptExecutionSettings.seed, kind: direct}
+- {from: TaskSpecification.TaskName, to: ChatCompletionAgent.name, kind: partial}
+- {from: TaskSpecification.TaskDescription, to: ChatCompletionAgent.instructions, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: ChatCompletionAgent.instructions, kind: partial}
+- {from: Tools, to: ChatCompletionAgent.plugins, kind: partial}
+- {from: Memory, to: ChatHistoryAgentThread, kind: partial}
+- {from: Reasoning, to: ChatCompletionAgent.instructions, kind: partial}

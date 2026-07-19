@@ -1,0 +1,19 @@
+id: langgraph
+version: "0.1.0"
+label: LangGraph
+description: "Stateful graph workflows with native branching and joins"
+runtime:
+  language: python
+  packages:
+    - langgraph>=1.0,<2
+    - langchain>=1.0,<2
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  memory: true
+limitations:
+  - Natural-language loop stop conditions are preserved as instructions, while TurnCount remains the hard execution limit.

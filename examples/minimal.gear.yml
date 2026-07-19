@@ -1,0 +1,32 @@
+schema_version: "1.0"
+project:
+  id: minimal
+  name: Minimal Gear Project
+  description: A portable one-agent example.
+agents:
+  - AgentIdentity:
+      Name: ExampleAgent
+      Purpose: Produce a concise answer.
+      ContextDescription: A minimal portable Gear agent.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-4.1-mini
+      ModelParameters:
+        Temperature: 0.2
+        MaxTokens: 256
+    TaskSpecification:
+      TaskName: ExampleTask
+      TaskDescription: Answer the supplied question.
+      ExpectedOutput: A concise textual answer.
+modules: []
+workflow:
+  name: MinimalWorkflow
+  memory: false
+  nodes:
+    - id: example
+      ref: ExampleAgent
+      type: agent
+  edges: []
+targets:
+  - crewai
+  - adk

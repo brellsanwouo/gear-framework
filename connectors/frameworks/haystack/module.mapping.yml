@@ -1,0 +1,6 @@
+- {from: ModuleName, to: orchestration_step, kind: equivalent}
+- {from: Strategy.Parallel.ParallelAgents, to: asyncio.gather, kind: equivalent}
+- {from: Strategy.Parallel.Aggregator, to: Agent.run_async, kind: equivalent}
+- {from: Strategy.Loop.LoopAgents, to: bounded_agent_loop, kind: equivalent}
+- {from: Strategy.Loop.TurnCount, to: bounded_agent_loop.max_iterations, kind: equivalent}
+- {from: Strategy.Loop.StopCondition, to: bounded_agent_loop.stop_instruction, kind: partial}

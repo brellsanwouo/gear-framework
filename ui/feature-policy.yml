@@ -4,7 +4,7 @@ enabled: true
 agent:
   force:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt_5_1_codex_mini
   disable:
     - ollama
     - OtherProvider

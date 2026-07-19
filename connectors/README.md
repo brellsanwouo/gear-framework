@@ -5,6 +5,7 @@ This folder defines how Gear translates to other frameworks. Each framework is a
 - **YAML mappings** (from Gear paths -> target paths)
 - **Workflow template** (`.tmpl`)
 - **Assembler plugin** (`assembly.plugin.js`) that produces the final output
+- **Versioned manifest** (`connector.yml`) that declares capabilities and limitations
 
 Everything is loaded dynamically by the UI from `registry.yml`.
 
@@ -101,6 +102,7 @@ The engine then exposes these outputs to the UI.
 1) Create a folder: `connectors/frameworks/<id>/`
 2) Copy the template connector: `connectors/frameworks/_template/`
 3) Create at least:
+   - `connector.yml`
    - `agent.mapping.yml`
    - `multiagent.mapping.yml` (and/or `module.mapping.yml` if needed)
    - `workflow.tmpl`
@@ -115,4 +117,3 @@ The engine then exposes these outputs to the UI.
 - Keep mappings **explicit** and **flat**. Avoid implicit logic inside YAML.
 - Put all logic inside the plugin; keep templates simple.
 - If outputs are missing, check the browser console to see which file failed to load.
-

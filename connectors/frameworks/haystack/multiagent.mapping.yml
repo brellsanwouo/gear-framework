@@ -1,0 +1,6 @@
+- {from: WorkflowName, to: haystack_workflow.name, kind: equivalent}
+- {from: Memory, to: null, kind: not_mapped}
+- {from: Items.Agents, to: haystack_workflow.agents, kind: equivalent}
+- {from: Items.Modules, to: haystack_workflow.modules, kind: equivalent}
+- {from: Edges.From, to: haystack_workflow.dependencies.from, kind: direct}
+- {from: Edges.To, to: haystack_workflow.dependencies.to, kind: direct}

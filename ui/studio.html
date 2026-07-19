@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GEAR Studio</title>
+    <link rel="stylesheet" href="/ui/studio.css" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="/runtime/conversion-core.js" defer></script>
+    <script src="/ui/js/workflow-order.js" defer></script>
+    <script src="/ui/studio.js" defer></script>
+  </head>
+  <body>
+    <header class="studio-header">
+      <a class="brand" href="/studio" aria-label="GEAR Studio home">
+        <img class="brand-logo" src="/ui/assets/GEAR-logo-horizontal.png" alt="GEAR" />
+        <span class="studio-name">Studio</span>
+      </a>
+      <label class="project-name">
+        <span>Project</span>
+        <input id="projectName" value="My multi-agent system" />
+      </label>
+      <div class="header-actions">
+        <input id="importProject" type="file" accept=".json,.gear.json,.yml,.yaml,.gear.yml" hidden />
+        <button id="newProjectButton" class="button button--outline" type="button">New project</button>
+        <button id="importButton" class="button button--quiet" type="button">Import</button>
+        <button id="exportButton" class="button button--quiet" type="button">Export</button>
+        <a class="button button--outline" href="/">Classic editor</a>
+      </div>
+    </header>
+
+    <div class="studio-shell">
+      <nav class="step-nav" aria-label="Project steps">
+        <p class="nav-label">Build</p>
+        <button class="step-link is-active" data-step-link="agents" type="button">
+          <span class="step-index">1</span><span>Agents<small>Roles and models</small></span><b id="agentCount">0</b>
+        </button>
+        <button class="step-link" data-step-link="modules" type="button">
+          <span class="step-index">2</span><span>Modules<small>Parallel and loop</small></span><b id="moduleCount">0</b>
+        </button>
+        <button class="step-link" data-step-link="workflow" type="button">
+          <span class="step-index">3</span><span>Workflow<small>Execution order</small></span><b id="workflowCount">0</b>
+        </button>
+        <button class="step-link" data-step-link="validation" type="button">
+          <span class="step-index">4</span><span>Validation<small>Project consistency</small></span><b id="issueCount">–</b>
+        </button>
+        <button class="step-link" data-step-link="build" type="button">
+          <span class="step-index">5</span><span>Build<small>Conversion and history</small></span>
+        </button>
+        <div class="studio-meta">
+          <div class="autosave-state"><span></span>Local autosave</div>
+          <dl class="version-list" aria-label="Installed versions">
+            <div><dt>GEAR</dt><dd id="gearVersion">—</dd></div>
+            <div><dt>Studio</dt><dd id="studioVersion">—</dd></div>
+          </dl>
+        </div>
+      </nav>
+
+      <main class="studio-main">
+        <section class="step-panel is-active" data-step-panel="agents">
+          <div class="section-heading">
+            <div><p class="eyebrow">Step 1</p><h1>Design agents</h1><p>An agent has a stable name, purpose, context, and task.</p></div>
+          </div>
+          <div class="editor-layout">
+            <div class="entity-column"><div id="agentList" class="entity-list" aria-label="Project agents"></div><button class="button button--add" data-add="agent" type="button"><span>+</span> Add agent</button></div>
+            <section class="yaml-editor-card">
+              <div class="editor-heading"><div><span class="status-dot"></span><strong id="agentEditorTitle">Select an agent</strong></div><div class="editor-mode-switch"><button class="is-active" data-entity-view="form" data-kind="agent" type="button">Configuration</button><button data-entity-view="yaml" data-kind="agent" type="button">Advanced YAML</button></div></div>
+              <div id="agentForm" class="config-form">
+                <section class="form-section"><div class="form-section-heading"><h3>Identity</h3><p>Agent name, role, and context.</p></div><div class="form-grid"><label><span>Name</span><input id="agentFieldName" autocomplete="off" /></label><label class="form-field--wide"><span>Purpose</span><textarea id="agentFieldPurpose" rows="2"></textarea></label><label class="form-field--wide"><span>Context</span><textarea id="agentFieldContext" rows="2"></textarea></label></div></section>
+                <section class="form-section"><div class="form-section-heading"><h3>Model</h3><p>Provider and model used by this agent.</p></div><div class="model-configuration"><div class="form-grid form-grid--two"><label><span>Provider</span><input id="agentFieldProvider" autocomplete="off" placeholder="openai" /></label><label><span>Model</span><input id="agentFieldModel" autocomplete="off" placeholder="gpt-5.1-codex-mini" /></label></div><p id="agentModelPolicy" class="model-policy">Editable for this agent</p></div></section>
+                <section class="form-section"><div class="form-section-heading"><h3>Task</h3><p>Instruction assigned to the agent.</p></div><div class="form-grid"><label><span>Task name</span><input id="agentFieldTaskName" autocomplete="off" /></label><label class="form-field--wide"><span>Instruction</span><textarea id="agentFieldTaskDescription" rows="3"></textarea></label><label class="form-field--wide"><span>Expected output</span><textarea id="agentFieldExpectedOutput" rows="2"></textarea></label></div></section>
+                <p id="agentAdvancedNote" class="advanced-note" hidden>Advanced properties are preserved in YAML.</p>
+              </div>
+              <div id="agentYamlView" class="code-editor" hidden><div id="agentLineNumbers" class="line-numbers" aria-hidden="true"></div><textarea id="agentEditor" wrap="off" spellcheck="false" aria-label="Agent YAML configuration"></textarea></div>
+              <p id="agentEditorError" class="field-error" role="status"></p>
+            </section>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step-panel="modules">
+          <div class="section-heading">
+            <div><p class="eyebrow">Step 2</p><h1>Compose modules</h1><p>Group agents in parallel or in an explicit loop.</p></div>
+          </div>
+          <div class="editor-layout">
+            <div class="entity-column"><div id="moduleList" class="entity-list" aria-label="Project modules"></div><button class="button button--add" data-add="module" type="button"><span>+</span> Add module</button></div>
+            <section class="yaml-editor-card">
+              <div class="editor-heading"><div><span class="status-dot status-dot--mint"></span><strong id="moduleEditorTitle">Select a module</strong></div><div class="editor-mode-switch"><button class="is-active" data-entity-view="form" data-kind="module" type="button">Configuration</button><button data-entity-view="yaml" data-kind="module" type="button">Advanced YAML</button></div></div>
+              <div id="moduleForm" class="config-form">
+                <section class="form-section"><div class="form-section-heading"><h3>Module</h3><p>Execution group identifier.</p></div><div class="form-grid"><label><span>Name</span><input id="moduleFieldName" autocomplete="off" /></label></div></section>
+                <section class="form-section"><div class="form-section-heading"><h3>Strategy</h3><p>Agent execution mode.</p></div><div class="strategy-choice"><label><input type="radio" id="moduleStrategyParallel" name="moduleStrategy" value="parallel" /><span><strong>Parallel</strong><small>Run agents simultaneously</small></span></label><label><input type="radio" id="moduleStrategyLoop" name="moduleStrategy" value="loop" /><span><strong>Loop</strong><small>Repeat agents several times</small></span></label></div></section>
+                <section class="form-section"><div class="form-section-heading"><h3>Participants</h3><p>Agents included in this module.</p></div><div id="moduleAgentPicker" class="agent-picker"></div></section>
+                <section id="moduleLoopOptions" class="form-section" hidden><div class="form-section-heading"><h3>Loop</h3><p>Iteration limit and explicit completion condition.</p></div><div class="form-grid form-grid--two"><label><span>Iteration count</span><input id="moduleFieldTurnCount" type="number" min="1" step="1" /></label><label><span>Stop condition</span><input id="moduleFieldStopCondition" autocomplete="off" placeholder="The expected result is approved." /></label></div></section>
+                <p id="moduleAdvancedNote" class="advanced-note" hidden>Advanced properties are preserved in YAML.</p>
+              </div>
+              <div id="moduleYamlView" class="code-editor" hidden><div id="moduleLineNumbers" class="line-numbers" aria-hidden="true"></div><textarea id="moduleEditor" wrap="off" spellcheck="false" aria-label="Module YAML configuration"></textarea></div>
+              <p id="moduleEditorError" class="field-error" role="status"></p>
+            </section>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step-panel="workflow">
+          <div class="section-heading">
+            <div><p class="eyebrow">Step 3</p><h1>Organize the workflow</h1><p>Review references and order before converting the project.</p></div>
+          </div>
+          <div class="workflow-grid">
+            <aside class="component-library">
+              <div class="card-title"><div><h2>Components</h2><p>Drag or click to add.</p></div></div>
+              <div id="workflowComponents" class="component-list"></div>
+            </aside>
+            <section class="canvas-card">
+              <div class="card-title"><div><h2>Execution preview</h2><p>Drop components into the flow.</p></div><div class="workflow-toolbar"><span id="workflowMode" class="pill">Sequential</span><button id="toggleWorkflowSource" class="source-toggle" type="button" aria-expanded="true">Hide YAML</button></div></div>
+              <div id="workflowCanvas" class="workflow-canvas"></div>
+            </section>
+            <section class="yaml-editor-card yaml-editor-card--workflow">
+              <div class="editor-heading"><strong>Workflow YAML</strong><span>Source</span></div>
+              <div class="code-editor"><div id="workflowLineNumbers" class="line-numbers" aria-hidden="true"></div><textarea id="workflowEditor" wrap="off" spellcheck="false" aria-label="Workflow YAML configuration"></textarea></div>
+              <p id="workflowEditorError" class="field-error" role="status"></p>
+            </section>
+          </div>
+        </section>
+
+        <section class="step-panel" data-step-panel="validation">
+          <div class="section-heading">
+            <div><p class="eyebrow">Step 4</p><h1>Validate the project</h1><p>Blocking errors are separated from portability recommendations.</p></div>
+            <span class="validation-live"><span></span>Automatic validation</span>
+          </div>
+          <div id="validationSummary" class="validation-summary"></div>
+          <div class="validation-toolbar"><div class="validation-filters" aria-label="Filter by severity"><button class="is-active" data-validation-severity="all" type="button">All</button><button data-validation-severity="error" type="button">Errors</button><button data-validation-severity="warning" type="button">Warnings</button><button data-validation-severity="info" type="button">Information</button></div><label><span>Target</span><select id="validationTarget"><option value="all">All</option><option value="crewai">CrewAI</option><option value="adk">Google ADK</option><option value="langgraph">LangGraph</option><option value="openai-agents">OpenAI Agents SDK</option><option value="microsoft-agent-framework">Microsoft Agent Framework</option><option value="strands">Strands Agents</option><option value="pydantic-ai">PydanticAI</option><option value="autogen">Microsoft AutoGen</option><option value="semantic-kernel">Semantic Kernel</option><option value="haystack">Haystack</option></select></label></div>
+          <div id="validationIssues" class="issue-list"></div>
+        </section>
+
+        <section class="step-panel" data-step-panel="build">
+          <div class="section-heading">
+            <div><p class="eyebrow">Step 5</p><h1>Build and run</h1><p>Generate artifacts, review the code, then run the workflow from the Studio.</p></div>
+            <a id="buildConversion" class="button button--quiet" href="/?studio=1">Advanced editor</a>
+          </div>
+          <div class="framework-grid">
+            <article class="framework-card is-selected" data-framework="crewai" aria-selected="true" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--crew"><img src="/ui/assets/crewai-logo.png" alt="CrewAI" /></div><div><h2>CrewAI</h2><p>Python script for CrewAI agents, tasks, and orchestration.</p></div><span class="framework-choice"><span>✓</span><b>Selected</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="crewai"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="adk" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--adk"><img src="/ui/assets/google-adk-logo.png" alt="Google ADK" /></div><div><h2>Google ADK</h2><p>Python script with Google ADK parallelism and loops.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="adk"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="langgraph" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--langgraph"><img src="/ui/assets/langgraph-logo.svg" alt="LangGraph" /></div><div><h2>LangGraph</h2><p>Stateful Python graph with native branches, joins, and bounded loops.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="langgraph"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="openai-agents" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--openai"><img src="/ui/assets/openai-agents-logo.svg" alt="OpenAI Agents SDK" /></div><div><h2>OpenAI Agents SDK</h2><p>OpenAI agents with deterministic orchestration and built-in traces.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="openai-agents"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="microsoft-agent-framework" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--microsoft"><img src="/ui/assets/microsoft-agent-framework-logo.svg" alt="Microsoft Agent Framework" /></div><div><h2>Microsoft Agent Framework</h2><p>Production graph workflows with synchronized fan-out and fan-in.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="microsoft-agent-framework"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="strands" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--strands"><img src="/ui/assets/strands-agents-logo.svg" alt="Strands Agents" /></div><div><h2>Strands Agents</h2><p>Native multi-agent graphs with explicit branch synchronization.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="strands"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="pydantic-ai" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--pydantic"><img src="/ui/assets/pydantic-ai-logo.svg" alt="PydanticAI" /></div><div><h2>PydanticAI</h2><p>Type-safe agents with deterministic async orchestration.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="pydantic-ai"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="autogen" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--autogen"><img src="/ui/assets/autogen-logo.svg" alt="Microsoft AutoGen" /></div><div><h2>Microsoft AutoGen</h2><p>Conversational agents, parallel tasks, and bounded teams.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="autogen"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="semantic-kernel" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--semantic-kernel"><img src="/ui/assets/semantic-kernel-logo.png" alt="Semantic Kernel" /></div><div><h2>Semantic Kernel</h2><p>Stable chat agents with deterministic async orchestration.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="semantic-kernel"><span></span>Not generated yet</p></article>
+            <article class="framework-card" data-framework="haystack" aria-selected="false" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--haystack"><img src="/ui/assets/haystack-logo.svg" alt="Haystack" /></div><div><h2>Haystack</h2><p>Native agents with deterministic asynchronous workflow hand-offs.</p></div><span class="framework-choice"><span></span><b>Select</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="haystack"><span></span>Not generated yet</p></article>
+          </div>
+          <div id="runnerNotice" class="runner-notice runner-notice--build"><span></span><p>Checking the local runner…</p></div>
+          <section id="buildOutputCard" class="build-output-card" hidden>
+              <div class="build-output-title"><div><strong id="buildOutputTitle">CrewAI</strong><span id="buildOutputSubtitle">Build output</span></div><button id="closeBuildOutput" class="icon-button" type="button" aria-label="Close output">×</button></div>
+              <div class="build-output-header"><div class="output-tabs" role="tablist" aria-label="Build output"><button class="is-active" data-build-output="code" role="tab" aria-selected="true" type="button">Python code</button><button data-build-output="console" role="tab" aria-selected="false" type="button">Console</button></div><div id="pythonActions" class="artifact-tools"><button id="copyArtifact" class="button button--quiet" type="button" disabled>Copy</button></div><button id="clearExecutionConsole" class="button button--quiet" type="button" hidden>Clear</button></div>
+              <div id="codeOutputPanel" class="build-output-panel" role="tabpanel"><p id="pythonArtifactMeta" class="output-meta">The generated script will appear here.</p><pre id="artifactPreview" class="artifact-preview"><code>Generate framework code to preview it.</code></pre></div>
+              <div id="consoleOutputPanel" class="build-output-panel" role="tabpanel" hidden><p id="executionMeta" class="output-meta">No execution yet.</p><pre id="executionConsole" class="execution-console" aria-live="polite"><code>Waiting for an execution…</code></pre></div>
+          </section>
+          <section class="history-card history-card--compact">
+            <button id="toggleStudioHistory" class="history-toggle" type="button" aria-expanded="false"><span><strong>History</strong><small>Builds and executions stored locally</small></span><span>Show</span></button>
+            <div id="studioHistoryContent" hidden><div class="history-tools"><button id="refreshStudioHistory" class="button button--quiet" type="button">Refresh</button></div><div class="history-columns"><div><h3>Builds</h3><div id="studioBuilds" class="history-rows"></div></div><div><h3>Executions</h3><div id="studioRuns" class="history-rows"></div></div></div></div>
+          </section>
+        </section>
+      </main>
+
+      <aside class="project-inspector">
+        <p class="nav-label">Project status</p>
+        <div id="projectHealth" class="health-card"><span class="health-icon">✓</span><div><strong>Project ready</strong><small>No blocking errors</small></div></div>
+        <h2 class="inspector-heading">Composition</h2>
+        <dl class="project-stats">
+          <div><dt>Agents</dt><dd id="statAgents">0</dd></div>
+          <div><dt>Modules</dt><dd id="statModules">0</dd></div>
+          <div><dt>Workflow</dt><dd id="statWorkflow">Empty</dd></div>
+        </dl>
+        <div class="inspector-issues"><div class="inspector-section-title"><h2>Needs attention</h2><button id="openValidation" type="button">View all</button></div><div id="quickIssues"></div></div>
+        <button id="nextStep" class="button button--primary button--wide" type="button">Next step →</button>
+      </aside>
+    </div>
+    <dialog id="projectLauncher" class="project-launcher" aria-labelledby="projectLauncherTitle">
+      <div class="launcher-shell">
+        <header class="launcher-header">
+          <div><img src="/ui/assets/GEAR-logo-horizontal.png" alt="GEAR" /><span>Studio</span></div>
+          <button id="closeProjectLauncher" class="icon-button" type="button" aria-label="Close">×</button>
+        </header>
+        <div class="launcher-content">
+          <div class="launcher-intro"><p class="eyebrow">New project</p><h1 id="projectLauncherTitle">Start with a working system</h1><p>Choose a ready-to-use workflow or begin with an empty project.</p></div>
+          <button id="continueCurrentProject" class="continue-project" type="button" hidden><span><strong>Continue current project</strong><small id="currentProjectSummary">Resume the local autosave</small></span><b>Continue →</b></button>
+          <div id="starterTemplateGrid" class="starter-template-grid" aria-label="Starter projects"></div>
+          <section class="launcher-configuration">
+            <div><h2>Project settings</h2><p>The selected model is applied to every starter agent.</p></div>
+            <div class="launcher-fields">
+              <label><span>Project name</span><input id="starterProjectName" value="Test project" autocomplete="off" /></label>
+              <label><span>Provider</span><input id="starterProvider" value="openai" list="starterProviderOptions" autocomplete="off" /><datalist id="starterProviderOptions"><option value="openai"></option><option value="google"></option><option value="anthropic"></option></datalist></label>
+              <label><span>Model</span><input id="starterModel" value="gpt-5.1-codex-mini" autocomplete="off" /></label>
+            </div>
+            <p id="starterModelPolicy" class="model-policy">Editable for this project</p>
+          </section>
+        </div>
+        <footer class="launcher-actions"><button id="launcherImportButton" class="button button--quiet" type="button">Import a project</button><button id="createStarterProject" class="button button--primary" type="button">Create project</button></footer>
+      </div>
+    </dialog>
+    <div id="studioToast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

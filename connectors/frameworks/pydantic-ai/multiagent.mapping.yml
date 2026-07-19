@@ -1,0 +1,6 @@
+- {from: WorkflowName, to: Orchestrator.workflow_name, kind: equivalent}
+- {from: Memory, to: message_history, kind: partial}
+- {from: Items.Agents, to: Orchestrator.agents, kind: equivalent}
+- {from: Items.Modules, to: Orchestrator.modules, kind: equivalent}
+- {from: Edges.From, to: Orchestrator.dependencies.from, kind: direct}
+- {from: Edges.To, to: Orchestrator.dependencies.to, kind: direct}

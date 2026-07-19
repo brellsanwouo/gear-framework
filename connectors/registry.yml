@@ -1,16 +1,19 @@
 version: "1.0"
 frameworks:
   - id: crewai
+    version: "0.3.0"
     label: CrewAI
-    description: "Agents + taches + orchestration (Lite)"
+    description: "Agents, tasks, and orchestration (Lite)"
     mappings:
       agent: connectors/frameworks/crewai/agent.mapping.yml
+      module: connectors/frameworks/crewai/module.mapping.yml
       multiagent: connectors/frameworks/crewai/multiagent.mapping.yml
     plugins:
       assembler: connectors/frameworks/crewai/assembly.plugin.js
     templates:
       workflow: connectors/frameworks/crewai/workflow.tmpl
   - id: adk
+    version: "0.3.0"
     label: Google ADK
     description: "Agents + orchestration (ADK)"
     mappings:
@@ -21,8 +24,104 @@ frameworks:
       assembler: connectors/frameworks/adk/assembly.plugin.js
     templates:
       workflow: connectors/frameworks/adk/workflow.tmpl
-      
+  - id: langgraph
+    version: "0.1.0"
+    label: LangGraph
+    description: "Stateful graph workflows with native branching and joins"
+    mappings:
+      agent: connectors/frameworks/langgraph/agent.mapping.yml
+      module: connectors/frameworks/langgraph/module.mapping.yml
+      multiagent: connectors/frameworks/langgraph/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/langgraph/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/langgraph/workflow.tmpl
+  - id: openai-agents
+    version: "0.1.0"
+    label: OpenAI Agents SDK
+    description: "OpenAI agents with deterministic Python orchestration and tracing"
+    mappings:
+      agent: connectors/frameworks/openai-agents/agent.mapping.yml
+      module: connectors/frameworks/openai-agents/module.mapping.yml
+      multiagent: connectors/frameworks/openai-agents/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/openai-agents/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/openai-agents/workflow.tmpl
+  - id: microsoft-agent-framework
+    version: "0.1.0"
+    label: Microsoft Agent Framework
+    description: "Production agent workflows with native fan-out and synchronized fan-in"
+    mappings:
+      agent: connectors/frameworks/microsoft-agent-framework/agent.mapping.yml
+      module: connectors/frameworks/microsoft-agent-framework/module.mapping.yml
+      multiagent: connectors/frameworks/microsoft-agent-framework/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/microsoft-agent-framework/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/microsoft-agent-framework/workflow.tmpl
+  - id: strands
+    version: "0.1.0"
+    label: Strands Agents
+    description: "Deterministic multi-agent graphs with explicit dependency barriers"
+    mappings:
+      agent: connectors/frameworks/strands/agent.mapping.yml
+      module: connectors/frameworks/strands/module.mapping.yml
+      multiagent: connectors/frameworks/strands/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/strands/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/strands/workflow.tmpl
+  - id: pydantic-ai
+    version: "0.1.0"
+    label: PydanticAI
+    description: "Type-safe agents with deterministic programmatic orchestration"
+    mappings:
+      agent: connectors/frameworks/pydantic-ai/agent.mapping.yml
+      module: connectors/frameworks/pydantic-ai/module.mapping.yml
+      multiagent: connectors/frameworks/pydantic-ai/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/pydantic-ai/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/pydantic-ai/workflow.tmpl
+  - id: autogen
+    version: "0.1.0"
+    label: Microsoft AutoGen
+    description: "Conversational agents and bounded teams with deterministic orchestration"
+    mappings:
+      agent: connectors/frameworks/autogen/agent.mapping.yml
+      module: connectors/frameworks/autogen/module.mapping.yml
+      multiagent: connectors/frameworks/autogen/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/autogen/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/autogen/workflow.tmpl
+  - id: semantic-kernel
+    version: "0.1.0"
+    label: Semantic Kernel
+    description: "Semantic Kernel agents with deterministic programmatic orchestration"
+    mappings:
+      agent: connectors/frameworks/semantic-kernel/agent.mapping.yml
+      module: connectors/frameworks/semantic-kernel/module.mapping.yml
+      multiagent: connectors/frameworks/semantic-kernel/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/semantic-kernel/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/semantic-kernel/workflow.tmpl
+  - id: haystack
+    version: "0.1.0"
+    label: Haystack
+    description: "Haystack agents with deterministic asynchronous orchestration"
+    mappings:
+      agent: connectors/frameworks/haystack/agent.mapping.yml
+      module: connectors/frameworks/haystack/module.mapping.yml
+      multiagent: connectors/frameworks/haystack/multiagent.mapping.yml
+    plugins:
+      assembler: connectors/frameworks/haystack/assembly.plugin.js
+    templates:
+      workflow: connectors/frameworks/haystack/workflow.tmpl
+
   - id: custom
-    label: "Autre framework"
-    description: "Ajoute un dossier dans connectors/frameworks/"
+    label: "Custom framework"
+    description: "Add a directory under connectors/frameworks/"
     mappings: {}

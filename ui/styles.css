@@ -104,6 +104,48 @@ code {
   color: var(--muted);
 }
 
+.history-panel {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
+
+.history-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.history-header h2,
+.history-panel h3 {
+  margin: 0.65rem 0;
+}
+
+.history-list {
+  display: grid;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-item {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  width: 100%;
+}
+
 .segmented {
   display: inline-flex;
   gap: 0.4rem;
@@ -128,7 +170,20 @@ code {
 }
 
 .segmented-item input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.segmented-item:focus-within {
+  outline: 3px solid rgba(47, 111, 236, 0.35);
+  outline-offset: 2px;
 }
 
 .segmented-item:has(input:checked) {
@@ -1651,6 +1706,54 @@ button.secondary.accent {
 }
 
 @media (max-width: 780px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1.25rem 1rem 1rem;
+  }
+
+  .layout,
+  .layout--split {
+    display: block;
+    padding: 0 1rem 2rem;
+  }
+
+  .panel {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .output-panel {
+    position: static;
+    margin-top: 1rem;
+  }
+
+  .segmented,
+  .agent-tabs,
+  .summary-actions,
+  .run-actions {
+    flex-wrap: wrap;
+  }
+
+  .agent-card summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .node-line {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .feature-value {
+    flex-basis: 100%;
+    margin-left: 1.3rem;
+    max-width: calc(100% - 1.3rem);
+    min-width: 0;
+    width: calc(100% - 1.3rem);
+  }
+
   .feature-model-modal__header {
     flex-direction: column;
   }

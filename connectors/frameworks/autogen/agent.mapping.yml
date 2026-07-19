@@ -1,0 +1,23 @@
+- {from: AgentIdentity.Name, to: AssistantAgent.name, kind: equivalent}
+- {from: AgentIdentity.Purpose, to: AssistantAgent.system_message, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: AssistantAgent.system_message, kind: partial}
+- {from: LLMConfiguration.Provider, to: OpenAIChatCompletionClient, kind: partial}
+- {from: LLMConfiguration.Model, to: OpenAIChatCompletionClient.model, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from OPENAI_API_KEY."}
+- {from: LLMConfiguration.BaseURL, to: OpenAIChatCompletionClient.base_url, kind: direct}
+- {from: LLMConfiguration.Timeout, to: OpenAIChatCompletionClient.timeout, kind: direct}
+- {from: LLMConfiguration.MaxRetries, to: OpenAIChatCompletionClient.max_retries, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Temperature, to: OpenAIChatCompletionClient.temperature, kind: direct}
+- {from: LLMConfiguration.ModelParameters.MaxTokens, to: OpenAIChatCompletionClient.max_tokens, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopP, to: OpenAIChatCompletionClient.top_p, kind: direct}
+- {from: LLMConfiguration.ModelParameters.FrequencyPenalty, to: OpenAIChatCompletionClient.frequency_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.PresencePenalty, to: OpenAIChatCompletionClient.presence_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopK, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.StopSequences, to: OpenAIChatCompletionClient.stop, kind: equivalent}
+- {from: LLMConfiguration.ModelParameters.Seed, to: OpenAIChatCompletionClient.seed, kind: direct}
+- {from: TaskSpecification.TaskName, to: AssistantAgent.description, kind: direct}
+- {from: TaskSpecification.TaskDescription, to: AssistantAgent.system_message, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: AssistantAgent.system_message, kind: partial}
+- {from: Tools, to: AssistantAgent.tools, kind: partial}
+- {from: Memory, to: AssistantAgent.model_context, kind: partial}
+- {from: Reasoning, to: AssistantAgent.system_message, kind: partial}

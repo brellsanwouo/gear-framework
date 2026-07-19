@@ -25,12 +25,6 @@ features
 						Memory {abstract}
 						EmbedderProviders {abstract}
 						Cache {abstract}
-				// ExecutionAndOutput {abstract}
-				// 	optional
-				// 		StepCallback {abstract}
-				// 		TaskCallback {abstract}
-				// 		OutputLogFile {abstract}
-				// 		Stream {abstract}
 				OutputLogFileFormat {abstract}
 				AdvancedFeatures {abstract}
 					optional

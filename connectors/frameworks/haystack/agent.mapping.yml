@@ -1,0 +1,25 @@
+- {from: AgentIdentity.Name, to: generated_agent_variable, kind: equivalent}
+- {from: AgentIdentity.Purpose, to: Agent.system_prompt, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: Agent.system_prompt, kind: partial}
+- {from: LLMConfiguration.Provider, to: OpenAIChatGenerator, kind: equivalent}
+- {from: LLMConfiguration.Model, to: OpenAIChatGenerator.model, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from OPENAI_API_KEY through Haystack Secret."}
+- {from: LLMConfiguration.BaseURL, to: OpenAIChatGenerator.api_base_url, kind: direct}
+- {from: LLMConfiguration.Timeout, to: OpenAIChatGenerator.timeout, kind: direct}
+- {from: LLMConfiguration.MaxRetries, to: OpenAIChatGenerator.max_retries, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Temperature, to: OpenAIChatGenerator.generation_kwargs.temperature, kind: direct}
+- {from: LLMConfiguration.ModelParameters.MaxTokens, to: OpenAIChatGenerator.generation_kwargs.max_completion_tokens, kind: partial}
+- {from: LLMConfiguration.ModelParameters.TopP, to: OpenAIChatGenerator.generation_kwargs.top_p, kind: direct}
+- {from: LLMConfiguration.ModelParameters.FrequencyPenalty, to: OpenAIChatGenerator.generation_kwargs.frequency_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.PresencePenalty, to: OpenAIChatGenerator.generation_kwargs.presence_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopK, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.StopSequences, to: OpenAIChatGenerator.generation_kwargs.stop, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Seed, to: OpenAIChatGenerator.generation_kwargs.seed, kind: direct}
+- {from: LLMConfiguration.ModelParameters.AdditionalParams, to: OpenAIChatGenerator.generation_kwargs, kind: partial}
+- {from: TaskSpecification.TaskName, to: Agent.system_prompt, kind: partial}
+- {from: TaskSpecification.TaskDescription, to: Agent.system_prompt, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: Agent.system_prompt, kind: partial}
+- {from: Tools, to: null, kind: not_mapped, notes: "Tool names alone cannot define executable Haystack Tool implementations."}
+- {from: Memory, to: null, kind: not_mapped}
+- {from: Reasoning, to: null, kind: not_mapped}
+- {from: ExecutionControl, to: null, kind: not_mapped}

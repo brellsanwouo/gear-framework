@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gear-framework.dev/schemas/project.gear.schema.json",
+  "title": "GEAR Project",
+  "type": "object",
+  "required": ["schema_version", "project", "agents", "workflow"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "project": { "$ref": "#/$defs/projectMetadata" },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/agent" }
+    },
+    "modules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/module" },
+      "default": []
+    },
+    "workflow": { "$ref": "#/$defs/workflow" },
+    "targets": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "crewai",
+          "adk",
+          "langgraph",
+          "openai-agents",
+          "microsoft-agent-framework",
+          "strands",
+          "pydantic-ai",
+          "autogen",
+          "semantic-kernel",
+          "haystack"
+        ]
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "projectMetadata": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["AgentIdentity", "LLMConfiguration", "TaskSpecification"],
+      "additionalProperties": false,
+      "properties": {
+        "AgentIdentity": {
+          "type": "object",
+          "required": ["Name", "Purpose", "ContextDescription"],
+          "additionalProperties": false,
+          "properties": {
+            "Name": { "$ref": "#/$defs/nonEmptyString" },
+            "Purpose": { "$ref": "#/$defs/nonEmptyString" },
+            "ContextDescription": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        "LLMConfiguration": {
+          "type": "object",
+          "required": ["Provider", "Model"],
+          "additionalProperties": false,
+          "properties": {
+            "Provider": { "$ref": "#/$defs/nonEmptyString" },
+            "Model": { "$ref": "#/$defs/nonEmptyString" },
+            "APIKey": { "type": "string" },
+            "BaseURL": { "type": "string" },
+            "Timeout": { "type": "integer", "minimum": 1 },
+            "MaxRetries": { "type": "integer", "minimum": 0 },
+            "ModelParameters": { "$ref": "#/$defs/modelParameters" }
+          }
+        },
+        "TaskSpecification": {
+          "type": "object",
+          "required": ["TaskName", "TaskDescription", "ExpectedOutput"],
+          "additionalProperties": false,
+          "properties": {
+            "TaskName": { "$ref": "#/$defs/nonEmptyString" },
+            "TaskDescription": { "$ref": "#/$defs/nonEmptyString" },
+            "ExpectedOutput": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        "Tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "ExecutionControl": { "$ref": "#/$defs/executionControl" },
+        "Memory": { "type": "boolean" },
+        "Reasoning": { "type": "boolean" }
+      }
+    },
+    "modelParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Temperature": { "type": "number" },
+        "MaxTokens": { "type": "integer", "minimum": 1 },
+        "TopP": { "type": "number" },
+        "TopK": { "type": "integer", "minimum": 1 },
+        "StopSequences": { "type": "array", "items": { "type": "string" } },
+        "AdditionalParams": { "type": "object" },
+        "FrequencyPenalty": { "type": "number" },
+        "PresencePenalty": { "type": "number" },
+        "Seed": { "type": "integer" }
+      }
+    },
+    "executionControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "DelegationControl": { "type": "boolean" },
+        "CodeExecutionControl": { "type": "boolean" },
+        "AsyncExecutionControl": { "type": "boolean" },
+        "HumanInteractionControl": { "type": "boolean" },
+        "VerbosityControl": { "type": "boolean" },
+        "CachingControl": { "type": "boolean" }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": ["ModuleName", "Strategy"],
+      "additionalProperties": false,
+      "properties": {
+        "ModuleName": { "$ref": "#/$defs/nonEmptyString" },
+        "Strategy": {
+          "type": "object",
+          "oneOf": [
+            { "required": ["Parallel"] },
+            { "required": ["Loop"] }
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "Parallel": {
+              "type": "object",
+              "required": ["ParallelAgents"],
+              "additionalProperties": false,
+              "properties": {
+                "ParallelAgents": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/nonEmptyString" },
+                  "uniqueItems": true
+                },
+                "Aggregator": { "$ref": "#/$defs/nonEmptyString" }
+              }
+            },
+            "Loop": {
+              "type": "object",
+              "required": ["TurnCount", "StopCondition", "LoopAgents"],
+              "additionalProperties": false,
+              "properties": {
+                "TurnCount": { "type": "integer", "minimum": 1 },
+                "StopCondition": { "$ref": "#/$defs/nonEmptyString" },
+                "LoopAgents": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/nonEmptyString" },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "memory": { "type": "boolean", "default": false },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/workflowNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflowEdge" }
+        }
+      }
+    },
+    "workflowNode": {
+      "type": "object",
+      "required": ["id", "ref", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "ref": { "$ref": "#/$defs/nonEmptyString" },
+        "type": { "enum": ["agent", "module"] }
+      }
+    },
+    "workflowEdge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/nonEmptyString" },
+        "to": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

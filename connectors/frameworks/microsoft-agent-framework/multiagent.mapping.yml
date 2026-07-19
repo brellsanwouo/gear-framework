@@ -1,0 +1,6 @@
+- {from: WorkflowName, to: WorkflowBuilder.name, kind: direct}
+- {from: Memory, to: Workflow.checkpointing, kind: partial}
+- {from: Items.Agents, to: Workflow.executors, kind: equivalent}
+- {from: Items.Modules, to: Workflow.executors, kind: equivalent}
+- {from: Edges.From, to: Workflow.edges.source, kind: direct}
+- {from: Edges.To, to: Workflow.edges.target, kind: direct}

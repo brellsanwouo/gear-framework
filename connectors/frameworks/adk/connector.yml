@@ -1,0 +1,16 @@
+id: adk
+version: "0.3.0"
+label: Google ADK
+runtime:
+  language: python
+  packages:
+    - "google-adk>=2.5,<3"
+    - "litellm>=1.84,<2"
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+limitations: []

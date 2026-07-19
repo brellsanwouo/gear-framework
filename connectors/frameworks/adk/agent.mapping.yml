@@ -9,7 +9,7 @@
 - from: AgentIdentity.Purpose
   to: BaseAgent.Description
   kind: partial
-  notes: "Concatener Purpose/ContextDescription si besoin."
+  notes: "Concatenate Purpose and ContextDescription when needed."
 
 - from: AgentIdentity.ContextDescription
   to: BaseAgent.Description
@@ -22,27 +22,25 @@
 - from: LLMConfiguration.Provider
   to: LLMAgentConfig.Provider
   kind: partial
-  notes: "Expose le provider dans le YAML (en plus du modele)."
+  notes: "Expose the provider in YAML in addition to the model."
 
 - from: LLMConfiguration.APIKey
   to: null
   kind: not_mapped
-  notes: "Cle API geree hors schema ADK."
+  notes: "API key handled outside the ADK schema."
 
 - from: LLMConfiguration.BaseURL
-  to: null
-  kind: not_mapped
-  notes: "BaseURL non expose dans le schema ADK."
+  to: LLMAgentConfig.LiteLlm.api_base
+  kind: partial
+  notes: "Passed to the LiteLlm adapter for OpenAI-compatible endpoints."
 
 - from: LLMConfiguration.Timeout
-  to: null
-  kind: not_mapped
-  notes: "Timeout gere au runtime."
+  to: LLMAgentConfig.LiteLlm.timeout
+  kind: direct
 
 - from: LLMConfiguration.MaxRetries
-  to: null
-  kind: not_mapped
-  notes: "Retry gere au runtime."
+  to: LLMAgentConfig.LiteLlm.num_retries
+  kind: equivalent
 
 - from: LLMConfiguration.ModelParameters.Temperature
   to: LLMAgentConfig.GenerateContentConfig.Temperature
@@ -61,29 +59,24 @@
   kind: direct
 
 - from: LLMConfiguration.ModelParameters.StopSequences
-  to: LLMAgentConfig.GenerateContentConfig.SafetySettings
-  kind: partial
-  notes: "Adapter via SafetySettings."
+  to: LLMAgentConfig.GenerateContentConfig.StopSequences
+  kind: direct
 
 - from: LLMConfiguration.ModelParameters.AdditionalParams
-  to: null
-  kind: not_mapped
-  notes: "Non expose dans ADK Lite."
+  to: LLMAgentConfig.LiteLlm.additional_args
+  kind: partial
 
 - from: LLMConfiguration.ModelParameters.FrequencyPenalty
-  to: null
-  kind: not_mapped
-  notes: "Non expose dans ADK Lite."
+  to: LLMAgentConfig.GenerateContentConfig.FrequencyPenalty
+  kind: direct
 
 - from: LLMConfiguration.ModelParameters.PresencePenalty
-  to: null
-  kind: not_mapped
-  notes: "Non expose dans ADK Lite."
+  to: LLMAgentConfig.GenerateContentConfig.PresencePenalty
+  kind: direct
 
 - from: LLMConfiguration.ModelParameters.Seed
-  to: null
-  kind: not_mapped
-  notes: "Non expose dans ADK Lite."
+  to: LLMAgentConfig.GenerateContentConfig.Seed
+  kind: direct
 
 - from: TaskSpecification.TaskDescription
   to: Configurations.Instruction
@@ -100,7 +93,7 @@
 - from: TaskSpecification.AssignedAgent
   to: null
   kind: not_mapped
-  notes: "ADK Lite ne prevoit pas d'assignation par champ."
+  notes: "ADK Lite does not provide field-level assignment."
 
 - from: Tools
   to: Configurations.Tools
@@ -109,7 +102,7 @@
 - from: ExecutionControl.DelegationControl
   to: BaseAgent.SubAgents
   kind: partial
-  notes: "SubAgents est une liste, pas un booleen."
+  notes: "SubAgents is a list, not a boolean."
 
 - from: ExecutionControl.CodeExecutionControl
   to: Configurations.CodeExecutor
@@ -118,27 +111,27 @@
 - from: ExecutionControl.AsyncExecutionControl
   to: null
   kind: not_mapped
-  notes: "Pas d'equivalent direct dans ADK Lite."
+  notes: "No direct equivalent exists in ADK Lite."
 
 - from: ExecutionControl.HumanInteractionControl
   to: Guardrails.AgentLifecycle.BeforeAgentCallback
   kind: partial
-  notes: "Adapter via callbacks."
+  notes: "Adapt through callbacks."
 
 - from: ExecutionControl.VerbosityControl
   to: Guardrails.AgentLifecycle.AfterAgentCallback
   kind: partial
-  notes: "Adapter via callbacks/logging."
+  notes: "Adapt through callbacks and logging."
 
 - from: ExecutionControl.CachingControl
   to: Guardrails.ModelInteraction.BeforeModelCallback
   kind: partial
-  notes: "Adapter via middleware/runtime."
+  notes: "Adapt through middleware or the runtime."
 
 - from: Memory
   to: Runtime.Memory.AgentEnabled
   kind: partial
-  notes: "Active la memoire agent (outil memory) dans le code ADK genere."
+  notes: "Enable agent memory (memory tool) in the generated ADK code."
 
 - from: Reasoning
   to: Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts

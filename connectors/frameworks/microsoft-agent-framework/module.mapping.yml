@@ -1,0 +1,6 @@
+- {from: ModuleName, to: Executor.id, kind: equivalent}
+- {from: Strategy.Parallel.ParallelAgents, to: asyncio.gather, kind: equivalent}
+- {from: Strategy.Parallel.Aggregator, to: Executor.aggregator, kind: equivalent}
+- {from: Strategy.Loop.LoopAgents, to: Executor.loop_agents, kind: equivalent}
+- {from: Strategy.Loop.TurnCount, to: Executor.max_iterations, kind: equivalent}
+- {from: Strategy.Loop.StopCondition, to: Executor.stop_condition, kind: partial}

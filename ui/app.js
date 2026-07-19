@@ -39,6 +39,7 @@ let outputTextBlocks = [];
 let outputCopyButtons = [];
 let connectorsRegistry = null;
 let featureModelZoom = 1;
+let featureModelPreviousFocus = null;
 let runCrewaiWorkflowButton = null;
 let crewaiRunOutput = null;
 let stopCrewaiWorkflowButton = null;
@@ -48,13 +49,27 @@ let stopAdkWorkflowButton = null;
 const CREWAI_RUN_ENDPOINT = "/api/run";
 let crewaiRunAborter = null;
 let adkRunAborter = null;
+const AUTOSAVE_KEY = "gear-project-autosave-v1";
+let modelsLoading = true;
+let pendingAutosave = window.GearProjectStorage?.load(AUTOSAVE_KEY) || null;
+
+const saveProjectLocally = () => {
+  if (modelsLoading || document.body.classList.contains("experiment-active")) return;
+  const snapshot = {
+    schema_version: "1.0",
+    agents: agentStates.map((state) => state.els.yamlEl?.value || ""),
+    modules: moduleStates.map((state) => state.els.yamlEl?.value || ""),
+    workflows: orchestrationStates.map((state) => state.els.yamlEl?.value || ""),
+  };
+  window.GearProjectStorage?.save(AUTOSAVE_KEY, snapshot);
+};
 
 const GROUP_KEYWORDS = new Set(["mandatory", "optional", "alternative"]);
 const DEFAULT_AGENT_UVL_PATH = "gear/gear-agent.uvl";
 const DEFAULT_MODULE_UVL_PATH = "gear/gear-module.uvl";
 const DEFAULT_ORCHESTRATION_UVL_PATH = "gear/gear-multiagent.uvl";
 const CONNECTORS_REGISTRY_PATH = "connectors/registry.yml";
-const ASSEMBLY_ENGINE_PATH = "SDK/gear_sdk/assembly-engine.js";
+const ASSEMBLY_ENGINE_PATH = "runtime/assembly-engine.js";
 const CREWAI_AGENT_MAPPING_PATH = "connectors/frameworks/crewai/agent.mapping.yml";
 const CREWAI_MULTI_MAPPING_PATH = "connectors/frameworks/crewai/multiagent.mapping.yml";
 const ADK_AGENT_MAPPING_PATH = "connectors/frameworks/adk/agent.mapping.yml";
@@ -68,6 +83,10 @@ const SCALAR_ENUM_PARENTS_BY_KIND = {
 
 const FIXED_FEATURE_VALUES_BY_NAME = {
   APIKey: "OPENAI_API_KEY",
+};
+
+const FEATURE_VALUE_ALIASES = {
+  gpt_5_1_codex_mini: "gpt-5.1-codex-mini",
 };
 
 const TASK_FROM_PREFIXES = ["TaskSpecification"];
@@ -1027,7 +1046,7 @@ const getMappingEntriesForOutput = (frameworkId, outputKey) => {
         : null;
     }
     if (outputKey === "modules") {
-      return buildSyntheticModuleEntries(moduleModel, "CrewAI ne supporte pas les modules.");
+      return buildSyntheticModuleEntries(moduleModel, "CrewAI does not support modules.");
     }
     if (outputKey === "orchestration") {
       return Array.isArray(crewaiMultiMapping) ? crewaiMultiMapping : null;
@@ -1052,7 +1071,7 @@ const getGlobalMappingEntriesForFramework = (frameworkId) => {
   if (frameworkId === "crewai") {
     entries.push(...prefixMappingEntries(crewaiAgentMapping, "GearAgent"));
     entries.push(...prefixMappingEntries(crewaiMultiMapping, "GearWorkflow"));
-    const synthetic = buildSyntheticModuleEntries(moduleModel, "CrewAI ne supporte pas les modules.");
+    const synthetic = buildSyntheticModuleEntries(moduleModel, "CrewAI does not support modules.");
     entries.push(...prefixMappingEntries(synthetic, "GearModule"));
     return entries.length ? entries : null;
   }
@@ -1148,7 +1167,7 @@ const renderTranslationSummary = (outputId, entries, sources, activePaths) => {
     const makeItem = () => {
       const item = document.createElement("li");
       item.className = "empty-state";
-      item.textContent = "Mappings indisponibles.";
+      item.textContent = "Mappings unavailable.";
       return item;
     };
     translatedList.appendChild(makeItem());
@@ -1290,6 +1309,7 @@ const buildFrameworkOutputs = (framework) => {
   if (mappings.multiagent) {
     outputs.push({ key: "orchestration", label: "Workflow", title: `Workflow ${framework.label || framework.id}` });
   }
+  outputs.push({ key: "report", label: "Report", title: `Conversion report ${framework.label || framework.id}` });
   return outputs;
 };
 
@@ -1357,7 +1377,7 @@ const renderOutputLayoutFromRegistry = (registry) => {
           <div class="run-panel">
             <div class="run-actions">
               <button type="button" class="secondary" id="run${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">▶ Run workflow</button>
-              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow">■ Stop</button>
+              <button type="button" class="secondary danger" id="stop${framework.id === "crewai" ? "Crewai" : "Adk"}Workflow" disabled>■ Stop</button>
             </div>
             <div class="output-wrapper">
                 <label>Console output:</label>
@@ -1462,74 +1482,8 @@ const setActiveOutputPanel = (outputId) => {
   });
 };
 
-const resolveBasePrefix = () => {
-  let path = window.location.pathname || "/";
-  if (!path.endsWith("/")) {
-    path = path.slice(0, path.lastIndexOf("/") + 1);
-  }
-  if (path.endsWith("ui/")) {
-    path = path.slice(0, -3);
-  }
-  if (!path.startsWith("/")) {
-    path = `/${path}`;
-  }
-  return path;
-};
-
-const BASE_PREFIX = resolveBasePrefix();
-
-const buildUrlCandidates = (relativePath) => {
-  const clean = String(relativePath || "").replace(/^\/+/, "");
-  const candidates = [
-    `${BASE_PREFIX}${clean}`,
-    `/${clean}`,
-    `../${clean}`,
-  ];
-  return [...new Set(candidates)];
-};
-
-const loadYamlFromUrlCandidates = async (relativePath) => {
-  const urls = buildUrlCandidates(relativePath);
-  let lastError = null;
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) {
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
-      }
-      const text = await response.text();
-      if (!window.jsyaml?.load) {
-        throw new Error("js-yaml indisponible");
-      }
-      return window.jsyaml.load(text);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("Unable to load");
-};
-
-const loadScriptFromUrlCandidates = async (relativePath) => {
-  const urls = buildUrlCandidates(relativePath);
-  let lastError = null;
-  for (const url of urls) {
-    try {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = url;
-        script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Script not found: ${url}`));
-        document.head.appendChild(script);
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("Unable to load script");
-};
+const loadYamlFromUrlCandidates = (relativePath) => window.GearResourceLoader.loadYaml(relativePath);
+const loadScriptFromUrlCandidates = (relativePath) => window.GearResourceLoader.loadScript(relativePath);
 
 const loadFeaturePolicy = async () => {
   try {
@@ -1729,16 +1683,23 @@ const buildAgentOptionList = () => {
   return agentStates.map((agent, index) => {
     const name = findStateTitle(agent);
     const fallback = `Agent ${index + 1}`;
-    const label = name && name !== "(nouvel agent)" ? name : fallback;
+    const label = name && name !== "(new agent)" ? name : fallback;
     return { value: label, label };
   });
 };
 
 const buildModuleOptionList = () => {
   return moduleStates.map((moduleState, index) => {
-    const name = findStateTitle(moduleState);
     const fallback = `Module ${index + 1}`;
-    const label = name && name !== "(nouveau module)" ? name : fallback;
+    let name = findStateTitle(moduleState);
+    if (!name || name === "(new module)") {
+      const nameFeature = Object.values(moduleState.model.features).find(
+        (feature) => isLeafFeature(moduleState.model, feature.id) && feature.name.toLowerCase() === "modulename",
+      );
+      if (nameFeature) moduleState.featureValues[nameFeature.id] = fallback;
+      name = fallback;
+    }
+    const label = name;
     return { value: label, label };
   });
 };
@@ -1838,904 +1799,6 @@ const pathToParts = (path) => {
     return [];
   }
   return path.split(".").filter(Boolean);
-};
-
-const applyMapping = (source, mappingEntries) => {
-  const output = {};
-  if (!source || !mappingEntries) {
-    return output;
-  }
-  for (const entry of mappingEntries) {
-    if (!entry || !entry.to || entry.kind === "not_mapped") {
-      continue;
-    }
-    if ((entry.from === undefined || entry.from === null || entry.from === "") && "value" in entry) {
-      setNestedValue(output, pathToParts(entry.to), entry.value);
-      continue;
-    }
-    const fromList = Array.isArray(entry.from) ? entry.from : [entry.from];
-    let matched = false;
-    let value;
-    for (const fromPath of fromList) {
-      if (!fromPath) {
-        continue;
-      }
-      const { exists, value: candidate } = getValueAtPath(source, pathToParts(fromPath));
-      if (exists) {
-        matched = true;
-        value = candidate;
-        break;
-      }
-    }
-    if (!matched) {
-      continue;
-    }
-    setNestedValue(output, pathToParts(entry.to), value);
-  }
-  return output;
-};
-
-const getMappedValue = (mapped, path) => {
-  if (!mapped || !path) {
-    return undefined;
-  }
-  const result = getValueAtPath(mapped, pathToParts(path));
-  return result.exists ? result.value : undefined;
-};
-
-const isOpenAIResponsesModel = (modelName) => {
-  const name = String(modelName || "").trim().toLowerCase();
-  return !!name && name.includes("codex");
-};
-
-const toCrewaiModel = (provider, model) => {
-  const modelText = String(model || "").trim();
-  if (!modelText) {
-    return "";
-  }
-
-  const lowerModel = modelText.toLowerCase();
-  if (lowerModel.startsWith("openai/") && !lowerModel.startsWith("openai/responses/")) {
-    const rest = modelText.slice("openai/".length);
-    if (isOpenAIResponsesModel(rest)) {
-      return `openai/responses/${rest}`;
-    }
-  }
-
-  if (modelText.includes("/")) {
-    return modelText;
-  }
-  if (modelText.includes(":")) {
-    const [prov, rest] = modelText.split(":", 2);
-    if (prov && rest) {
-      if (prov.toLowerCase() === "openai" && isOpenAIResponsesModel(rest)) {
-        return `openai/responses/${rest}`;
-      }
-      return `${prov}/${rest}`;
-    }
-  }
-  const provText = String(provider || "").trim();
-  if (provText) {
-    if (provText.toLowerCase() === "openai" && isOpenAIResponsesModel(modelText)) {
-      return `openai/responses/${modelText}`;
-    }
-    return `${provText}/${modelText}`;
-  }
-  return modelText;
-};
-
-const normalizeCrewaiLlmValue = (llmValue) => {
-  if (!llmValue) {
-    return llmValue;
-  }
-  if (typeof llmValue === "string") {
-    return toCrewaiModel(null, llmValue);
-  }
-  if (typeof llmValue === "object") {
-    const provider = llmValue.provider || llmValue.Provider;
-    const model = llmValue.model || llmValue.Model;
-    if (model) {
-      return { ...llmValue, model: toCrewaiModel(provider, model) };
-    }
-  }
-  return llmValue;
-};
-
-const toPythonLiteral = (value) => {
-  if (value === null || value === undefined) {
-    return "None";
-  }
-  if (typeof value === "boolean") {
-    return value ? "True" : "False";
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? String(value) : "None";
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => toPythonLiteral(item)).join(", ")}]`;
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value).map(
-      ([key, val]) => `${toPythonLiteral(key)}: ${toPythonLiteral(val)}`,
-    );
-    return `{${entries.join(", ")}}`;
-  }
-  return JSON.stringify(String(value));
-};
-
-const toPythonName = (value, fallback) => {
-  const base = (value || "").toString().trim();
-  if (!base) {
-    return fallback;
-  }
-  const sanitized = base
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-zA-Z0-9_\s]/g, "")
-    .trim()
-    .replace(/\s+/g, "_")
-    .toLowerCase();
-  return sanitized.length ? sanitized : fallback;
-};
-
-const parseNumber = (value) => {
-  const num = Number(value);
-  return Number.isNaN(num) ? null : num;
-};
-
-const setIfMeaningful = (obj, key, value) => {
-  if (!obj || !key) {
-    return;
-  }
-  if (value === undefined || value === null) {
-    return;
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return;
-    }
-    obj[key] = trimmed;
-    return;
-  }
-  if (typeof value === "boolean") {
-    if (value) {
-      obj[key] = true;
-    }
-    return;
-  }
-  obj[key] = value;
-};
-
-const buildAdkDescriptionFromGear = (gearAgent) => {
-  const descriptionParts = [gearAgent?.AgentIdentity?.Purpose, gearAgent?.AgentIdentity?.ContextDescription]
-    .map((value) => (value ?? "").toString().trim())
-    .filter(Boolean);
-  return descriptionParts.length ? descriptionParts.join("\n") : "";
-};
-
-const buildAdkInstructionFromGear = (gearAgent) => {
-  const base = (gearAgent?.TaskSpecification?.TaskDescription ?? "").toString().trim();
-  const expected = (gearAgent?.TaskSpecification?.ExpectedOutput ?? "").toString().trim();
-  if (!expected) {
-    return base;
-  }
-  if (!base) {
-    return expected;
-  }
-  return `${base}\n\n${expected}`;
-};
-
-const ensureUniqueKey = (base, fallbackPrefix, index, usedKeys) => {
-  const seed = base?.trim() || `${fallbackPrefix}${index}`;
-  let candidate = seed;
-  let counter = 2;
-  while (usedKeys.has(candidate)) {
-    candidate = `${seed}_${counter}`;
-    counter += 1;
-  }
-  usedKeys.add(candidate);
-  return candidate;
-};
-
-const buildCrewaiAgentConfigFromGear = (gearAgent, mapped) => {
-  const config = {};
-  setIfMeaningful(config, "role", getMappedValue(mapped, "Identity.Role"));
-  setIfMeaningful(config, "goal", getMappedValue(mapped, "Identity.Goal"));
-  setIfMeaningful(config, "backstory", getMappedValue(mapped, "Identity.Backstory"));
-  const modelValue = toCrewaiModel(
-    gearAgent.LLMConfiguration?.Provider,
-    getMappedValue(mapped, "LLMConfiguration.Model"),
-  );
-  setIfMeaningful(config, "llm", modelValue);
-  setIfMeaningful(config, "verbose", getMappedValue(mapped, "BehavioralControls.Verbose") === true);
-  setIfMeaningful(
-    config,
-    "allow_delegation",
-    getMappedValue(mapped, "BehavioralControls.AllowDelegation") === true,
-  );
-  setIfMeaningful(
-    config,
-    "allow_code_execution",
-    getMappedValue(mapped, "BehavioralControls.AllowCodeExecution") === true,
-  );
-  setIfMeaningful(config, "cache", getMappedValue(mapped, "BehavioralControls.Cache") === true);
-  setIfMeaningful(config, "reasoning", getMappedValue(mapped, "Reasoning") === true);
-  setIfMeaningful(config, "memory", getMappedValue(mapped, "Memory") === true);
-  return config;
-};
-
-const buildCrewaiTaskConfigFromGear = (gearAgent, mapped, agentKey, taskKey) => {
-  const config = {};
-  setIfMeaningful(config, "description", getMappedValue(mapped, "Task.Essential.Description") || "");
-  setIfMeaningful(config, "expected_output", getMappedValue(mapped, "Task.Essential.ExpectedOutput") || "");
-  setIfMeaningful(config, "agent", getMappedValue(mapped, "Task.Essential.This_Agent") || agentKey);
-  setIfMeaningful(config, "name", getMappedValue(mapped, "Task.Essential.Name") || taskKey);
-  setIfMeaningful(config, "async_execution", getMappedValue(mapped, "Task.Execution.AsyncExecution") === true);
-  setIfMeaningful(config, "human_input", getMappedValue(mapped, "Task.Execution.HumanInput") === true);
-  return config;
-};
-
-const getFeatureValueByName = (state, featureName) => {
-  if (!state?.model || !featureName) {
-    return undefined;
-  }
-  const needle = featureName.toLowerCase();
-  const match = Object.values(state.model.features).find(
-    (feature) =>
-      isLeafFeature(state.model, feature.id) &&
-      feature.name.toLowerCase() === needle &&
-      isFeatureActive(state, feature.id),
-  );
-  if (!match) {
-    return undefined;
-  }
-  return state.featureValues[match.id];
-};
-
-const findLeafFeatureByName = (state, featureName) => {
-  if (!state?.model || !featureName) {
-    return null;
-  }
-  const needle = featureName.toLowerCase();
-  return (
-    Object.values(state.model.features).find(
-      (feature) =>
-        isLeafFeature(state.model, feature.id) &&
-        feature.name.toLowerCase() === needle,
-    ) || null
-  );
-};
-
-const setBooleanFeatureByName = (state, featureName, enabled) => {
-  const feature = findLeafFeatureByName(state, featureName);
-  if (!feature) {
-    return;
-  }
-  if (feature.relationType === "optional") {
-    state.optionalSelections[feature.id] = Boolean(enabled);
-  }
-  state.featureValues[feature.id] = enabled ? true : "";
-};
-
-const getCrewaiOrderedAgents = (state, agentNameMap, agentKeys) => {
-  if (!state?.builder) {
-    return [];
-  }
-  const sequenceAgents = (state.builder.sequence || [])
-    .filter((item) => item.type === "agent")
-    .map((item) => item.label || item.id)
-    .filter(Boolean);
-  if (sequenceAgents.length) {
-    return sequenceAgents
-      .map((name) => agentNameMap.get(name) || name)
-      .filter((key) => agentKeys.includes(key));
-  }
-  return agentKeys.slice();
-};
-
-const buildCrewaiWorkflowCode = (agentsPayload, tasksPayload, workflowState) => {
-  if (!Array.isArray(crewaiMultiMapping) || !crewaiMultiMapping.length) {
-    return "# CrewAI workflow mapping unavailable. Check connectors/frameworks/crewai/multiagent.mapping.yml";
-  }
-  const agentKeys = Object.keys(agentsPayload || {});
-  if (!agentKeys.length) {
-    return "# No CrewAI agent defined.";
-  }
-
-  const importLines = [
-    "from crewai import Agent, Crew, Task, Process, LLM",
-    "import os",
-    "import sys",
-    "from dotenv import load_dotenv",
-    "",
-    "load_dotenv()",
-  ];
-
-  const llmLines = [];
-  const agentLines = [];
-  const taskLines = [];
-  const usedNames = new Set();
-  const agentVarMap = {};
-  const taskVarMap = {};
-
-  const makeUniqueVar = (base, fallback) => {
-    let candidate = toPythonName(base, fallback);
-    let suffix = 2;
-    while (usedNames.has(candidate)) {
-      candidate = `${candidate}_${suffix}`;
-      suffix += 1;
-    }
-    usedNames.add(candidate);
-    return candidate;
-  };
-
-  const agentNameMap = new Map();
-  agentKeys.forEach((agentKey) => {
-    const role = agentsPayload[agentKey]?.role?.toString().trim();
-    if (role && !agentNameMap.has(role)) {
-      agentNameMap.set(role, agentKey);
-    }
-    if (!agentNameMap.has(agentKey)) {
-      agentNameMap.set(agentKey, agentKey);
-    }
-  });
-
-  agentKeys.forEach((agentKey, index) => {
-    const agentVar = makeUniqueVar(agentKey, `agent_${index + 1}`);
-    agentVarMap[agentKey] = agentVar;
-    const agentConfig = agentsPayload[agentKey] || {};
-    let llmVar = "None";
-    const normalizedLlm = normalizeCrewaiLlmValue(agentConfig.llm);
-    if (normalizedLlm) {
-      const llmName = `${agentVar}_llm`;
-      if (typeof normalizedLlm === "string") {
-        llmLines.push(
-          `${llmName} = LLM(`,
-          `  model=${toPythonLiteral(normalizedLlm)}`,
-          `)`,
-          "",
-        );
-      } else {
-        const llmArgs = Object.entries(normalizedLlm)
-          .filter(([, value]) => value !== null && value !== undefined && value !== "")
-          .map(([key, value]) => `  ${key}=${toPythonLiteral(value)},`);
-        llmLines.push(`${llmName} = LLM(`, ...llmArgs, `)`, "");
-      }
-      llmVar = llmName;
-    }
-
-    const args = Object.entries(agentConfig)
-      .filter(([, value]) => {
-        if (value === null || value === undefined) return false;
-        if (typeof value === "string" && value.trim() === "") return false;
-        if (Array.isArray(value) && value.length === 0) return false;
-        return true;
-      })
-      .map(([key, value]) => {
-        if (key === "llm") {
-          return `  ${key}=${llmVar},`;
-        }
-        return `  ${key}=${toPythonLiteral(value)},`;
-      });
-
-    agentLines.push(`${agentVar} = Agent(`, ...args, `)`, "");
-  });
-
-  const taskKeys = Object.keys(tasksPayload || {});
-  taskKeys.forEach((taskKey, index) => {
-    const taskVar = makeUniqueVar(taskKey, `task_${index + 1}`);
-    taskVarMap[taskKey] = taskVar;
-    const taskConfig = tasksPayload[taskKey] || {};
-    const args = Object.entries(taskConfig)
-      .filter(([, value]) => {
-        if (value === null || value === undefined) return false;
-        if (typeof value === "string" && value.trim() === "") return false;
-        if (Array.isArray(value) && value.length === 0) return false;
-        return true;
-      })
-      .map(([key, value]) => {
-        if (key === "agent" && typeof value === "string" && agentVarMap[value]) {
-          return `  ${key}=${agentVarMap[value]},`;
-        }
-        return `  ${key}=${toPythonLiteral(value)},`;
-      });
-    taskLines.push(`${taskVar} = Task(`, ...args, `)`, "");
-  });
-
-  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
-  const mappedWorkflow = applyMapping(workflowYaml, crewaiMultiMapping);
-  const mappedProcessRaw = getMappedValue(mappedWorkflow, "Crew.EssentialComponents.Process");
-  if (!mappedProcessRaw) {
-    return "# Mapping CrewAI invalide: Crew.EssentialComponents.Process requis.";
-  }
-  const processValue = String(mappedProcessRaw).toLowerCase();
-  const mappedMemory = getMappedValue(mappedWorkflow, "Crew.MemoryAndPerformance.Memory");
-  const memoryValue =
-    typeof mappedMemory === "boolean"
-      ? mappedMemory
-      : Boolean(getFeatureValueByName(workflowState, "Memory"));
-
-  const orderedAgents = getCrewaiOrderedAgents(workflowState, agentNameMap, agentKeys);
-  const orderedTasks = [];
-  orderedAgents.forEach((agentKey) => {
-    const agentRole = agentsPayload[agentKey]?.role?.toString().trim();
-    taskKeys.forEach((taskKey) => {
-      const taskAgent = tasksPayload[taskKey]?.agent;
-      if ((taskAgent === agentKey || (agentRole && taskAgent === agentRole)) && !orderedTasks.includes(taskKey)) {
-        orderedTasks.push(taskKey);
-      }
-    });
-  });
-
-  const fallbackAgents = orderedAgents.length ? orderedAgents : agentKeys;
-  const fallbackTasks = orderedTasks.length ? orderedTasks : taskKeys;
-
-  const crewLines = [
-    "crew = Crew(",
-    `  agents=[${fallbackAgents.map((key) => agentVarMap[key]).join(", ")}],`,
-    `  tasks=[${fallbackTasks.map((key) => taskVarMap[key]).join(", ")}],`,
-    `  process=Process.${processValue},`,
-  ];
-  if (memoryValue) {
-    crewLines.push("  memory=True,");
-  }
-  crewLines.push(")");
-  const kickoffLines = ["", "result = crew.kickoff()", "", 'print("result:", result)'];
-
-  return [
-    ...importLines,
-    "",
-    ...llmLines,
-    ...agentLines,
-    ...taskLines,
-    ...crewLines,
-    ...kickoffLines,
-  ]
-    .join("\n")
-    .trim();
-};
-
-const buildCrewaiOutputs = () => {
-  const mappingEntries = Array.isArray(crewaiAgentMapping) ? crewaiAgentMapping : null;
-  if (!mappingEntries) {
-    return {
-      agents: {},
-      tasks: {},
-      error: "# CrewAI mapping unavailable. Check connectors/frameworks/crewai/agent.mapping.yml",
-    };
-  }
-  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
-  const agentsPayload = {};
-  const tasksPayload = {};
-  const usedAgentKeys = new Set();
-  const usedTaskKeys = new Set();
-
-  gearAgents.forEach((gearAgent, index) => {
-    const mapped = applyMapping(gearAgent, mappingEntries);
-    const agentKey = ensureUniqueKey(gearAgent.AgentIdentity?.Name, "agent", index + 1, usedAgentKeys);
-    agentsPayload[agentKey] = buildCrewaiAgentConfigFromGear(gearAgent, mapped);
-    const taskKey = ensureUniqueKey(
-      gearAgent.TaskSpecification?.TaskName,
-      "task",
-      index + 1,
-      usedTaskKeys,
-    );
-    tasksPayload[taskKey] = buildCrewaiTaskConfigFromGear(gearAgent, mapped, agentKey, taskKey);
-  });
-
-  return {
-    agents: agentsPayload,
-    tasks: tasksPayload,
-  };
-};
-
-const buildAdkAgentConfigFromGear = (gearAgent, mapped) => {
-  const baseAgent = { AgentType: "LlmAgent" };
-  const llmAgentConfig = {};
-  const generateContentConfig = {};
-  const configurations = {};
-  const dataStructure = {};
-  const planner = {};
-  const builtInPlanner = {};
-  const thinkingConfig = {};
-
-  setIfMeaningful(baseAgent, "Name", getMappedValue(mapped, "BaseAgent.Name"));
-  const descriptionParts = [gearAgent.AgentIdentity?.Purpose, gearAgent.AgentIdentity?.ContextDescription]
-    .map((value) => (value ?? "").toString().trim())
-    .filter(Boolean);
-  if (descriptionParts.length) {
-    setIfMeaningful(baseAgent, "Description", descriptionParts.join("\n"));
-  }
-
-  const modelValue = toCrewaiModel(
-    gearAgent.LLMConfiguration?.Provider,
-    getMappedValue(mapped, "LLMAgentConfig.Model"),
-  );
-  setIfMeaningful(llmAgentConfig, "Model", modelValue);
-  setIfMeaningful(generateContentConfig, "Temperature", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.Temperature"));
-  setIfMeaningful(generateContentConfig, "MaxOutputTokens", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.MaxOutputTokens"));
-  setIfMeaningful(generateContentConfig, "TopP", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopP"));
-  setIfMeaningful(generateContentConfig, "TopK", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopK"));
-  if (Object.keys(generateContentConfig).length) {
-    llmAgentConfig.GenerateContentConfig = generateContentConfig;
-  }
-
-  setIfMeaningful(configurations, "Instruction", getMappedValue(mapped, "Configurations.Instruction"));
-  setIfMeaningful(dataStructure, "OutputKey", getMappedValue(mapped, "Configurations.DataStructure.OutputKey"));
-  if (gearAgent.TaskSpecification?.ExpectedOutput) {
-    dataStructure.OutputSchema = {
-      description: gearAgent.TaskSpecification.ExpectedOutput,
-      type: "string",
-    };
-  }
-  if (Object.keys(dataStructure).length) {
-    configurations.DataStructure = dataStructure;
-  }
-
-  if (getMappedValue(mapped, "Configurations.Planner.BuiltInPlanner.ThinkingConfig.IncludeThoughts") === true) {
-    thinkingConfig.IncludeThoughts = true;
-  }
-  if (Object.keys(thinkingConfig).length) {
-    builtInPlanner.ThinkingConfig = thinkingConfig;
-    planner.BuiltInPlanner = builtInPlanner;
-    configurations.Planner = planner;
-  }
-
-  if (getMappedValue(mapped, "Configurations.CodeExecutor") === true) {
-    configurations.CodeExecutor = true;
-  }
-
-  const result = { BaseAgent: baseAgent };
-  if (Object.keys(llmAgentConfig).length) {
-    result.LLMAgentConfig = llmAgentConfig;
-  }
-  if (Object.keys(configurations).length) {
-    result.Configurations = configurations;
-  }
-  return result;
-};
-
-const buildAdkOutputs = () => {
-  const mappingEntries =
-    Array.isArray(adkAgentMapping) && adkAgentMapping.length
-      ? adkAgentMapping
-      : null;
-  if (!mappingEntries) {
-    return {
-      agents: {},
-      error: "# ADK mapping unavailable. Check connectors/frameworks/adk/agent.mapping.yml",
-    };
-  }
-  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
-  const adkAgents = {};
-  const usedKeys = new Set();
-  gearAgents.forEach((gearAgent, index) => {
-    const mapped = applyMapping(gearAgent, mappingEntries);
-    const key = ensureUniqueKey(gearAgent.AgentIdentity?.Name, "agent", index + 1, usedKeys);
-    adkAgents[key] = buildAdkAgentConfigFromGear(gearAgent, mapped);
-  });
-  const moduleConfigResult = buildModuleConfigs();
-  if (moduleConfigResult.error) {
-    return { agents: {}, error: moduleConfigResult.error };
-  }
-  const moduleConfigs = moduleConfigResult.items;
-  moduleConfigs.forEach((moduleConfig, index) => {
-    const moduleKey = ensureUniqueKey(moduleConfig.name, "module", index + 1, usedKeys);
-    const subAgents =
-      moduleConfig.strategy === "parallel"
-        ? moduleConfig.parallelAgents
-        : moduleConfig.loopAgents;
-    adkAgents[moduleKey] = {
-      BaseAgent: {
-        AgentType: moduleConfig.strategy === "parallel" ? "ParallelAgent" : "LoopAgent",
-        Name: moduleConfig.name,
-        SubAgents: subAgents.map((name) => ({ Name: name })),
-      },
-    };
-  });
-  return { agents: adkAgents };
-};
-
-const parseNameList = (value) => {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  }
-  if (value === null || value === undefined) {
-    return [];
-  }
-  const text = String(value);
-  if (!text.trim()) {
-    return [];
-  }
-  return text
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-};
-
-const parseNumberValue = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const buildModuleConfigs = () => {
-  const mappingEntries = Array.isArray(adkModuleMapping) && adkModuleMapping.length ? adkModuleMapping : null;
-  if (!mappingEntries) {
-    return { items: [], error: "# ADK module mapping unavailable. Check connectors/frameworks/adk/module.mapping.yml" };
-  }
-  return {
-    items: moduleStates
-    .map((state, index) => {
-      const moduleData = normalizeGearRoot(buildYamlObjectForAgent(state));
-      const mappedModule = applyMapping(moduleData, mappingEntries);
-      const name = getMappedValue(mappedModule, "Runtime.Module.Name") || moduleData.ModuleName || `Module ${index + 1}`;
-      const strategy = getMappedValue(mappedModule, "Runtime.Module.ADKAgentType.ParallelAgent")
-        ? "parallel"
-        : getMappedValue(mappedModule, "Runtime.Module.ADKAgentType.LoopAgent")
-          ? "loop"
-          : null;
-      if (!strategy) {
-        return null;
-      }
-      const parallelAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Parallel.SubAgents"));
-      const loopAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Loop.SubAgents"));
-      const turnCount = parseNumberValue(getMappedValue(mappedModule, "Runtime.Module.Loop.MaxIterations"));
-      return {
-        name,
-        strategy,
-        parallelAgents,
-        loopAgents,
-        turnCount,
-      };
-    })
-    .filter(Boolean),
-  };
-};
-
-const buildAdkWorkflowCode = (workflowState) => {
-  if (!Array.isArray(adkMultiMapping) || !adkMultiMapping.length) {
-    return "# ADK workflow mapping unavailable. Check connectors/frameworks/adk/multiagent.mapping.yml";
-  }
-  const gearAgents = agentStates.map((state) => normalizeGearRoot(buildYamlObjectForAgent(state)));
-  if (!gearAgents.length) {
-    return "# No ADK agent defined.";
-  }
-  const moduleConfigResult = buildModuleConfigs();
-  if (moduleConfigResult.error) {
-    return moduleConfigResult.error;
-  }
-  const moduleConfigs = moduleConfigResult.items;
-  const workflowYaml = workflowState ? normalizeGearRoot(buildOrchestrationYaml(workflowState)) : {};
-  const mappedWorkflow = applyMapping(workflowYaml, adkMultiMapping);
-
-  const workflowMemoryEnabled = getMappedValue(mappedWorkflow, "Runtime.Memory.WorkflowEnabled") === true;
-  const memoryServiceClass = getMappedValue(mappedWorkflow, "Runtime.Memory.MemoryServiceClass");
-  const memoryToolClass = getMappedValue(mappedWorkflow, "Runtime.Memory.AgentToolClass");
-  const agentMappedList = gearAgents.map((agent) =>
-    applyMapping(agent, Array.isArray(adkAgentMapping) ? adkAgentMapping : []),
-  );
-  const agentMemoryMap = agentMappedList.map(
-    (mappedAgent) => getMappedValue(mappedAgent, "Runtime.Memory.AgentEnabled") === true,
-  );
-  const anyMemoryEnabled = workflowMemoryEnabled || agentMemoryMap.some(Boolean);
-
-  const importLines = [
-    "import asyncio",
-    "from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent",
-    "from google.adk.models.lite_llm import LiteLlm",
-    "from google.adk.runners import Runner",
-    "from google.adk.sessions import InMemorySessionService",
-  ];
-  if (anyMemoryEnabled) {
-    if (!memoryServiceClass || !memoryToolClass) {
-      return "# Mapping ADK invalide: Runtime.Memory.MemoryServiceClass et Runtime.Memory.AgentToolClass sont requis.";
-    }
-    importLines.push(`from google.adk.memory import ${memoryServiceClass}`);
-    importLines.push(`from google.adk.tools.preload_memory_tool import ${memoryToolClass}`);
-  }
-  importLines.push("from dotenv import load_dotenv", "", "load_dotenv()", "");
-
-  const usedNames = new Set();
-  const agentVarMap = new Map();
-  const agentNameMap = new Map();
-  const moduleVarMap = new Map();
-  const moduleSequenceVarMap = new Map();
-
-  const makeUniqueVar = (base, fallback) => {
-    let candidate = toPythonName(base, fallback);
-    let suffix = 2;
-    while (usedNames.has(candidate)) {
-      candidate = `${candidate}_${suffix}`;
-      suffix += 1;
-    }
-    usedNames.add(candidate);
-    return candidate;
-  };
-
-  const agentLines = [];
-  gearAgents.forEach((gearAgent, index) => {
-    const name = gearAgent.AgentIdentity?.Name || `Agent ${index + 1}`;
-    const agentVar = makeUniqueVar(name, `agent_${index + 1}`);
-    agentVarMap.set(name, agentVar);
-    agentNameMap.set(name, name);
-    const modelValue =
-      toCrewaiModel(
-        gearAgent.LLMConfiguration?.Provider,
-        gearAgent.LLMConfiguration?.Model,
-      ) || "gemini-2.5-flash-lite";
-    const instruction = buildAdkInstructionFromGear(gearAgent);
-    const outputKey = gearAgent.TaskSpecification?.TaskName || "";
-    const memoryEnabled = workflowMemoryEnabled || agentMemoryMap[index] === true;
-    const description = buildAdkDescriptionFromGear(gearAgent);
-
-    const args = [
-      `  name=${toPythonLiteral(name)},`,
-      `  model=LiteLlm(model=${toPythonLiteral(modelValue)}),`,
-    ];
-    if (description) {
-      args.push(`  description=${toPythonLiteral(description)},`);
-    }
-    if (instruction) {
-      args.push(`  instruction=${toPythonLiteral(instruction)},`);
-    }
-    if (outputKey) {
-      args.push(`  output_key=${toPythonLiteral(outputKey)},`);
-    }
-    if (anyMemoryEnabled && memoryEnabled) {
-      args.push(`  tools=[${memoryToolClass}()],`);
-    }
-    agentLines.push(`${agentVar} = Agent(`, ...args, `)`, "");
-  });
-
-  const moduleLines = [];
-  moduleConfigs.forEach((moduleConfig, index) => {
-    const moduleVar = makeUniqueVar(moduleConfig.name, `module_${index + 1}`);
-    moduleVarMap.set(moduleConfig.name, moduleVar);
-    if (moduleConfig.strategy === "parallel") {
-      const subAgents = moduleConfig.parallelAgents
-        .map((name) => agentVarMap.get(name))
-        .filter(Boolean);
-      moduleLines.push(
-        `${moduleVar} = ParallelAgent(`,
-        `  name=${toPythonLiteral(moduleConfig.name)},`,
-        `  sub_agents=[${subAgents.join(", ")}],`,
-        `)`,
-        "",
-      );
-      if (moduleConfig.aggregator) {
-        const aggregatorVar = agentVarMap.get(moduleConfig.aggregator);
-        if (aggregatorVar) {
-          const pipelineVar = makeUniqueVar(`${moduleConfig.name}_pipeline`, `module_pipeline_${index + 1}`);
-          moduleSequenceVarMap.set(moduleConfig.name, pipelineVar);
-          moduleLines.push(
-            `${pipelineVar} = SequentialAgent(`,
-            `  name=${toPythonLiteral(`${moduleConfig.name}Pipeline`)},`,
-            `  sub_agents=[${moduleVar}, ${aggregatorVar}],`,
-            `)`,
-            "",
-          );
-        }
-      }
-      return;
-    }
-    if (moduleConfig.strategy === "loop") {
-      const subAgents = moduleConfig.loopAgents
-        .map((name) => agentVarMap.get(name))
-        .filter(Boolean);
-      const args = [
-        `  name=${toPythonLiteral(moduleConfig.name)},`,
-        `  sub_agents=[${subAgents.join(", ")}],`,
-      ];
-      if (moduleConfig.turnCount !== null) {
-        args.push(`  max_iterations=${moduleConfig.turnCount},`);
-      }
-      moduleLines.push(`${moduleVar} = LoopAgent(`, ...args, `)`, "");
-      moduleSequenceVarMap.set(moduleConfig.name, moduleVar);
-    }
-  });
-
-  const orderedAgents = getCrewaiOrderedAgents(
-    workflowState,
-    agentNameMap,
-    Array.from(agentVarMap.keys()),
-  );
-  const sequenceItems = workflowState ? buildWorkflowItems(workflowState) : [];
-  const orderedVars =
-    sequenceItems.length > 0
-      ? sequenceItems
-          .map((item) => {
-            const key = item.label || item.id;
-            if (item.type === "module") {
-              return moduleSequenceVarMap.get(key) || moduleVarMap.get(key) || null;
-            }
-            return agentVarMap.get(key) || null;
-          })
-          .filter(Boolean)
-      : orderedAgents.length
-        ? orderedAgents.map((name) => agentVarMap.get(name)).filter(Boolean)
-        : Array.from(agentVarMap.values());
-
-  const runnerLines = [];
-  if (anyMemoryEnabled) {
-    runnerLines.push(`memory_service = ${memoryServiceClass}()`, "");
-  }
-
-  const rootName = getMappedValue(mappedWorkflow, "SystemDefinition.RootAgent") || "RootWorkflow";
-  const appName = getMappedValue(mappedWorkflow, "Infrastructure.Runner.Configuration.AppName") || "gear-framework";
-
-  const rootLines = [
-    "root_agent = SequentialAgent(",
-    `  name=${toPythonLiteral(String(rootName))},`,
-    `  sub_agents=[${orderedVars.join(", ")}],`,
-    ")",
-    "",
-    "runner = Runner(",
-    "  agent=root_agent,",
-    "  session_service=InMemorySessionService(),",
-    ...(anyMemoryEnabled ? ["  memory_service=memory_service,"] : []),
-    `  app_name=${toPythonLiteral(String(appName))},`,
-    ")",
-    "async def _run():",
-    '    return await runner.run_debug("{}")',
-    "result = asyncio.run(_run())",
-    "print(result)",
-  ];
-
-  return [...importLines, ...agentLines, ...moduleLines, ...runnerLines, ...rootLines]
-    .join("\n")
-    .trim();
-};
-
-const buildAdkWorkflowObject = (workflowState) => {
-  const items = workflowState ? buildWorkflowItems(workflowState) : [];
-  const sequence = items.map((item) =>
-    item.type === "module"
-      ? `Module:${item.label || item.id}`
-      : `Agent:${item.label || item.id}`,
-  );
-  const agentNames = items
-    .filter((item) => item.type === "agent")
-    .map((item) => item.label || item.id)
-    .filter(Boolean);
-  const systemDefinition = {
-    RootAgent: agentNames[0] ? { Name: agentNames[0] } : {},
-    Agents: agentNames.map((name) => ({ Name: name })),
-  };
-  if (sequence.length) {
-    systemDefinition.OrchestrationMechanisms = {
-      WorkflowAgents: {
-        SequentialAgent: sequence,
-      },
-    };
-  }
-
-  const memoryValue = Boolean(getFeatureValueByName(workflowState, "Memory"));
-  const infrastructure = {};
-  if (memoryValue) {
-    infrastructure.Runner = {
-      Configuration: {
-        OptionalParameters: {
-          MemoryService: true,
-        },
-      },
-    };
-  }
-
-  const eventsConfig = {
-    Storage: {
-      SessionEvents: true,
-    },
-  };
-
-  return {
-    SystemDefinition: systemDefinition,
-    Infrastructure: infrastructure,
-    EventsConfig: eventsConfig,
-  };
 };
 
 const isExplicitFalse = (value) => value === false;
@@ -3066,6 +2129,7 @@ const renderFeature = (state, featureId, parentActive) => {
   if (groupType === "alternative") {
     const radio = document.createElement("input");
     radio.type = "radio";
+    radio.setAttribute("aria-label", feature.name);
     radio.name = `${state.id}::${feature.parentGroupId}`;
     radio.checked = active;
     radio.disabled = !parentActive || lockedByPolicy;
@@ -3080,6 +2144,7 @@ const renderFeature = (state, featureId, parentActive) => {
   } else {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
+    checkbox.setAttribute("aria-label", feature.name);
     checkbox.checked = active;
     const disabledByParent = !parentActive;
     const disabledByRelation = groupType === "mandatory";
@@ -3096,7 +2161,7 @@ const renderFeature = (state, featureId, parentActive) => {
 
   const label = document.createElement("span");
   label.className = "node-label";
-  label.textContent = feature.name;
+  label.textContent = FEATURE_VALUE_ALIASES[feature.name] || feature.name;
   line.appendChild(label);
 
   if (parentGroup && !parentGroup.implicit) {
@@ -3109,14 +2174,14 @@ const renderFeature = (state, featureId, parentActive) => {
   if (feature.abstract) {
     const abstractBadge = document.createElement("span");
     abstractBadge.className = "badge abstract";
-    abstractBadge.textContent = "abstrait";
+    abstractBadge.textContent = "Abstract";
     line.appendChild(abstractBadge);
   }
 
   if (lockedByPolicy) {
     const lockedBadge = document.createElement("span");
     lockedBadge.className = "badge";
-    lockedBadge.textContent = "verrouille";
+    lockedBadge.textContent = "Locked";
     line.appendChild(lockedBadge);
   }
 
@@ -3137,6 +2202,7 @@ const renderFeature = (state, featureId, parentActive) => {
     if (isAgentsFeature(state, feature)) {
       const selectEl = document.createElement("select");
       selectEl.className = "feature-value";
+      selectEl.setAttribute("aria-label", feature.name);
       selectEl.multiple = true;
       selectEl.size = 4;
       selectEl.disabled = !active || lockedByPolicy;
@@ -3170,6 +2236,7 @@ const renderFeature = (state, featureId, parentActive) => {
     } else if (isModulesFeature(state, feature)) {
       const selectEl = document.createElement("select");
       selectEl.className = "feature-value";
+      selectEl.setAttribute("aria-label", feature.name);
       selectEl.multiple = true;
       selectEl.size = 4;
       selectEl.disabled = !active || lockedByPolicy;
@@ -3203,11 +2270,12 @@ const renderFeature = (state, featureId, parentActive) => {
     } else if (isAgentRefFeature(state, feature)) {
       const selectEl = document.createElement("select");
       selectEl.className = "feature-value";
+      selectEl.setAttribute("aria-label", feature.name);
       selectEl.disabled = !active || lockedByPolicy;
 
       const placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = "(choisir un agent)";
+      placeholder.textContent = "(select an agent)";
       selectEl.appendChild(placeholder);
 
       const options = buildAgentOptionList();
@@ -3239,7 +2307,8 @@ const renderFeature = (state, featureId, parentActive) => {
         valueEl.type = "text";
       }
       valueEl.className = "feature-value";
-      valueEl.placeholder = "valeur…";
+      valueEl.setAttribute("aria-label", feature.name);
+      valueEl.placeholder = "value…";
       const fixedValue = getFixedFeatureValue(feature);
       if (fixedValue && active) {
         state.featureValues[feature.id] = fixedValue;
@@ -3342,7 +2411,7 @@ const buildYamlObjectForAgent = (state) => {
         } else if (isBooleanFeatureName(feature.name)) {
           value = true;
         } else {
-          value = feature.name;
+          value = FEATURE_VALUE_ALIASES[feature.name] || feature.name;
         }
         if (value !== null) {
           scalarEnumValues.set(parentId, value);
@@ -3554,8 +2623,8 @@ const buildEdgesFromSequence = (state) => {
     const from = seq[i];
     const to = seq[i + 1];
     state.builder.edges.push({
-      from: from.label || from.id,
-      to: to.label || to.id,
+      from: from.id,
+      to: to.id,
     });
   }
 };
@@ -3906,6 +2975,7 @@ const updateOutputs = () => {
       setOutputText(outputKey, dumpYaml(value));
     });
   });
+  saveProjectLocally();
 };
 
 const scheduleOutputsUpdate = debounce(updateOutputs, 120);
@@ -3997,7 +3067,7 @@ const findStateTitle = (state) => {
   if (candidates.length) {
     return candidates[0];
   }
-  return state.kind === "module" ? "(nouveau module)" : "(nouvel agent)";
+  return state.kind === "module" ? "(new module)" : "(new agent)";
 };
 
 const renderAgentHeader = (state) => {
@@ -4495,6 +3565,10 @@ const mountFeatureCard = (state, templateEl, containerEl) => {
     removeButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      const kindLabel = state.kind === "orchestration" ? "workflow" : state.kind;
+      if (!window.confirm(`Remove this ${kindLabel}?`)) {
+        return;
+      }
       if (state.kind === "agent") {
         removeAgent(state);
       } else if (state.kind === "module") {
@@ -4730,6 +3804,7 @@ const setFeatureModelZoom = (nextZoom) => {
 
 const openFeatureModelModal = () => {
   if (featureModelModalEl) {
+    featureModelPreviousFocus = document.activeElement;
     featureModelModalEl.hidden = false;
     featureModelCloseButton?.focus();
   }
@@ -4738,6 +3813,8 @@ const openFeatureModelModal = () => {
 const closeFeatureModelModal = () => {
   if (featureModelModalEl) {
     featureModelModalEl.hidden = true;
+    featureModelPreviousFocus?.focus?.();
+    featureModelPreviousFocus = null;
   }
 };
 
@@ -4811,6 +3888,26 @@ if (featureModelModalEl) {
   featureModelModalEl.addEventListener("click", (event) => {
     if (event.target === featureModelModalEl) {
       closeFeatureModelModal();
+    }
+  });
+  featureModelModalEl.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeFeatureModelModal();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(featureModelModalEl.querySelectorAll(
+      'button:not([disabled]), a[href]:not([hidden]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   });
 }
@@ -5183,7 +4280,6 @@ const bindOutputUiInteractions = () => {
     if (crewaiRunAborter) {
       crewaiRunAborter.abort();
     }
-    crewaiRunAborter = new AbortController();
     const workflowCode = Array.from(document.querySelectorAll("[data-output]")).find(
       (block) => block.dataset.output === "crewai-orchestration",
     )?.textContent;
@@ -5193,6 +4289,9 @@ const bindOutputUiInteractions = () => {
       }
       return;
     }
+    crewaiRunAborter = new AbortController();
+    runCrewaiWorkflowButton.disabled = true;
+    if (stopCrewaiWorkflowButton) stopCrewaiWorkflowButton.disabled = false;
       if (crewaiRunOutput) {
         crewaiRunOutput.textContent = "# Execution in progress...";
       }
@@ -5201,7 +4300,8 @@ const bindOutputUiInteractions = () => {
         const response = await fetch(CREWAI_RUN_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: workflowCode, inputs: {}, target: "crewai", log_id: logId}),
+          body: JSON.stringify({ code: workflowCode, inputs: {}, target: "crewai", log_id: logId,
+            build_id: window.GearHistory?.getBuildId("crewai") || null }),
           signal: crewaiRunAborter.signal,
         });
         const payload = await response.json();
@@ -5241,6 +4341,8 @@ const bindOutputUiInteractions = () => {
       }
     } finally {
       crewaiRunAborter = null;
+      runCrewaiWorkflowButton.disabled = false;
+      if (stopCrewaiWorkflowButton) stopCrewaiWorkflowButton.disabled = true;
     }
   });
   }
@@ -5260,7 +4362,6 @@ const bindOutputUiInteractions = () => {
     if (adkRunAborter) {
       adkRunAborter.abort();
     }
-    adkRunAborter = new AbortController();
     const workflowCode = Array.from(document.querySelectorAll("[data-output]")).find(
       (block) => block.dataset.output === "adk-orchestration",
     )?.textContent;
@@ -5270,6 +4371,9 @@ const bindOutputUiInteractions = () => {
       }
       return;
     }
+    adkRunAborter = new AbortController();
+    runAdkWorkflowButton.disabled = true;
+    if (stopAdkWorkflowButton) stopAdkWorkflowButton.disabled = false;
     if (adkRunOutput) {
       adkRunOutput.textContent = "# Execution in progress...";
     }
@@ -5279,7 +4383,8 @@ const bindOutputUiInteractions = () => {
       const response = await fetch(CREWAI_RUN_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "adk", log_id: logId}),
+        body: JSON.stringify({ code: workflowCode, inputs: {}, target: "adk", log_id: logId,
+          build_id: window.GearHistory?.getBuildId("adk") || null }),
         signal: adkRunAborter.signal,
       });
 
@@ -5319,6 +4424,8 @@ const bindOutputUiInteractions = () => {
       }
     } finally {
       adkRunAborter = null;
+      runAdkWorkflowButton.disabled = false;
+      if (stopAdkWorkflowButton) stopAdkWorkflowButton.disabled = true;
     }
   });
   }
@@ -5333,12 +4440,53 @@ const bindOutputUiInteractions = () => {
   }
 };
 
-loadFeaturePolicy().finally(() => {
-  loadDefaultAgentModel();
-  loadDefaultModuleModel();
-  loadDefaultOrchestrationModel();
+const restoreAutosave = () => {
+  if (!pendingAutosave || document.body.classList.contains("experiment-active")) return;
+  const restoreCollection = (values, states, createState, template, container) => {
+    if (!Array.isArray(values) || !values.length || !states.length) return;
+    values.forEach((yamlText, index) => {
+      let state = states[index];
+      if (!state && index > 0) {
+        state = createState();
+        states.push(state);
+        mountFeatureCard(state, template, container);
+      }
+      if (state && String(yamlText).trim()) loadFromYamlText(state, yamlText, { silent: true });
+    });
+  };
+  restoreCollection(
+    pendingAutosave.agents,
+    agentStates,
+    () => createFeatureState("agent", agentModel),
+    agentTemplate,
+    agentsContainer,
+  );
+  restoreCollection(
+    pendingAutosave.modules,
+    moduleStates,
+    () => createFeatureState("module", moduleModel),
+    moduleTemplate || ensureModuleTemplate(),
+    modulesContainer,
+  );
+  if (Array.isArray(pendingAutosave.workflows) && orchestrationStates[0] && pendingAutosave.workflows[0]) {
+    loadFromYamlText(orchestrationStates[0], pendingAutosave.workflows[0], { silent: true });
+  }
+};
+
+loadFeaturePolicy().finally(async () => {
+  await Promise.all([loadDefaultAgentModel(), loadDefaultModuleModel(), loadDefaultOrchestrationModel()]);
+  modelsLoading = false;
+  restoreAutosave();
+  scheduleOutputsUpdate();
 });
 loadConnectorsRegistry();
+window.GearHistory?.init({
+  getSource: () => ({
+    agents: agentStates.map((state) => state.els.yamlEl?.value || ""),
+    modules: moduleStates.map((state) => state.els.yamlEl?.value || ""),
+    workflows: orchestrationStates.map((state) => state.els.yamlEl?.value || ""),
+  }),
+});
 Promise.all([loadCrewaiMappings(), loadAdkMappings()]).then(() => {
   refreshOutputDomRefs();
   bindOutputUiInteractions();

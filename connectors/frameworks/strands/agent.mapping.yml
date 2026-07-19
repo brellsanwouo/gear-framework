@@ -1,0 +1,16 @@
+- {from: AgentIdentity.Name, to: Agent.name, kind: direct}
+- {from: AgentIdentity.Purpose, to: Agent.system_prompt, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: Agent.system_prompt, kind: partial}
+- {from: LLMConfiguration.Provider, to: Model.provider, kind: partial}
+- {from: LLMConfiguration.Model, to: OpenAIModel.model_id, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from OPENAI_API_KEY."}
+- {from: LLMConfiguration.BaseURL, to: OpenAIModel.client_args.base_url, kind: direct}
+- {from: LLMConfiguration.Timeout, to: OpenAIModel.client_args.timeout, kind: direct}
+- {from: LLMConfiguration.MaxRetries, to: OpenAIModel.client_args.max_retries, kind: direct}
+- {from: LLMConfiguration.ModelParameters, to: OpenAIModel.params, kind: equivalent}
+- {from: TaskSpecification.TaskName, to: Agent.description, kind: equivalent}
+- {from: TaskSpecification.TaskDescription, to: Agent.system_prompt, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: Agent.system_prompt, kind: partial}
+- {from: Tools, to: Agent.tools, kind: partial}
+- {from: Memory, to: SessionManager, kind: equivalent}
+- {from: Reasoning, to: Agent.system_prompt, kind: partial}

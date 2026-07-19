@@ -1,0 +1,21 @@
+id: autogen
+version: "0.1.0"
+label: Microsoft AutoGen
+description: "Conversational agents and bounded teams with deterministic orchestration"
+runtime:
+  language: python
+  packages:
+    - autogen-agentchat>=0.7.5,<1
+    - autogen-ext[openai]>=0.7.5,<1
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: true
+limitations:
+  - The generated connector currently configures AutoGen's OpenAI model client.
+  - Natural-language loop stop conditions remain metadata while TurnCount controls team turns.
+  - AutoGen GraphFlow is not generated because its public API is experimental.

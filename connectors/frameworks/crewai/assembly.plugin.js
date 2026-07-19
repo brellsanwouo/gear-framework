@@ -1,304 +1,81 @@
 (function (window) {
   if (!window) return;
-  // CrewAI assembler plugin: turns Gear YAML into CrewAI YAML + workflow code.
   window.GearAssemblyPlugins = window.GearAssemblyPlugins || {};
   const utils = window.GearAssemblyEngine?.utils;
   if (!utils) return;
-
-  const {
-    applyMapping,
-    getMappedValue,
-    toCrewaiModel,
-    ensureUniqueKey,
-    toPythonLiteral,
-    toPythonName,
-    renderTemplate,
-    getTemplate,
-  } = utils;
-
-  const setIfMeaningful = (obj, key, value) => {
-    if (!obj || !key) return;
-    if (value === undefined || value === null) return;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (!trimmed) return;
-      obj[key] = trimmed;
-      return;
-    }
-    if (typeof value === "boolean") {
-      if (value) obj[key] = true;
-      return;
-    }
-    obj[key] = value;
-  };
-
-  const normalizeLlmValue = (llmValue) => {
-    if (!llmValue) return null;
-    if (typeof llmValue === "string") {
-      return toCrewaiModel(null, llmValue);
-    }
-    if (typeof llmValue === "object") {
-      const provider = llmValue.provider || llmValue.Provider;
-      const model = llmValue.model || llmValue.Model;
-      if (model) {
-        return { ...llmValue, model: toCrewaiModel(provider, model) };
-      }
-      return { ...llmValue };
-    }
-    return null;
-  };
-
-  const buildCrewaiAgentConfigFromGear = (gearAgent, mapped) => {
-    const config = {};
-    setIfMeaningful(config, "role", getMappedValue(mapped, "Identity.Role"));
-    setIfMeaningful(config, "goal", getMappedValue(mapped, "Identity.Goal"));
-    setIfMeaningful(config, "backstory", getMappedValue(mapped, "Identity.Backstory"));
-    const llmConfig = {};
-    setIfMeaningful(llmConfig, "provider", gearAgent.LLMConfiguration?.Provider);
-    setIfMeaningful(llmConfig, "model", getMappedValue(mapped, "LLMConfiguration.Model"));
-    if (Object.keys(llmConfig).length) {
-      setIfMeaningful(config, "llm", llmConfig);
-    } else {
-      const modelValue = toCrewaiModel(
-        gearAgent.LLMConfiguration?.Provider,
-        getMappedValue(mapped, "LLMConfiguration.Model"),
-      );
-      setIfMeaningful(config, "llm", modelValue);
-    }
-    setIfMeaningful(config, "verbose", getMappedValue(mapped, "BehavioralControls.Verbose") === true);
-    setIfMeaningful(
-      config,
-      "allow_delegation",
-      getMappedValue(mapped, "BehavioralControls.AllowDelegation") === true,
-    );
-    setIfMeaningful(
-      config,
-      "allow_code_execution",
-      getMappedValue(mapped, "BehavioralControls.AllowCodeExecution") === true,
-    );
-    setIfMeaningful(config, "cache", getMappedValue(mapped, "BehavioralControls.Cache") === true);
-    setIfMeaningful(config, "reasoning", getMappedValue(mapped, "Reasoning") === true);
-    setIfMeaningful(config, "memory", getMappedValue(mapped, "Memory") === true);
-    return config;
-  };
-
-  const buildCrewaiTaskConfigFromGear = (gearAgent, mapped, agentKey, taskKey) => {
-    const config = {};
-    setIfMeaningful(config, "description", getMappedValue(mapped, "Task.Essential.Description") || "");
-    setIfMeaningful(config, "expected_output", getMappedValue(mapped, "Task.Essential.ExpectedOutput") || "");
-    setIfMeaningful(config, "agent", getMappedValue(mapped, "Task.Essential.This_Agent") || agentKey);
-    setIfMeaningful(config, "name", getMappedValue(mapped, "Task.Essential.Name") || taskKey);
-    setIfMeaningful(config, "async_execution", getMappedValue(mapped, "Task.Execution.AsyncExecution") === true);
-    setIfMeaningful(config, "human_input", getMappedValue(mapped, "Task.Execution.HumanInput") === true);
-    return config;
-  };
-
-  const buildCrewaiWorkflowCode = (agentsPayload, tasksPayload, workflowYaml, workflowItems, mappings) => {
-    if (!Array.isArray(mappings?.crewaiMulti) || !mappings.crewaiMulti.length) {
-      return "# Mapping CrewAI workflow indisponible. Vérifie connectors/frameworks/crewai/multiagent.mapping.yml";
-    }
-    const agentKeys = Object.keys(agentsPayload || {});
-    if (!agentKeys.length) {
-      return "# Aucun agent CrewAI defini.";
-    }
-
-    const importLines = [
-      "from crewai import Agent, Crew, Task, Process, LLM",
-      "import os",
-      "import sys",
-      "from dotenv import load_dotenv",
-      "",
-      "load_dotenv()",
-    ];
-
-    const llmLines = [];
-    const agentLines = [];
-    const taskLines = [];
-    const usedNames = new Set();
-    const agentVarMap = {};
-    const taskVarMap = {};
-
-    const makeUniqueVar = (base, fallback) => {
-      let candidate = toPythonName(base, fallback);
-      let suffix = 2;
-      while (usedNames.has(candidate)) {
-        candidate = `${candidate}_${suffix}`;
-        suffix += 1;
-      }
-      usedNames.add(candidate);
-      return candidate;
-    };
-
-    const agentNameMap = new Map();
-    agentKeys.forEach((agentKey) => {
-      const role = agentsPayload[agentKey]?.role?.toString().trim();
-      if (role && !agentNameMap.has(role)) {
-        agentNameMap.set(role, agentKey);
-      }
-      if (!agentNameMap.has(agentKey)) {
-        agentNameMap.set(agentKey, agentKey);
-      }
-    });
-
-    agentKeys.forEach((agentKey, index) => {
-      const agentVar = makeUniqueVar(agentKey, `agent_${index + 1}`);
-      agentVarMap[agentKey] = agentVar;
-      const agentConfig = agentsPayload[agentKey] || {};
-      let llmVar = "None";
-      const normalizedLlm = normalizeLlmValue(agentConfig.llm);
-      if (normalizedLlm) {
-        const llmName = `${agentVar}_llm`;
-        if (typeof normalizedLlm === "string") {
-          llmLines.push(
-            `${llmName} = LLM(`,
-            `  model=${toPythonLiteral(normalizedLlm)}`,
-            `)`,
-            "",
-          );
-        } else {
-          const llmArgs = Object.entries(normalizedLlm)
-            .filter(([, value]) => value !== null && value !== undefined && value !== "")
-            .map(([key, value]) => `  ${key}=${toPythonLiteral(value)},`);
-          llmLines.push(`${llmName} = LLM(`, ...llmArgs, `)`, "");
-        }
-        llmVar = llmName;
-      }
-
-      const args = Object.entries(agentConfig)
-        .filter(([, value]) => {
-          if (value === null || value === undefined) return false;
-          if (typeof value === "string" && value.trim() === "") return false;
-          if (Array.isArray(value) && value.length === 0) return false;
-          return true;
-        })
-        .map(([key, value]) => {
-          if (key === "llm") {
-            return `  ${key}=${llmVar},`;
-          }
-          return `  ${key}=${toPythonLiteral(value)},`;
-        });
-
-      agentLines.push(`${agentVar} = Agent(`, ...args, `)`, "");
-    });
-
-    const taskKeys = Object.keys(tasksPayload || {});
-    taskKeys.forEach((taskKey, index) => {
-      const taskVar = makeUniqueVar(taskKey, `task_${index + 1}`);
-      taskVarMap[taskKey] = taskVar;
-      const taskConfig = tasksPayload[taskKey] || {};
-      const args = Object.entries(taskConfig)
-        .filter(([, value]) => {
-          if (value === null || value === undefined) return false;
-          if (typeof value === "string" && value.trim() === "") return false;
-          if (Array.isArray(value) && value.length === 0) return false;
-          return true;
-        })
-        .map(([key, value]) => {
-          if (key === "agent" && typeof value === "string" && agentVarMap[value]) {
-            return `  ${key}=${agentVarMap[value]},`;
-          }
-          return `  ${key}=${toPythonLiteral(value)},`;
-        });
-      taskLines.push(`${taskVar} = Task(`, ...args, `)`, "");
-    });
-
-    const mappedWorkflow = applyMapping(workflowYaml || {}, mappings.crewaiMulti);
-    const mappedProcessRaw = getMappedValue(mappedWorkflow, "Crew.EssentialComponents.Process");
-    if (!mappedProcessRaw) {
-      return "# Mapping CrewAI invalide: Crew.EssentialComponents.Process requis.";
-    }
-    const processValue = String(mappedProcessRaw).toLowerCase();
-    const mappedMemory = getMappedValue(mappedWorkflow, "Crew.MemoryAndPerformance.Memory");
-    const memoryValue = typeof mappedMemory === "boolean" ? mappedMemory : false;
-
-    const orderedAgents =
-      Array.isArray(workflowItems) && workflowItems.length
-        ? workflowItems
-            .filter((item) => item.type === "agent")
-            .map((item) => agentNameMap.get(item.label || item.id) || item.label || item.id)
-            .filter((key) => agentKeys.includes(key))
-        : agentKeys.slice();
-
-    const orderedTasks = [];
-    orderedAgents.forEach((agentKey) => {
-      const agentRole = agentsPayload[agentKey]?.role?.toString().trim();
-      taskKeys.forEach((taskKey) => {
-        const taskAgent = tasksPayload[taskKey]?.agent;
-        if ((taskAgent === agentKey || (agentRole && taskAgent === agentRole)) && !orderedTasks.includes(taskKey)) {
-          orderedTasks.push(taskKey);
-        }
-      });
-    });
-
-    const fallbackAgents = orderedAgents.length ? orderedAgents : agentKeys;
-    const fallbackTasks = orderedTasks.length ? orderedTasks : taskKeys;
-
-    const crewLines = [
-      "crew = Crew(",
-      `  agents=[${fallbackAgents.map((key) => agentVarMap[key]).join(", ")}],`,
-      `  tasks=[${fallbackTasks.map((key) => taskVarMap[key]).join(", ")}],`,
-      `  process=Process.${processValue},`,
-    ];
-    if (memoryValue) {
-      crewLines.push("  memory=True,");
-    }
-    crewLines.push(")");
-    const kickoffLines = ["", "result = crew.kickoff()", "", 'print(\"result:\", result)'];
-
-    const template = getTemplate("crewai") || "{{imports}}\n\n{{agents_code}}\n\n{{tasks_code}}\n\n{{crew_block}}\n\n{{post_run}}";
-    const agentsCode = [...llmLines, ...agentLines].join("\n").trim();
-    return renderTemplate(template, {
-      imports: importLines.join("\n"),
-      agents_code: agentsCode,
-      tasks_code: taskLines.join("\n").trim(),
-      crew_block: crewLines.join("\n"),
-      post_run: kickoffLines.join("\n"),
-    });
-  };
+  const { toCrewaiModel, toPythonLiteral: lit, toPythonName, renderTemplate, getTemplate, createConversionReport } = utils;
+  const unique = (value, fallback, used) => { let name = toPythonName(value, fallback); let i = 2; while (used.has(name)) name = `${toPythonName(value, fallback)}_${i++}`; used.add(name); return name; };
+  const meaningful = (value) => value !== undefined && value !== null && value !== "";
 
   window.GearAssemblyPlugins.crewai = {
     assemble(input) {
+      const ir = input?.gearIR;
+      if (!ir?.valid) return { error: (ir?.diagnostics || []).filter((d) => d.severity === "error").map((d) => `# ${d.code}: ${d.message}`).join("\n") || "# Invalid Gear project.", diagnostics: ir?.diagnostics || [] };
       const mappings = input?.mappings || {};
-      const mappingEntries = Array.isArray(mappings.crewaiAgent) ? mappings.crewaiAgent : null;
-      if (!mappingEntries) {
-        return {
-          error: "# Mapping CrewAI indisponible. Vérifie connectors/frameworks/crewai/agent.mapping.yml",
-        };
-      }
-      const gearAgents = Array.isArray(input?.gearAgents) ? input.gearAgents : [];
-      const agentsPayload = {};
-      const tasksPayload = {};
-      const usedAgentKeys = new Set();
-      const usedTaskKeys = new Set();
+      const diagnostics = [];
+      const used = new Set();
+      const agentVars = new Map();
+      const runnerVars = new Map();
+      const agentLines = [];
+      const taskLines = [];
+      const agents = {};
+      const tasks = {};
 
-      gearAgents.forEach((gearAgent, index) => {
-        const mapped = applyMapping(gearAgent, mappingEntries);
-        const agentKey = ensureUniqueKey(gearAgent.AgentIdentity?.Name, "agent", index + 1, usedAgentKeys);
-        agentsPayload[agentKey] = buildCrewaiAgentConfigFromGear(gearAgent, mapped);
-        const taskKey = ensureUniqueKey(
-          gearAgent.TaskSpecification?.TaskName,
-          "task",
-          index + 1,
-          usedTaskKeys,
-        );
-        tasksPayload[taskKey] = buildCrewaiTaskConfigFromGear(gearAgent, mapped, agentKey, taskKey);
+      ir.agents.forEach((item, index) => {
+        const source = item.source || {};
+        const identity = source.AgentIdentity || {};
+        const task = source.TaskSpecification || {};
+        const llm = source.LLMConfiguration || {};
+        const params = llm.ModelParameters || {};
+        const controls = source.ExecutionControl || {};
+        const variable = unique(item.name, `agent_${index + 1}`, used);
+        const llmVar = unique(`${item.name}_llm`, `agent_${index + 1}_llm`, used);
+        const taskFactory = unique(`make_${task.TaskName || item.name}_task`, `make_task_${index + 1}`, used);
+        const runner = unique(`run_${item.name}`, `run_agent_${index + 1}`, used);
+        agentVars.set(item.id, variable);
+        runnerVars.set(item.id, runner);
+
+        const model = toCrewaiModel(llm.Provider, llm.Model || "gpt-4.1-mini");
+        const additional = params.AdditionalParams && typeof params.AdditionalParams === "object" ? params.AdditionalParams : {};
+        const llmOptions = [["provider", llm.Provider], ["model", model], ["base_url", llm.BaseURL], ["timeout", llm.Timeout], ["temperature", params.Temperature], ["max_tokens", params.MaxTokens], ["top_p", params.TopP], ["stop", params.StopSequences], ["frequency_penalty", params.FrequencyPenalty], ["presence_penalty", params.PresencePenalty], ["seed", params.Seed], ["additional_params", Object.keys(additional).length ? additional : undefined]].filter(([, value]) => meaningful(value));
+        agentLines.push(`${llmVar} = LLM(`, ...llmOptions.map(([key, value]) => `    ${key}=${lit(value)},`), ")", `${variable} = Agent(`, `    role=${lit(item.name)},`, `    goal=${lit(identity.Purpose || "Complete the assigned task.")},`, `    backstory=${lit(identity.ContextDescription || "")},`, `    llm=${llmVar},`, `    verbose=${controls.VerbosityControl === true ? "True" : "False"},`, `    allow_delegation=${controls.DelegationControl === true ? "True" : "False"},`, `    allow_code_execution=${controls.CodeExecutionControl === true ? "True" : "False"},`, `    cache=${controls.CachingControl === true ? "True" : "False"},`, `    reasoning=${source.Reasoning === true ? "True" : "False"},`, `    memory=${source.Memory === true ? "True" : "False"},`, ...(meaningful(llm.MaxRetries) ? [`    max_retry_limit=${lit(llm.MaxRetries)},`] : []), ")", "");
+
+        const description = `${task.TaskDescription || "Complete the assigned task."}\n\nWorkflow input:\n{gear_input}`;
+        taskLines.push(`def ${taskFactory}() -> Task:`, "    return Task(", `        name=${lit(task.TaskName || `${item.name}Task`)},`, `        description=${lit(description)},`, `        expected_output=${lit(task.ExpectedOutput || "A useful result.")},`, `        agent=${variable},`, `        human_input=${controls.HumanInteractionControl === true ? "True" : "False"},`, "    )", "", `async def ${runner}(prompt: str) -> str:`, `    task = ${taskFactory}()`, `    crew = Crew(name=${lit(`${item.name}Crew`)}, agents=[${variable}], tasks=[task], process=Process.sequential, memory=${source.Memory === true ? "True" : "False"})`, "    result = await crew.kickoff_async(inputs={\"gear_input\": prompt})", "    return str(result)", "");
+
+        agents[item.name] = { role: item.name, goal: identity.Purpose || "", backstory: identity.ContextDescription || "", llm: { provider: llm.Provider || "openai", model, ...Object.fromEntries(llmOptions.filter(([key]) => !["provider", "model"].includes(key))) } };
+        tasks[task.TaskName || `${item.name}Task`] = { name: task.TaskName || `${item.name}Task`, description: task.TaskDescription || "", expected_output: task.ExpectedOutput || "", agent: item.name };
       });
 
-      const workflowCode = buildCrewaiWorkflowCode(
-        agentsPayload,
-        tasksPayload,
-        input?.workflowYaml || {},
-        input?.workflowItems || [],
-        mappings,
-      );
+      const moduleVars = new Map();
+      const moduleLines = [];
+      ir.modules.forEach((module, index) => {
+        const fn = `run_${unique(module.name, `module_${index + 1}`, used)}`;
+        moduleVars.set(module.id, fn);
+        const runners = module.agentRefs.map((ref) => runnerVars.get(ref)).filter(Boolean);
+        if (module.strategy === "parallel") {
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${runners.map((runner) => `${runner}(prompt)`).join(", ")})`, "    combined = \"\\n\\n\".join(results)");
+          const aggregator = runnerVars.get(module.aggregator);
+          moduleLines.push(...(aggregator ? [`    return await ${aggregator}(combined)`] : ["    return combined"]), "");
+        } else {
+          const turns = Number.isInteger(module.maxIterations) && module.maxIterations > 0 ? module.maxIterations : 1;
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, "    current = prompt", `    stop_condition = ${lit(module.stopCondition || "")}`, `    for _ in range(${turns}):`, ...runners.map((runner) => `        current = await ${runner}(current)`), "    return current", "");
+          if (module.stopCondition) diagnostics.push({ code: "CREWAI-LOOP-STOP-ADAPTED", severity: "warning", message: `Loop module ${module.name} uses TurnCount as its hard limit; its natural-language stop condition remains metadata.`, path: module.name });
+        }
+      });
 
-      return {
-        outputs: {
-          agents: agentsPayload,
-          tasks: tasksPayload,
-          orchestration: workflowCode,
-        },
-      };
+      const callFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `${runnerVars.get(node.ref)}(current)`;
+      const workflowLines = [`WORKFLOW_NAME = ${lit(ir.workflow.name || "GearWorkflow")}`, "", "async def run_workflow(user_input: str) -> str:", "    current = user_input"];
+      ir.workflow.executionLayers.forEach((layer) => {
+        if (layer.length === 1) workflowLines.push(`    current = await ${callFor(layer[0])}`);
+        else workflowLines.push(`    layer_results = await asyncio.gather(${layer.map(callFor).join(", ")})`, "    current = \"\\n\\n\".join(layer_results)");
+      });
+      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    print(asyncio.run(run_workflow(prompt)))");
+      const imports = ["import asyncio", "import os", "from crewai import Agent, Crew, Task, Process, LLM", "from dotenv import load_dotenv", "", "load_dotenv()"];
+      const orchestration = renderTemplate(getTemplate("crewai") || "{{imports}}\n\n{{agents_code}}\n\n{{tasks_code}}\n\n{{crew_block}}\n\n{{post_run}}", { imports: imports.join("\n"), agents_code: agentLines.join("\n").trim(), tasks_code: taskLines.join("\n").trim(), crew_block: moduleLines.join("\n").trim(), post_run: workflowLines.join("\n") });
+      const mappingEntries = [...(mappings.crewaiAgent || []), ...(mappings.crewaiModule || []), ...(mappings.crewaiMulti || [])];
+      const consumedPaths = ["AgentIdentity.Name", "AgentIdentity.Purpose", "AgentIdentity.ContextDescription", "LLMConfiguration.Provider", "LLMConfiguration.Model", "LLMConfiguration.BaseURL", "LLMConfiguration.Timeout", "LLMConfiguration.MaxRetries", "LLMConfiguration.ModelParameters.Temperature", "LLMConfiguration.ModelParameters.MaxTokens", "LLMConfiguration.ModelParameters.TopP", "LLMConfiguration.ModelParameters.StopSequences", "LLMConfiguration.ModelParameters.AdditionalParams", "LLMConfiguration.ModelParameters.FrequencyPenalty", "LLMConfiguration.ModelParameters.PresencePenalty", "LLMConfiguration.ModelParameters.Seed", "TaskSpecification.TaskName", "TaskSpecification.TaskDescription", "TaskSpecification.ExpectedOutput", "ExecutionControl.DelegationControl", "ExecutionControl.CodeExecutionControl", "ExecutionControl.AsyncExecutionControl", "ExecutionControl.HumanInteractionControl", "ExecutionControl.VerbosityControl", "ExecutionControl.CachingControl", "Reasoning", "Memory", "ModuleName", "Strategy.Parallel.ParallelAgents", "Strategy.Parallel.Aggregator", "Strategy.Loop.LoopAgents", "Strategy.Loop.TurnCount", "Strategy.Loop.StopCondition", "WorkflowName", "Items.Agents", "Items.Modules", "Edges.From", "Edges.To"];
+      return { outputs: { agents, tasks, orchestration, report: createConversionReport({ frameworkId: "crewai", gearIR: ir, mappingEntries, consumedPaths, diagnostics }) } };
     },
   };
 })(window);

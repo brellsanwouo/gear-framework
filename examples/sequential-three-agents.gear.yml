@@ -1,0 +1,76 @@
+schema_version: "1.0"
+project:
+  id: sequential-three-agents
+  name: Sequential three-agent workflow
+  description: Research, write, and review in sequence.
+
+agents:
+  - AgentIdentity:
+      Name: Researcher
+      Purpose: Find accurate information for the requested topic.
+      ContextDescription: A careful researcher who distinguishes evidence from assumptions.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+      ModelParameters:
+        Temperature: 0.1
+        MaxTokens: 1200
+    TaskSpecification:
+      TaskName: ResearchTopic
+      TaskDescription: Research the topic and return concise factual notes.
+      ExpectedOutput: A structured list of verified research notes.
+
+  - AgentIdentity:
+      Name: Writer
+      Purpose: Turn research notes into a clear draft.
+      ContextDescription: A technical writer who preserves factual accuracy.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+      ModelParameters:
+        Temperature: 0.3
+        MaxTokens: 1600
+    TaskSpecification:
+      TaskName: WriteDraft
+      TaskDescription: Write a structured draft from the research notes.
+      ExpectedOutput: A complete Markdown draft.
+
+  - AgentIdentity:
+      Name: Reviewer
+      Purpose: Verify and improve the final answer.
+      ContextDescription: A strict editor focused on correctness, clarity, and completeness.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+      ModelParameters:
+        Temperature: 0.1
+        MaxTokens: 1600
+    TaskSpecification:
+      TaskName: ReviewDraft
+      TaskDescription: Review the draft, correct problems, and return the final version.
+      ExpectedOutput: A corrected and publication-ready Markdown document.
+
+modules: []
+
+workflow:
+  name: EditorialWorkflow
+  memory: false
+  nodes:
+    - id: research
+      ref: Researcher
+      type: agent
+    - id: write
+      ref: Writer
+      type: agent
+    - id: review
+      ref: Reviewer
+      type: agent
+  edges:
+    - from: research
+      to: write
+    - from: write
+      to: review
+
+targets:
+  - crewai
+  - adk

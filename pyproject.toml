@@ -4,30 +4,276 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gear-framework"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Gear Framework: design portable multi-agent systems with feature-model based specifications and generate code for multiple execution frameworks."
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 requires-python = ">=3.10,<3.14"
 dependencies = [
-  "crewai>=0.193,<1",
   "flamapy>=2.0,<3",
   "flamapy-bdd>=2.0,<3",
   "flamapy-fm>=2.0,<3",
   "flamapy-sat>=2.0,<3",
   "flask>=3.0,<4",
   "flask-cors>=6.0,<7",
-  "google-adk>=1.21,<2",
-  "litellm>=1.74,<2",
+  "jsonschema>=4.23,<5",
   "Markdown>=3.8,<4",
-  "mlflow>=3.0,<4",
   "mysql-connector-python>=9.0,<10",
   "python-dotenv>=1.1,<2",
   "PyYAML>=6.0,<7",
 ]
 
+[project.optional-dependencies]
+execution = [
+  "crewai>=1.15.4,<2",
+  "google-adk>=2.5,<3",
+  "langchain>=1.0,<2",
+  "langgraph>=1.0,<2",
+  "openai-agents>=0.18,<1",
+  "strands-agents[openai]>=1.48,<2",
+  "pydantic-ai-slim[openai]>=2.13,<3",
+  "haystack-ai>=2.31,<3",
+  "litellm>=1.84,<2",
+  "mlflow>=3.0,<4",
+  "opentelemetry-api>=1.42,<1.43",
+  "opentelemetry-sdk>=1.42,<1.43",
+  "opentelemetry-exporter-otlp-proto-http>=1.42,<1.43",
+]
+execution-crewai = ["crewai>=1.15.4,<2"]
+execution-adk = ["google-adk>=2.5,<3", "litellm>=1.84,<2"]
+execution-langgraph = ["langchain>=1.0,<2", "langgraph>=1.0,<2"]
+execution-openai-agents = ["openai-agents>=0.18,<1"]
+execution-microsoft-agent-framework = ["agent-framework>=1.11,<2"]
+execution-strands = ["strands-agents[openai]>=1.48,<2"]
+execution-pydantic-ai = ["pydantic-ai-slim[openai]>=2.13,<3"]
+execution-autogen = ["autogen-agentchat>=0.7.5,<1", "autogen-ext[openai]>=0.7.5,<1"]
+execution-semantic-kernel = ["semantic-kernel>=1.44,<2"]
+execution-haystack = ["haystack-ai>=2.31,<3"]
+dev = [
+  "build>=1.2,<2",
+  "pytest>=8,<10",
+]
+
 [project.scripts]
-gear = "server:main"
+gear = "gear_sdk.cli:main"
+gear-server = "server:main"
 
 [tool.setuptools]
 py-modules = ["server"]
+
+[tool.setuptools.dynamic]
+version = {attr = "gear_sdk.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["gear_sdk*", "gear_web*"]
+
+[tool.setuptools.package-data]
+gear_sdk = ["py.typed", "runtime/*.js"]
+
+[tool.setuptools.data-files]
+"share/gear-framework" = ["config.yml"]
+"share/gear-framework/ui" = [
+  "ui/index.html", "ui/app.js", "ui/styles.css", "ui/README.md",
+  "ui/manual.html", "ui/manual.js", "ui/manual.css",
+  "ui/experiment.html", "ui/experiment.js", "ui/experiment.css",
+  "ui/overlay.js", "ui/overlay.css", "ui/feature-policy.yml",
+  "ui/studio.html", "ui/studio.js", "ui/studio.css",
+]
+"share/gear-framework/ui/js" = [
+  "ui/js/history.js",
+  "ui/js/workflow-order.js",
+  "ui/js/resource-loader.js",
+  "ui/js/project-storage.js",
+]
+"share/gear-framework/ui/assets" = [
+  "ui/assets/GEAR-logo.png",
+  "ui/assets/GEAR-logo-horizontal.png",
+  "ui/assets/GEAR-logo-vertical.png",
+  "ui/assets/crewai-logo.png",
+  "ui/assets/google-adk-logo.png",
+  "ui/assets/langgraph-logo.svg",
+  "ui/assets/openai-agents-logo.svg",
+  "ui/assets/microsoft-agent-framework-logo.svg",
+  "ui/assets/strands-agents-logo.svg",
+  "ui/assets/pydantic-ai-logo.svg",
+  "ui/assets/autogen-logo.svg",
+  "ui/assets/semantic-kernel-logo.png",
+  "ui/assets/haystack-logo.svg",
+]
+"share/gear-framework/ui/assets/feature-models" = [
+  "ui/assets/feature-models/agent.png",
+  "ui/assets/feature-models/module.png",
+  "ui/assets/feature-models/workflow.png",
+]
+"share/gear-framework/gear" = [
+  "gear/gear-agent.uvl", "gear/gear-agent.yml",
+  "gear/gear-module.uvl", "gear/gear-module.yml",
+  "gear/gear-multiagent.uvl", "gear/gear-multiagent.yml",
+]
+"share/gear-framework/connectors" = ["connectors/registry.yml"]
+"share/gear-framework/runtime" = [
+  "gear_sdk/runtime/assembly-engine.js",
+  "gear_sdk/runtime/conversion-core.js",
+  "gear_sdk/runtime/node-convert.js",
+]
+"share/gear-framework/runtime/connectors/crewai" = [
+  "connectors/frameworks/crewai/connector.yml",
+  "connectors/frameworks/crewai/agent.mapping.yml",
+  "connectors/frameworks/crewai/module.mapping.yml",
+  "connectors/frameworks/crewai/multiagent.mapping.yml",
+  "connectors/frameworks/crewai/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/adk" = [
+  "connectors/frameworks/adk/connector.yml",
+  "connectors/frameworks/adk/agent.mapping.yml",
+  "connectors/frameworks/adk/module.mapping.yml",
+  "connectors/frameworks/adk/multiagent.mapping.yml",
+  "connectors/frameworks/adk/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/langgraph" = [
+  "connectors/frameworks/langgraph/connector.yml",
+  "connectors/frameworks/langgraph/agent.mapping.yml",
+  "connectors/frameworks/langgraph/module.mapping.yml",
+  "connectors/frameworks/langgraph/multiagent.mapping.yml",
+  "connectors/frameworks/langgraph/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/openai-agents" = [
+  "connectors/frameworks/openai-agents/connector.yml",
+  "connectors/frameworks/openai-agents/agent.mapping.yml",
+  "connectors/frameworks/openai-agents/module.mapping.yml",
+  "connectors/frameworks/openai-agents/multiagent.mapping.yml",
+  "connectors/frameworks/openai-agents/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/microsoft-agent-framework" = [
+  "connectors/frameworks/microsoft-agent-framework/connector.yml",
+  "connectors/frameworks/microsoft-agent-framework/agent.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/module.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/multiagent.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/strands" = [
+  "connectors/frameworks/strands/connector.yml",
+  "connectors/frameworks/strands/agent.mapping.yml",
+  "connectors/frameworks/strands/module.mapping.yml",
+  "connectors/frameworks/strands/multiagent.mapping.yml",
+  "connectors/frameworks/strands/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/pydantic-ai" = [
+  "connectors/frameworks/pydantic-ai/connector.yml",
+  "connectors/frameworks/pydantic-ai/agent.mapping.yml",
+  "connectors/frameworks/pydantic-ai/module.mapping.yml",
+  "connectors/frameworks/pydantic-ai/multiagent.mapping.yml",
+  "connectors/frameworks/pydantic-ai/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/autogen" = [
+  "connectors/frameworks/autogen/connector.yml",
+  "connectors/frameworks/autogen/agent.mapping.yml",
+  "connectors/frameworks/autogen/module.mapping.yml",
+  "connectors/frameworks/autogen/multiagent.mapping.yml",
+  "connectors/frameworks/autogen/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/semantic-kernel" = [
+  "connectors/frameworks/semantic-kernel/connector.yml",
+  "connectors/frameworks/semantic-kernel/agent.mapping.yml",
+  "connectors/frameworks/semantic-kernel/module.mapping.yml",
+  "connectors/frameworks/semantic-kernel/multiagent.mapping.yml",
+  "connectors/frameworks/semantic-kernel/assembly.plugin.js",
+]
+"share/gear-framework/runtime/connectors/haystack" = [
+  "connectors/frameworks/haystack/connector.yml",
+  "connectors/frameworks/haystack/agent.mapping.yml",
+  "connectors/frameworks/haystack/module.mapping.yml",
+  "connectors/frameworks/haystack/multiagent.mapping.yml",
+  "connectors/frameworks/haystack/assembly.plugin.js",
+]
+"share/gear-framework/connectors/frameworks/crewai" = [
+  "connectors/frameworks/crewai/connector.yml",
+  "connectors/frameworks/crewai/agent.mapping.yml",
+  "connectors/frameworks/crewai/module.mapping.yml",
+  "connectors/frameworks/crewai/multiagent.mapping.yml",
+  "connectors/frameworks/crewai/assembly.plugin.js",
+  "connectors/frameworks/crewai/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/adk" = [
+  "connectors/frameworks/adk/connector.yml",
+  "connectors/frameworks/adk/agent.mapping.yml",
+  "connectors/frameworks/adk/module.mapping.yml",
+  "connectors/frameworks/adk/multiagent.mapping.yml",
+  "connectors/frameworks/adk/assembly.plugin.js",
+  "connectors/frameworks/adk/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/langgraph" = [
+  "connectors/frameworks/langgraph/connector.yml",
+  "connectors/frameworks/langgraph/agent.mapping.yml",
+  "connectors/frameworks/langgraph/module.mapping.yml",
+  "connectors/frameworks/langgraph/multiagent.mapping.yml",
+  "connectors/frameworks/langgraph/assembly.plugin.js",
+  "connectors/frameworks/langgraph/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/openai-agents" = [
+  "connectors/frameworks/openai-agents/connector.yml",
+  "connectors/frameworks/openai-agents/agent.mapping.yml",
+  "connectors/frameworks/openai-agents/module.mapping.yml",
+  "connectors/frameworks/openai-agents/multiagent.mapping.yml",
+  "connectors/frameworks/openai-agents/assembly.plugin.js",
+  "connectors/frameworks/openai-agents/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/microsoft-agent-framework" = [
+  "connectors/frameworks/microsoft-agent-framework/connector.yml",
+  "connectors/frameworks/microsoft-agent-framework/agent.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/module.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/multiagent.mapping.yml",
+  "connectors/frameworks/microsoft-agent-framework/assembly.plugin.js",
+  "connectors/frameworks/microsoft-agent-framework/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/strands" = [
+  "connectors/frameworks/strands/connector.yml",
+  "connectors/frameworks/strands/agent.mapping.yml",
+  "connectors/frameworks/strands/module.mapping.yml",
+  "connectors/frameworks/strands/multiagent.mapping.yml",
+  "connectors/frameworks/strands/assembly.plugin.js",
+  "connectors/frameworks/strands/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/pydantic-ai" = [
+  "connectors/frameworks/pydantic-ai/connector.yml",
+  "connectors/frameworks/pydantic-ai/agent.mapping.yml",
+  "connectors/frameworks/pydantic-ai/module.mapping.yml",
+  "connectors/frameworks/pydantic-ai/multiagent.mapping.yml",
+  "connectors/frameworks/pydantic-ai/assembly.plugin.js",
+  "connectors/frameworks/pydantic-ai/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/autogen" = [
+  "connectors/frameworks/autogen/connector.yml",
+  "connectors/frameworks/autogen/agent.mapping.yml",
+  "connectors/frameworks/autogen/module.mapping.yml",
+  "connectors/frameworks/autogen/multiagent.mapping.yml",
+  "connectors/frameworks/autogen/assembly.plugin.js",
+  "connectors/frameworks/autogen/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/semantic-kernel" = [
+  "connectors/frameworks/semantic-kernel/connector.yml",
+  "connectors/frameworks/semantic-kernel/agent.mapping.yml",
+  "connectors/frameworks/semantic-kernel/module.mapping.yml",
+  "connectors/frameworks/semantic-kernel/multiagent.mapping.yml",
+  "connectors/frameworks/semantic-kernel/assembly.plugin.js",
+  "connectors/frameworks/semantic-kernel/workflow.tmpl",
+]
+"share/gear-framework/connectors/frameworks/haystack" = [
+  "connectors/frameworks/haystack/connector.yml",
+  "connectors/frameworks/haystack/agent.mapping.yml",
+  "connectors/frameworks/haystack/module.mapping.yml",
+  "connectors/frameworks/haystack/multiagent.mapping.yml",
+  "connectors/frameworks/haystack/assembly.plugin.js",
+  "connectors/frameworks/haystack/workflow.tmpl",
+]
+"share/gear-framework/research/agent-grid-planning" = ["research/agent-grid-planning/tasks.json"]
+"share/gear-framework/data/AgentGridPlanning" = [
+  "data/AgentGridPlanning/P0.md", "data/AgentGridPlanning/P1.md", "data/AgentGridPlanning/P2.md",
+  "data/AgentGridPlanning/P3.md", "data/AgentGridPlanning/P4.md",
+]
+"share/gear-framework/data/AgentGridPlanning/images" = [
+  "data/AgentGridPlanning/images/P0.png", "data/AgentGridPlanning/images/P1.svg",
+  "data/AgentGridPlanning/images/P2.svg", "data/AgentGridPlanning/images/P3.svg",
+  "data/AgentGridPlanning/images/P4.svg", "data/AgentGridPlanning/images/P5.svg",
+]
+"share/gear-framework/schemas" = ["schemas/project.gear.schema.json"]

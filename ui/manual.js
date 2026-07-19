@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (runAborter) runAborter.abort();
             runAborter = new AbortController();
+            runBtn.disabled = true;
+            stopBtn.disabled = false;
             outputPre.textContent = `Execution of the workflow...`;
             outputPre.classList.remove('error');
 
@@ -80,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } finally {
                 runAborter = null;
+                runBtn.disabled = false;
+                stopBtn.disabled = true;
             }
         });
     }
@@ -90,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (runAborter) {
                 runAborter.abort();
                 runAborter = null;
+                runBtn.disabled = false;
+                stopBtn.disabled = true;
             }
         });
     }

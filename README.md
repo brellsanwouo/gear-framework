@@ -1,346 +1,354 @@
-# Gear Framework
+<p align="center">
+  <img src="ui/assets/GEAR-logo-horizontal.png" alt="GEAR Framework" width="300">
+</p>
 
-![python](https://img.shields.io/badge/python-3.10%2B-blue)
-![backend](https://img.shields.io/badge/backend-flask-black)
-![ui](https://img.shields.io/badge/ui-vanilla%20JS-yellow)
-![connectors](https://img.shields.io/badge/connectors-yaml%20%2B%20plugin-6b8cff)
+<p align="center">
+  Design portable multi-agent systems once, then generate implementations for multiple agent frameworks.
+</p>
 
-**Gear Framework** helps design multi-agent systems (SMA) independently from the execution framework that will run them. Instead of starting directly from CrewAI, Google ADK, or another framework-specific API, Gear lets you first describe the system at the design level: agents, modules, workflows, constraints, and variation points.
+<p align="center">
+  <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/Python-3.10%E2%80%933.13-3776AB?logo=python&logoColor=white">
+  <img alt="Flask" src="https://img.shields.io/badge/API-Flask-111827?logo=flask&logoColor=white">
+  <img alt="VitePress" src="https://img.shields.io/badge/Docs-VitePress-646CFF?logo=vitepress&logoColor=white">
+  <img alt="License MIT" src="https://img.shields.io/badge/License-MIT-16A085">
+</p>
 
-From that same Gear design, the tool can generate framework-specific YAML and executable code for several targets. This improves portability: one design can be reused, compared, and translated across frameworks without rewriting the SMA from scratch each time.
+## Overview
 
----
+GEAR is a framework-independent design layer for multi-agent systems. A GEAR project describes agents, tasks, modules, execution order, memory, tools, and model settings without tying the source design to one execution runtime.
 
-## Why this project exists
+The same validated project can be converted into runnable Python implementations for:
 
-Most agent frameworks mix two concerns: the conceptual design of the SMA and the concrete code needed to execute it. That makes experimentation costly, because changing frameworks often means redesigning the system in another API.
+| Target | Agents and tasks | Sequential workflow | Parallel and loop modules |
+| --- | --- | --- | --- |
+| CrewAI | Supported | Supported | Concurrent async crews and bounded loops |
+| Google ADK | Supported | Supported | Supported through native workflow agents |
+| LangGraph | Supported | Supported | Native graph branches and joins; bounded loop modules |
+| OpenAI Agents SDK | Supported | Supported | Deterministic Python orchestration with tracing |
+| Microsoft Agent Framework | Supported | Supported | Native fan-out and synchronized fan-in workflows |
+| Strands Agents | Supported | Supported | Native graph branches, explicit fan-in barriers, and bounded loops |
+| PydanticAI | Supported | Supported | Type-safe outputs, async parallel hand-offs, and bounded loops |
+| Microsoft AutoGen | Supported | Supported | Parallel agent tasks and bounded round-robin teams |
+| Semantic Kernel | Supported | Supported | Stable agent calls with deterministic async orchestration |
+| Haystack | Supported | Supported | Native async agents, parallel hand-offs, and bounded loops |
 
-Gear Framework separates those concerns. It provides a framework-independent design layer, then maps that design to concrete frameworks when execution code is needed.
+Connector manifests and conversion reports remain authoritative for the installed version.
 
-It helps you:
+## Key capabilities
 
-- **Design first, execute later**: model agents, modules, and workflows independently from CrewAI, Google ADK, or any future backend.
-- **Improve portability**: reuse the same SMA design across several frameworks and compare their generated implementations.
-- **Generate code automatically**: produce framework-specific YAML and runnable Python code from the Gear design.
-- **Manage variability explicitly**: use feature-model-based specification and variability management to represent optional features, alternatives, constraints, and valid configurations.
-- **Stay extensible**: add new target frameworks through mappings and assembler plugins instead of hardcoding translations.
+- Stable, versioned `.gear.yml` project format.
+- Guided Studio for agents, modules, workflows, validation, and builds.
+- Advanced YAML editing with a complete key and value reference.
+- Blocking validation before artifact generation.
+- Transactional multi-target conversion: no partial output when a requested target fails preflight.
+- Runnable Python generation for every installed connector.
+- Persistent build and execution history with build, run, and trace identifiers.
+- Extensible connector architecture based on manifests, mappings, and assembler plugins.
+- UVL feature models and Flamapy-based configuration analysis.
 
----
+## How GEAR works
 
-## What this tool does
-
-- **Framework-independent SMA design**: define agents, modules, workflows, memory, tools, execution control, and model configuration in Gear.
-- **Feature model specification**: maintain UVL feature models for Gear concepts and use them to analyze variability and configuration space.
-- **FeatureIDE diagrams**: display pre-generated FeatureIDE PNG diagrams for the agent, module, and workflow feature models.
-- **Translation to target frameworks**: map Gear designs to CrewAI and Google ADK through YAML mappings and plugin-based assemblers.
-- **Automatic artifact generation**: generate framework YAML and runnable workflow code from the same source design.
-- **Optional execution**: run generated workflows directly from the UI when the target framework dependencies and API keys are installed.
-- **Connector-based extensibility**: add frameworks by adding mappings, templates, and assembler plugins under `connectors/`.
-
----
-
-## Repository layout (what matters and why)
-
-```
-gear-framework/
-├─ server.py                         # Flask server, API routes, execution entry point
-├─ pyproject.toml                    # Python package metadata and dependencies
-├─ requirements.txt                  # Pinned/legacy dependency entry point
-├─ config.yml                        # Runtime configuration
-├─ ui/                               # Browser UI and static assets
-│  ├─ index.html                     # Main Gear design and translation UI
-│  ├─ app.js                         # Main UI logic
-│  ├─ styles.css                     # Main UI styles
-│  ├─ manual.html/js/css             # Manual authoring workflow
-│  ├─ experiment.html/js/css         # Experiment workflow UI
-│  ├─ overlay.js/css                 # Shared overlay components
-│  ├─ feature-policy.yml             # UI feature policy/configuration
-│  └─ assets/feature-models/         # Pre-rendered FeatureIDE diagrams
-├─ gear/                             # Framework-independent Gear models
-│  ├─ gear-agent.uvl / .yml          # Agent feature model and defaults
-│  ├─ gear-module.uvl / .yml         # Module feature model and defaults
-│  └─ gear-multiagent.uvl / .yml     # Multi-agent/workflow feature model and defaults
-├─ connectors/                       # Target-framework connectors and mappings
-│  ├─ registry.yml                   # Connector registry consumed by the UI/engine
-│  ├─ README.md                      # Connector authoring guide
-│  └─ frameworks/
-│     ├─ _template/                  # Connector skeleton
-│     ├─ crewai/
-│     │  ├─ *.mapping.yml            # Gear-to-CrewAI mappings
-│     │  ├─ *-fm-full/lite.uvl       # CrewAI-specific feature models
-│     │  ├─ workflow.tmpl            # Generated workflow template
-│     │  └─ assembly.plugin.js       # CrewAI assembler plugin
-│     └─ adk/
-│        ├─ *.mapping.yml            # Gear-to-ADK mappings
-│        ├─ *-fm-full/lite.uvl       # ADK-specific feature models
-│        ├─ workflow.tmpl            # Generated workflow template
-│        └─ assembly.plugin.js       # ADK assembler plugin
-├─ SDK/gear_sdk/
-│  └─ assembly-engine.js             # Shared client-side assembly engine
-├─ data/AgentGridPlanning/           # Example problem set and scenario assets
-│  ├─ P0.md ... P4.md                # Problem descriptions
-│  ├─ images/                        # Scenario diagrams
-│  ├─ mermaid code/                  # Mermaid sources for diagrams
-│  └─ template yaml/                 # Scenario YAML templates
-├─ test-adk.py                       # ADK smoke/test script
-├─ test-crewai.py                    # CrewAI smoke/test script
-├─ tasks.json                        # Local task data
-├─ result.json / result.txt          # Local generated results
-├─ mlflow.db                         # Local MLflow tracking database
-├─ mlruns/                           # Local MLflow run artifacts
-└─ README.md
+```text
+GEAR project
+    │
+    ├── Agents and tasks
+    ├── Parallel or loop modules
+    └── Workflow graph
+            │
+            ▼
+       Validation
+            │
+            │
+            ▼
+   Selected connectors
+            │
+            ▼
+   Runnable Python artifacts
 ```
 
----
+The source project stays unchanged. Connector-specific adaptations and unsupported properties are exposed in the conversion report instead of being silently discarded.
 
-## How it works (high level)
+## Requirements
 
-1) **Design**: define agents, modules, and workflows in Gear through the UI or YAML.
-2) **Specify variability**: use Gear feature models (UVL) to represent optional features, alternatives, constraints, and valid configurations.
-3) **Analyze and visualize**: inspect the feature models and run configuration analysis with Flamapy.
-4) **Translate**: apply mappings and assembler plugins to convert Gear designs into CrewAI or Google ADK artifacts.
-5) **Generate code**: produce framework-specific YAML and executable Python workflow code.
-6) **Execute when needed**: run the generated code only when the target framework dependencies and API keys are available.
+- Python `>=3.10,<3.14`
+- Node.js `>=20` for the conversion backend and documentation
+- An API key only when the generated workflow calls a hosted model
 
----
-
-## Prerequisites
-
-- Python **>= 3.10** and **< 3.14** (CrewAI requirement)
-- Python dependencies declared in `pyproject.toml`:
-  Flask, Flamapy, CrewAI, Google ADK, LiteLLM, PyYAML, python-dotenv, MLflow, MySQL connector, Markdown
-- API keys are optional for launching the project. `OPENAI_API_KEY` is only required when executing generated framework workflows.
-
----
+Framework runtimes are optional dependencies. They are not required to author or convert a project.
 
 ## Installation
 
-It is recommended to follow each framework's official documentation for detailed setup. Below is a working baseline:
-
-### 1) Create a virtual environment
-```
+```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-### 2) Install base dependencies
-```
-pip install --upgrade pip
+python -m pip install --upgrade pip
 pip install -e .
 ```
 
-Verify the app command is available:
-```
-gear
+Install local execution runtimes only when needed:
+
+```bash
+pip install -e ".[execution]"
 ```
 
----
+The combined extra installs the mutually compatible runtimes. A single target can be installed with its dedicated extra, for example:
 
-## Configuration (.env)
-
-Create a `.env` in `gear-framework/` from the provided template:
+```bash
+pip install -e ".[execution-pydantic-ai]"
+pip install -e ".[execution-microsoft-agent-framework]"
+pip install -e ".[execution-autogen]"
+pip install -e ".[execution-semantic-kernel]"
+pip install -e ".[execution-haystack]"
 ```
+
+The combined extra is dependency-resolved against CrewAI 1.15 and Google ADK 2.5. Google ADK is installed with LiteLLM instead of the broad `extensions` extra because that extra currently pins an older LangGraph branch. Dedicated target extras remain preferable for smaller execution environments.
+
+For development and tests:
+
+```bash
+pip install -e ".[dev]"
+npm ci
+```
+
+Verify the installation:
+
+```bash
+gear --version
+gear connectors list
+```
+
+## First project
+
+Create, validate, and convert a starter project:
+
+```bash
+gear init my-project
+gear validate my-project.gear.yml
+gear convert my-project.gear.yml --all-targets
+```
+
+To test GEAR with a complete project immediately, select one of the bundled one-, four-, five-, or six-agent starters:
+
+```bash
+gear templates list
+gear init test-project --template research-team
+gear init guided-project --interactive
+```
+
+`--provider` and `--model` make initialization fully scriptable when a particular LLM is required.
+
+Once converted, set the provider API key and pass a test prompt through `GEAR_INPUT`:
+
+```bash
+gear convert test-project.gear.yml --target crewai
+GEAR_INPUT="Prepare a short comparison of agent frameworks." \
+  python dist/test-project/crewai/orchestration.py
+```
+
+Successful conversion writes target artifacts below:
+
+```text
+dist/my-project/
+├── crewai/
+│   ├── orchestration.py
+│   └── build.json
+└── adk/
+    ├── orchestration.py
+    └── build.json
+```
+
+Additional generated YAML and report files are stored beside each Python script.
+
+If validation or connector preflight finds a blocking problem, conversion exits with status code `2`, prints every detected issue, and creates no new target files.
+
+## Authoring projects in YAML
+
+The stable project contract is defined by [`schemas/project.gear.schema.json`](schemas/project.gear.schema.json). Start with the documentation pages below instead of guessing keys from the implementation:
+
+- [YAML overview](docs/yaml-reference.md)
+- [Agent keys and values](docs/yaml-agent.md)
+- [Module strategies](docs/yaml-module.md)
+- [Workflow nodes and edges](docs/yaml-workflow.md)
+- [Framework compatibility](docs/yaml-compatibility.md)
+- [Complete YAML examples](docs/yaml-examples.md)
+
+Validated, copy-ready project files are available in [`examples/`](examples/):
+
+- [`minimal.gear.yml`](examples/minimal.gear.yml)
+- [`sequential-three-agents.gear.yml`](examples/sequential-three-agents.gear.yml)
+- [`parallel-module.gear.yml`](examples/parallel-module.gear.yml)
+- [`parallel-aggregator.gear.yml`](examples/parallel-aggregator.gear.yml)
+- [`loop-module.gear.yml`](examples/loop-module.gear.yml)
+
+Names are references: module agent names must match `AgentIdentity.Name`, workflow `ref` values must match an agent or module name, and edge endpoints must match workflow node IDs.
+
+## GEAR Studio
+
+Start the web application:
+
+```bash
+gear serve
+```
+
+Then open:
+
+- Guided Studio: <http://127.0.0.1:8200/studio>
+- Classic editor: <http://127.0.0.1:8200/>
+
+The Studio provides five guided stages:
+
+1. Create agents through the essential form or advanced YAML.
+2. Create parallel or loop modules.
+3. Compose a mixed `Agent → Module → Agent` workflow by clicking or dragging components.
+4. Resolve project and target-specific validation findings.
+5. Select any installed framework, inspect the generated Python, and download or run it.
+
+Agent provider and model are editable by default. To enforce one model across the Studio, set `GEAR_STUDIO_PROVIDER` and `GEAR_STUDIO_MODEL` in `.env`; leave `GEAR_STUDIO_MODEL` empty to allow per-agent choices. The server reapplies a locked policy during Studio builds.
+
+On launch, the Studio can resume the local autosave, create an empty project, import a YAML/JSON project, or initialize any bundled starter. The **New project** button reopens this selector at any time.
+
+### Trusted local execution
+
+Browser-triggered execution is disabled by default. Enable it only for trusted local projects:
+
+```bash
+GEAR_ENABLE_LOCAL_RUNNER=true gear serve
+```
+
+The runner filters environment variables and applies CPU, memory, file-size, descriptor, and wall-time limits. These controls provide defense in depth for a trusted workstation; they are not a multi-tenant security sandbox.
+
+## CLI reference
+
+| Command | Purpose |
+| --- | --- |
+| `gear init <name>` | Create a starter `.gear.yml` project. |
+| `gear templates list` | List ready-to-use starter projects. |
+| `gear templates show <id>` | Preview a starter project. |
+| `gear validate <project>` | Validate structure and references. |
+| `gear inspect <project>` | Print the normalized project. |
+| `gear convert <project> --target crewai` | Generate CrewAI artifacts. |
+| `gear convert <project> --target adk` | Generate Google ADK artifacts. |
+| `gear convert <project> --target langgraph` | Generate LangGraph artifacts. |
+| `gear convert <project> --target openai-agents` | Generate OpenAI Agents SDK artifacts. |
+| `gear convert <project> --target microsoft-agent-framework` | Generate Microsoft Agent Framework artifacts. |
+| `gear convert <project> --target strands` | Generate Strands Agents artifacts. |
+| `gear convert <project> --target pydantic-ai` | Generate PydanticAI artifacts. |
+| `gear convert <project> --target autogen` | Generate Microsoft AutoGen artifacts. |
+| `gear convert <project> --target semantic-kernel` | Generate Semantic Kernel artifacts. |
+| `gear convert <project> --target haystack` | Generate Haystack artifacts. |
+| `gear convert <project> --all-targets` | Preflight and generate every installed target. |
+| `gear connectors list` | List installed connectors. |
+| `gear connectors show <target>` | Inspect connector metadata. |
+| `gear builds list` | List persistent conversion builds. |
+| `gear builds show <id>` | Inspect one build. |
+| `gear run <build-id>` | Execute a previously recorded local build. |
+| `gear logs list` | List execution records. |
+| `gear logs show <id>` | Inspect stdout, stderr, status, and trace metadata. |
+| `gear serve` | Start the local Studio and API. |
+
+Use the global `--json` option for machine-readable output. History is stored in `.gear/gear.db` by default and can be changed with `--store`.
+
+## Secrets and environment
+
+Create a local environment file from the template:
+
+```bash
 cp .env.example .env
 ```
 
-Then set at least:
-```
-# OPENAI_API_KEY=sk-...
-```
+Add model credentials only when executing generated code:
 
-The OpenAI key is not required to install the project, start the server, or use the UI for design and translation. It is only needed when you execute generated CrewAI, Google ADK, or other framework workflows that call an OpenAI model.
-
-Before running generated workflows, uncomment the `OPENAI_API_KEY` line in `.env` and replace the placeholder value with your own key.
-
-The server auto-loads `.env` and also accepts `OPENAI_KEY` or `OPENAI_TOKEN` if needed. For normal UI execution on `main`, no database or MLflow tracking configuration is required.
-
----
-
-## Run the server
-
-```
-python server.py
+```dotenv
+OPENAI_API_KEY=replace-with-your-key
 ```
 
-Default UI:
-```
-http://127.0.0.1:8200/
-```
+Do not commit `.env` or place production secrets directly in a GEAR YAML project. Design, validation, conversion, and Python download work without an API key.
 
----
+## Connectors
 
-## Quickstart (beginner friendly)
+Connectors live under [`connectors/frameworks/`](connectors/frameworks/) and contain:
 
-1) Open the UI: `http://127.0.0.1:8200/`
-2) The Gear models are already loaded by default:
-   - `gear/gear-agent.uvl`
-   - `gear/gear-module.uvl`
-   - `gear/gear-multiagent.uvl`
-3) Add or edit agents, modules, and workflow.
-4) Switch target framework tabs to see translated YAML and workflow code.
-5) Click **Run workflow** to execute.
+- `connector.yml`: identity, version, capabilities, and limitations;
+- `*.mapping.yml`: explicit GEAR-to-target mappings;
+- `assembly.plugin.js`: final artifact assembly;
+- optional target templates and feature models.
 
----
+[`connectors/registry.yml`](connectors/registry.yml) exposes connectors to the classic UI. The SDK loads the packaged connector manifests and runtime assets directly.
 
-## Connectors (extensibility)
+To add another target, start with [`connectors/frameworks/_template/`](connectors/frameworks/_template/) and follow the [connector authoring guide](connectors/README.md).
 
-All translations are driven by files in `connectors/`:
+## Documentation
 
-- `connectors/registry.yml` lists frameworks and points to mappings/templates/plugins.
-- `connectors/frameworks/<id>/` contains YAML mappings and workflow template.
-- The **plugin** (`assembly.plugin.js`) is the only place that turns mappings into real output.
+The VitePress site is published at <https://brellsanwouo.github.io/gear-framework/>.
 
-See `connectors/README.md` for a step-by-step guide.
+Documentation is organized by user journey:
 
----
-
-## Add a new framework (step‑by‑step)
-
-Everything needed to add a framework lives in `connectors/`. The UI and engine automatically pick it up if the registry is updated.
-
-### 1) Create a new connector folder
-
-```
-mkdir -p connectors/frameworks/<id>
+```text
+Getting started
+Configuration
+Conversion and execution
+Developer reference
+Project
 ```
 
-Copy the template:
+Run it locally:
 
-```
-cp -R connectors/frameworks/_template/* connectors/frameworks/<id>/
-```
-
-### 2) Define mappings
-
-At minimum:
-
-```
-connectors/frameworks/<id>/agent.mapping.yml
-connectors/frameworks/<id>/multiagent.mapping.yml
+```bash
+npm ci
+npm run docs:dev
 ```
 
-If your framework has extra concepts (like modules), add:
+Build or preview the production site:
 
-```
-connectors/frameworks/<id>/module.mapping.yml
-```
-
-### 3) Create a workflow template
-
-```
-connectors/frameworks/<id>/workflow.tmpl
+```bash
+npm run docs:build
+npm run docs:preview
 ```
 
-Keep it minimal, just placeholders. Example:
+The displayed GEAR release is read from [`gear_sdk/version.py`](gear_sdk/version.py), which is also used by the package, CLI, API, and Studio.
 
-```
-{{imports}}
-{{agents_code}}
-{{tasks_code}}
-{{workflow_block}}
-```
+## Repository structure
 
-### 4) Write the assembler plugin
-
-```
-connectors/frameworks/<id>/assembly.plugin.js
-```
-
-This plugin transforms Gear data + mappings into final outputs. It must register itself:
-
-```
-window.GearAssemblyPlugins = window.GearAssemblyPlugins || {};
-window.GearAssemblyPlugins["<id>"] = {
-  assemble(input) {
-    return { outputs: { agents: {}, orchestration: "..." } };
-  }
-};
+```text
+gear-framework/
+├── gear_sdk/                 Python SDK, CLI, conversion runtime, store, runner
+├── gear_web/                 Flask Studio/API application
+├── ui/                       Studio, classic editor, and static assets
+├── gear/                     GEAR UVL models and YAML schemas
+├── schemas/                  Stable project schema
+├── connectors/               Framework manifests, mappings, generators, and template
+├── examples/                 Validated project examples
+├── docs/                     VitePress documentation source
+├── tests/                    Python, JavaScript, and integration tests
+├── research/                 Research protocol configuration
+├── data/AgentGridPlanning/   Benchmark problems and visual assets
+├── pyproject.toml            Package metadata and dependencies
+├── package.json              Documentation scripts
+└── server.py                 Backward-compatible web entry point
 ```
 
-### 5) Register the framework
+See [Architecture](docs/ARCHITECTURE.md) for package boundaries and the conversion flow, and [Roadmap](docs/ROADMAP.md) for planned work.
 
-Add it to `connectors/registry.yml`:
+## Development checks
 
-```
-- id: <id>
-  label: My Framework
-  mappings:
-    agent: connectors/frameworks/<id>/agent.mapping.yml
-    multiagent: connectors/frameworks/<id>/multiagent.mapping.yml
-  plugins:
-    assembler: connectors/frameworks/<id>/assembly.plugin.js
-  templates:
-    workflow: connectors/frameworks/<id>/workflow.tmpl
+```bash
+pytest -q
+node --test tests/*.test.js
+npm run docs:build
+python -m build --wheel --no-isolation
 ```
 
-### 6) Reload the UI
+Optional generated-runtime smoke scripts live in [`tests/integration/`](tests/integration/).
 
-The new framework will appear automatically in the translation section.
+## Research assets
 
----
-
-## Default Gear models
-
-- `gear/gear-agent.uvl`
-- `gear/gear-module.uvl`
-- `gear/gear-multiagent.uvl`
-
-Example YAML templates:
-- `gear/gear-agent.yml`
-- `gear/gear-module.yml`
-- `gear/gear-multiagent.yml`
-
----
-
-
-
-## Practical goal
-
-This project helps you:
-- prototype multi-agent systems quickly,
-- compare frameworks without rewriting everything,
-- keep one Gear model as the single source of truth,
-- translate and run across multiple frameworks.
-
----
-
-## Problems (AgentGridPlanning)
-
-All benchmark problems live in `data/AgentGridPlanning/`.
-
-**Example: P0**
-- Goal: **display** the puzzle (grid, symbols, coordinates) **without solving it**.
-- Agent: `SystemDescriberAgent` describes the grid and rules.
-- Workflow: **sequential**, single agent.
-- Spec: `data/AgentGridPlanning/P0.md`.
-
----
-
-## Evaluation Note (participants)
-
-For evaluation, the UI applies a policy that:
-- blocks selection of `ollama`, `OtherProvider`, `OtherModel`, `ModelParameters`, `ExecutionControl`
-- forces `Provider=openai` and `Model=gpt-5.1-codex-mini`
-
-This policy is defined in `ui/feature-policy.yml`.
-
-To re-enable:
-1. Open `ui/feature-policy.yml` and set `enabled: false` (or delete the file).
-2. Optional: remove the `force` / `disable` lists if you want to return to defaults.
-
----
+The AgentGridPlanning benchmark material is kept under [`data/AgentGridPlanning/`](data/AgentGridPlanning/). Research task assignment and protocol configuration live under [`research/agent-grid-planning/`](research/agent-grid-planning/), outside the product core.
 
 ## License
 
-Gear Framework is released under the MIT License.
-
-You are free to use, modify, distribute, and build upon the project, including for research and educational purposes, under the terms defined in the `LICENSE` file.
-
----
+GEAR Framework is released under the [MIT License](LICENSE).
 
 ## Contact
-
-For questions, collaborations, or bug reports, reach out to:
 
 - brell.sanwouo@inria.fr
 - nada.zine@inria.fr

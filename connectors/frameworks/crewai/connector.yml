@@ -1,0 +1,17 @@
+id: crewai
+version: "0.3.0"
+label: CrewAI
+runtime:
+  language: python
+  packages:
+    - "crewai>=1.15.4,<2"
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+limitations:
+  - Natural-language loop stop conditions remain metadata while TurnCount is the hard limit.
+  - GEAR tool names require concrete CrewAI tool implementations and are not generated automatically.

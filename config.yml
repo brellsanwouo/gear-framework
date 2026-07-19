@@ -1,15 +1,15 @@
 server:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 8200
 
 database:
-  host: "srv1650.hstgr.io"
+  host: "127.0.0.1"
   port: 3306
-  user: "u912090761_gear"
-  dbname: "u912090761_gear"
+  user: "gear"
+  dbname: "gear"
 
 paths:
-  tasks_file: "tasks.json"
+  tasks_file: "research/agent-grid-planning/tasks.json"
 
 experiment:
   group_a: ["T1", "T2"]

@@ -156,7 +156,7 @@
       const res = await fetch("/api/experiment/validate_task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_id: taskId, code: userCode }),
+        body: JSON.stringify({ task_id: taskId, code: userCode, mode: mode }),
       });
       const result = await res.json();
 

@@ -1,0 +1,6 @@
+- {from: WorkflowName, to: semantic_kernel_workflow.name, kind: equivalent}
+- {from: Memory, to: ChatHistoryAgentThread, kind: partial}
+- {from: Items.Agents, to: semantic_kernel_workflow.agents, kind: equivalent}
+- {from: Items.Modules, to: semantic_kernel_workflow.modules, kind: equivalent}
+- {from: Edges.From, to: semantic_kernel_workflow.dependencies.from, kind: direct}
+- {from: Edges.To, to: semantic_kernel_workflow.dependencies.to, kind: direct}

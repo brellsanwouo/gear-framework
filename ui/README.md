@@ -1,36 +1,48 @@
-# Gear Framework UI
+# GEAR UI
 
-UI minimale basée sur les UVL Gear.
+Minimal UI based on the GEAR UVL models.
 
-## Lancer
+Shared browser services live under `ui/js/`:
 
-Depuis la racine du projet :
+- `resource-loader.js` resolves packaged and source-checkout assets;
+- `project-storage.js` owns local autosave serialization;
+- `history.js` manages build and execution history;
+- `workflow-order.js` preserves mixed agent/module ordering.
+
+## Run locally
+
+From the repository root:
 
 ```bash
-python3 server.py
+python -m http.server 8000
 ```
 
-Puis ouvre :
+Then open <http://localhost:8000/ui/>.
 
-- http://127.0.0.1:8200/
+The server exposes the `gear-framework` root, allowing the UI to load `/gear/gear-agent.uvl`.
 
-Le serveur sert la racine de `gear-framework`, ce qui permet à l'UI de lire `/gear/gear-agent.uvl`.
+## Agent configuration
 
-## Charger d'autres UVL
+- The **YAML summary** is generated automatically from the selected and completed fields.
+- **Load YAML** applies a YAML configuration to the UI, including selected features and values.
+- Pasted YAML is synchronized automatically after a short pause.
 
-Dans l'UI :
+## Multi-agent workflow
 
-- "Charger un UVL local" permet d'ouvrir n'importe quel fichier `.uvl`.
-- "Coller un UVL" permet de parser du texte directement.
+- A dedicated section loads `gear/gear-multiagent.uvl` and configures orchestration.
+- Existing agents and modules can be added to the workflow canvas.
 
-## YAML ↔ UI
+## Framework logos
 
-- Le bloc "Résumé YAML" est généré automatiquement depuis ce qui est coché/rempli.
-- "Charger le YAML" applique un YAML dans l'UI (cases cochées + valeurs).
-- Le YAML collé est aussi synchronisé automatiquement après une courte pause.
-- Une valeur `false` dans le YAML n'active pas la feature correspondante.
+The build selector uses the official artwork published by each framework project:
 
-## Orchestration
+- [LangGraph](https://github.com/langchain-ai/langgraph/tree/main/.github/images)
+- [OpenAI Agents SDK](https://github.com/openai/openai-agents-python/tree/main/docs/assets)
+- [Microsoft Agent Framework](https://github.com/microsoft/agent-framework/tree/main/docs/assets)
+- [Strands Agents](https://github.com/strands-agents/sdk-python/tree/main/site/src/assets)
+- [PydanticAI](https://github.com/pydantic/pydantic-ai)
+- [Microsoft AutoGen](https://github.com/microsoft/autogen/tree/main/python/docs/src/_static/images/logo)
+- [Semantic Kernel](https://github.com/microsoft/semantic-kernel/blob/main/docs/images/sk_logo.png)
+- [Haystack](https://github.com/deepset-ai/haystack/tree/main/docs-website/static/img)
 
-- Une section dédiée permet de charger `gear/gear-multiagent.uvl` et définir l'orchestration.
-- Elle fonctionne comme les agents (tree + YAML + synchro).
+These names and logos remain trademarks of their respective owners and are used only to identify conversion targets.

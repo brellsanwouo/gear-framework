@@ -45,12 +45,12 @@ from google.adk.agents import Agent
 
             <div class="run-actions">
                 <button type="button" id="runWorkflowBtn" class="secondary action-btn">▶ Run workflow</button>
-                <button type="button" id="stopWorkflowBtn" class="secondary danger action-btn">■ Stop</button>
+                <button type="button" id="stopWorkflowBtn" class="secondary danger action-btn" disabled>■ Stop</button>
             </div>
 
             <div class="output-wrapper">
                 <label>Console output:</label>
-                <pre id="runOutput" class="code-sample run-output"># Waiting for execution...</pre>
+                <pre id="runOutput" class="code-sample run-output" aria-live="polite" aria-label="Console output"># Waiting for execution...</pre>
             </div>
         </aside>
 

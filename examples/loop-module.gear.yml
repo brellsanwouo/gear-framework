@@ -1,0 +1,70 @@
+schema_version: "1.0"
+project:
+  id: iterative-drafting
+  name: Iterative drafting workflow
+  description: Iterate between writing and review before publication.
+
+agents:
+  - AgentIdentity:
+      Name: Writer
+      Purpose: Produce and improve a draft.
+      ContextDescription: A technical writer who acts on specific review feedback.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: DraftContent
+      TaskDescription: Write or revise the draft using the latest available feedback.
+      ExpectedOutput: A complete Markdown draft.
+
+  - AgentIdentity:
+      Name: Reviewer
+      Purpose: Identify problems and approve a correct draft.
+      ContextDescription: A demanding reviewer focused on factual and structural quality.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: ReviewContent
+      TaskDescription: Review the latest draft and return actionable corrections or approval.
+      ExpectedOutput: A review decision and a prioritized correction list.
+
+  - AgentIdentity:
+      Name: Publisher
+      Purpose: Prepare the approved draft for delivery.
+      ContextDescription: A publishing editor who applies final formatting without changing meaning.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: PublishContent
+      TaskDescription: Format the approved draft and return the final deliverable.
+      ExpectedOutput: A publication-ready Markdown document.
+
+modules:
+  - ModuleName: DraftReviewLoop
+    Strategy:
+      Loop:
+        TurnCount: 3
+        StopCondition: The reviewer approves the draft.
+        LoopAgents:
+          - Writer
+          - Reviewer
+
+workflow:
+  name: IterativeDraftingWorkflow
+  memory: true
+  nodes:
+    - id: drafting
+      ref: DraftReviewLoop
+      type: module
+    - id: publishing
+      ref: Publisher
+      type: agent
+  edges:
+    - from: drafting
+      to: publishing
+
+targets:
+  - crewai
+  - adk

@@ -1,0 +1,64 @@
+schema_version: "1.0"
+project:
+  id: parallel-aggregation
+  name: Parallel aggregation workflow
+  description: Run two researchers concurrently and aggregate their results.
+
+agents:
+  - AgentIdentity:
+      Name: WebResearcher
+      Purpose: Find relevant public information.
+      ContextDescription: A web researcher who returns traceable evidence.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: SearchWeb
+      TaskDescription: Find and summarize relevant public web information.
+      ExpectedOutput: A concise list of findings with source references.
+
+  - AgentIdentity:
+      Name: DocumentResearcher
+      Purpose: Extract facts from the supplied documents.
+      ContextDescription: A document analyst who attributes every important claim.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: AnalyzeDocuments
+      TaskDescription: Extract the facts relevant to the workflow input.
+      ExpectedOutput: Structured document findings with source references.
+
+  - AgentIdentity:
+      Name: Reviewer
+      Purpose: Combine and verify parallel research results.
+      ContextDescription: A senior reviewer who resolves contradictions and identifies uncertainty.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: AggregateResearch
+      TaskDescription: Compare the parallel findings and produce one verified synthesis.
+      ExpectedOutput: A concise synthesis with unresolved uncertainties identified.
+
+modules:
+  - ModuleName: ResearchTeam
+    Strategy:
+      Parallel:
+        ParallelAgents:
+          - WebResearcher
+          - DocumentResearcher
+        Aggregator: Reviewer
+
+workflow:
+  name: ParallelAggregationWorkflow
+  memory: false
+  nodes:
+    - id: research
+      ref: ResearchTeam
+      type: module
+  edges: []
+
+targets:
+  - crewai
+  - adk

@@ -1,0 +1,18 @@
+id: microsoft-agent-framework
+version: "0.1.0"
+label: Microsoft Agent Framework
+description: "Production agent workflows with native fan-out and synchronized fan-in"
+runtime:
+  language: python
+  packages: ["agent-framework>=1.11,<2"]
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: true
+limitations:
+  - Generated model clients use OpenAI-compatible endpoints; other providers require a custom client adapter.
+  - Natural-language loop stop conditions remain metadata while TurnCount is the hard limit.

@@ -16,6 +16,7 @@
     parseNumberValue,
     renderTemplate,
     getTemplate,
+    createConversionReport,
   } = utils;
 
   const setIfMeaningful = (obj, key, value) => {
@@ -28,7 +29,7 @@
       return;
     }
     if (typeof value === "boolean") {
-      if (value) obj[key] = true;
+      obj[key] = value;
       return;
     }
     obj[key] = value;
@@ -89,8 +90,20 @@
     );
     setIfMeaningful(generateContentConfig, "TopP", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopP"));
     setIfMeaningful(generateContentConfig, "TopK", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.TopK"));
+    setIfMeaningful(generateContentConfig, "StopSequences", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.StopSequences"));
+    setIfMeaningful(generateContentConfig, "FrequencyPenalty", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.FrequencyPenalty"));
+    setIfMeaningful(generateContentConfig, "PresencePenalty", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.PresencePenalty"));
+    setIfMeaningful(generateContentConfig, "Seed", getMappedValue(mapped, "LLMAgentConfig.GenerateContentConfig.Seed"));
     if (Object.keys(generateContentConfig).length) {
       llmAgentConfig.GenerateContentConfig = generateContentConfig;
+    }
+    const liteLlm = {};
+    setIfMeaningful(liteLlm, "ApiBase", getMappedValue(mapped, "LLMAgentConfig.LiteLlm.ApiBase"));
+    setIfMeaningful(liteLlm, "Timeout", getMappedValue(mapped, "LLMAgentConfig.LiteLlm.Timeout"));
+    setIfMeaningful(liteLlm, "NumRetries", getMappedValue(mapped, "LLMAgentConfig.LiteLlm.NumRetries"));
+    setIfMeaningful(liteLlm, "AdditionalArgs", getMappedValue(mapped, "LLMAgentConfig.LiteLlm.AdditionalArgs"));
+    if (Object.keys(liteLlm).length) {
+      llmAgentConfig.LiteLlm = liteLlm;
     }
 
     setIfMeaningful(configurations, "Instruction", getMappedValue(mapped, "Configurations.Instruction"));
@@ -130,7 +143,7 @@
 
   const buildModuleConfigs = (moduleStates, mappingEntries) => {
     if (!mappingEntries) {
-      return { items: [], error: "# Mapping ADK module indisponible. Vérifie connectors/frameworks/adk/module.mapping.yml" };
+      return { items: [], error: "# ADK module mapping unavailable. Check connectors/frameworks/adk/module.mapping.yml" };
     }
     const items = (moduleStates || [])
       .map((moduleData, index) => {
@@ -145,12 +158,14 @@
           return null;
         }
         const parallelAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Parallel.SubAgents"));
+        const aggregator = getMappedValue(mappedModule, "Runtime.Module.Parallel.Aggregator") || null;
         const loopAgents = parseNameList(getMappedValue(mappedModule, "Runtime.Module.Loop.SubAgents"));
         const turnCount = parseNumberValue(getMappedValue(mappedModule, "Runtime.Module.Loop.MaxIterations"));
         return {
           name,
           strategy,
           parallelAgents,
+          aggregator,
           loopAgents,
           turnCount,
         };
@@ -163,12 +178,12 @@
     return { items };
   };
 
-  const buildAdkWorkflowCode = (gearAgents, moduleConfigs, workflowYaml, workflowItems, mappings) => {
+  const buildAdkWorkflowCode = (gearAgents, moduleConfigs, workflowYaml, workflowPlan, mappings) => {
     if (!Array.isArray(mappings?.adkMulti) || !mappings.adkMulti.length) {
-      return "# Mapping ADK workflow indisponible. Vérifie connectors/frameworks/adk/multiagent.mapping.yml";
+      return "# ADK workflow mapping unavailable. Check connectors/frameworks/adk/multiagent.mapping.yml";
     }
     if (!gearAgents.length) {
-      return "# Aucun agent ADK defini.";
+      return "# No ADK agent is defined.";
     }
     const mappedWorkflow = applyMapping(workflowYaml || {}, mappings.adkMulti);
     const workflowMemoryEnabled = getMappedValue(mappedWorkflow, "Runtime.Memory.WorkflowEnabled") === true;
@@ -185,14 +200,17 @@
 
     const importLines = [
       "import asyncio",
+      "import os",
+      "from copy import deepcopy",
       "from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent",
       "from google.adk.models.lite_llm import LiteLlm",
       "from google.adk.runners import Runner",
       "from google.adk.sessions import InMemorySessionService",
+      "from google.genai import types",
     ];
     if (anyMemoryEnabled) {
       if (!memoryServiceClass || !memoryToolClass) {
-        return "# Mapping ADK invalide: Runtime.Memory.MemoryServiceClass et Runtime.Memory.AgentToolClass sont requis.";
+        return "# Invalid ADK mapping: Runtime.Memory.MemoryServiceClass and Runtime.Memory.AgentToolClass are required.";
       }
       importLines.push(`from google.adk.memory import ${memoryServiceClass}`);
       importLines.push(`from google.adk.tools.preload_memory_tool import ${memoryToolClass}`);
@@ -227,6 +245,14 @@
           gearAgent.LLMConfiguration?.Provider,
           gearAgent.LLMConfiguration?.Model,
         ) || "gemini-2.5-flash-lite";
+      const additionalParams = gearAgent.LLMConfiguration?.ModelParameters?.AdditionalParams;
+      const modelOptions = additionalParams && typeof additionalParams === "object" ? { ...additionalParams } : {};
+      if (gearAgent.LLMConfiguration?.BaseURL) modelOptions.api_base = gearAgent.LLMConfiguration.BaseURL;
+      if (gearAgent.LLMConfiguration?.Timeout !== undefined) modelOptions.timeout = gearAgent.LLMConfiguration.Timeout;
+      if (gearAgent.LLMConfiguration?.MaxRetries !== undefined) modelOptions.num_retries = gearAgent.LLMConfiguration.MaxRetries;
+      const modelExpression = Object.keys(modelOptions).length
+        ? `LiteLlm(model=${toPythonLiteral(modelValue)}, **${toPythonLiteral(modelOptions)})`
+        : `LiteLlm(model=${toPythonLiteral(modelValue)})`;
       const instruction = buildAdkInstructionFromGear(gearAgent);
       const outputKey = gearAgent.TaskSpecification?.TaskName || "";
       const memoryEnabled = workflowMemoryEnabled || agentMemoryMap[index] === true;
@@ -234,8 +260,26 @@
 
       const args = [
         `  name=${toPythonLiteral(name)},`,
-        `  model=LiteLlm(model=${toPythonLiteral(modelValue)}),`,
+        `  model=${modelExpression},`,
       ];
+      const mappedAgent = agentMappedList[index] || {};
+      const generationConfig = [
+        ["temperature", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.Temperature")],
+        ["max_output_tokens", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.MaxOutputTokens")],
+        ["top_p", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.TopP")],
+        ["top_k", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.TopK")],
+        ["stop_sequences", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.StopSequences")],
+        ["frequency_penalty", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.FrequencyPenalty")],
+        ["presence_penalty", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.PresencePenalty")],
+        ["seed", getMappedValue(mappedAgent, "LLMAgentConfig.GenerateContentConfig.Seed")],
+      ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+      if (generationConfig.length) {
+        args.push(
+          "  generate_content_config=types.GenerateContentConfig(",
+          ...generationConfig.map(([key, value]) => `    ${key}=${toPythonLiteral(value)},`),
+          "  ),",
+        );
+      }
       if (description) {
         args.push(`  description=${toPythonLiteral(description)},`);
       }
@@ -262,7 +306,7 @@
         moduleLines.push(
           `${moduleVar} = ParallelAgent(`,
           `  name=${toPythonLiteral(moduleConfig.name)},`,
-          `  sub_agents=[${subAgents.join(", ")}],`,
+          `  sub_agents=[${subAgents.map((name) => `deepcopy(${name})`).join(", ")}],`,
           `)`,
           "",
         );
@@ -274,7 +318,7 @@
             moduleLines.push(
               `${pipelineVar} = SequentialAgent(`,
               `  name=${toPythonLiteral(`${moduleConfig.name}Pipeline`)},`,
-              `  sub_agents=[${moduleVar}, ${aggregatorVar}],`,
+              `  sub_agents=[${moduleVar}, deepcopy(${aggregatorVar})],`,
               `)`,
               "",
             );
@@ -288,7 +332,7 @@
           .filter(Boolean);
         const args = [
           `  name=${toPythonLiteral(moduleConfig.name)},`,
-          `  sub_agents=[${subAgents.join(", ")}],`,
+          `  sub_agents=[${subAgents.map((name) => `deepcopy(${name})`).join(", ")}],`,
         ];
         if (moduleConfig.turnCount !== null) {
           args.push(`  max_iterations=${moduleConfig.turnCount},`);
@@ -298,29 +342,34 @@
       }
     });
 
-    const orderedAgents =
-      Array.isArray(workflowItems) && workflowItems.length
-        ? workflowItems
-            .filter((item) => item.type === "agent")
-            .map((item) => item.label || item.id)
-            .filter(Boolean)
-        : Array.from(agentVarMap.keys());
-
-    const sequenceItems = Array.isArray(workflowItems) ? workflowItems : [];
-    const orderedVars =
-      sequenceItems.length > 0
-        ? sequenceItems
-            .map((item) => {
-              const key = item.label || item.id;
-              if (item.type === "module") {
-                return moduleSequenceVarMap.get(key) || moduleVarMap.get(key) || null;
-              }
-              return agentVarMap.get(key) || null;
-            })
-            .filter(Boolean)
-        : orderedAgents.length
-          ? orderedAgents.map((name) => agentVarMap.get(name)).filter(Boolean)
-          : Array.from(agentVarMap.values());
+    const resolveWorkflowVar = (item) => {
+      const key = item?.ref || item?.label || item?.id;
+      const variable = item?.type === "module"
+        ? moduleSequenceVarMap.get(key) || moduleVarMap.get(key) || null
+        : agentVarMap.get(key) || null;
+      return variable ? `deepcopy(${variable})` : null;
+    };
+    const executionLayers = Array.isArray(workflowPlan?.executionLayers) && workflowPlan.executionLayers.length
+      ? workflowPlan.executionLayers
+      : Array.from(agentVarMap.keys()).map((name, index) => [{ id: `agent_${index + 1}`, ref: name, type: "agent" }]);
+    const stageLines = [];
+    const orderedVars = [];
+    executionLayers.forEach((layer, index) => {
+      const layerVars = layer.map(resolveWorkflowVar).filter(Boolean);
+      if (layerVars.length <= 1) {
+        if (layerVars[0]) orderedVars.push(layerVars[0]);
+        return;
+      }
+      const stageVar = makeUniqueVar(`workflow_stage_${index + 1}`, `workflow_stage_${index + 1}`);
+      stageLines.push(
+        `${stageVar} = ParallelAgent(`,
+        `  name=${toPythonLiteral(`WorkflowStage${index + 1}`)},`,
+        `  sub_agents=[${layerVars.join(", ")}],`,
+        ")",
+        "",
+      );
+      orderedVars.push(stageVar);
+    });
 
     const runnerLines = [];
     if (anyMemoryEnabled) {
@@ -342,17 +391,30 @@
       ...(anyMemoryEnabled ? ["  memory_service=memory_service,"] : []),
       `  app_name=${toPythonLiteral(String(appName))},`,
       ")",
-      "async def _run():",
-      '    return await runner.run_debug(\"{}\")',
-      "result = asyncio.run(_run())",
-      "print(result)",
+      "",
+      "def _event_text(events) -> str:",
+      "  for event in reversed(events):",
+      "    content = getattr(event, \"content\", None)",
+      "    parts = getattr(content, \"parts\", None) or []",
+      "    text = \"\".join(getattr(part, \"text\", \"\") or \"\" for part in parts)",
+      "    if text:",
+      "      return text",
+      "  return \"\"",
+      "",
+      "async def run_workflow(user_input: str) -> str:",
+      "  events = await runner.run_debug(user_input, quiet=True)",
+      "  return _event_text(events)",
+      "",
+      "if __name__ == \"__main__\":",
+      "  prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")",
+      "  print(asyncio.run(run_workflow(prompt)))",
     ];
 
     const template = getTemplate("adk") || "{{imports}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{runner_block}}\n\n{{post_run}}";
     return renderTemplate(template, {
       imports: importLines.join("\n"),
       agents_code: agentLines.join("\n").trim(),
-      modules_code: moduleLines.join("\n").trim(),
+      modules_code: [...moduleLines, ...stageLines].join("\n").trim(),
       runner_block: [...runnerLines, ...rootLines].join("\n"),
       post_run: "",
     });
@@ -364,10 +426,20 @@
       const agentMapping = Array.isArray(mappings.adkAgent) ? mappings.adkAgent : null;
       if (!agentMapping) {
         return {
-          error: "# Mapping ADK indisponible. Vérifie connectors/frameworks/adk/agent.mapping.yml",
+          error: "# ADK mapping unavailable. Check connectors/frameworks/adk/agent.mapping.yml",
         };
       }
-      const gearAgents = Array.isArray(input?.gearAgents) ? input.gearAgents : [];
+      const gearIR = input?.gearIR;
+      if (gearIR && !gearIR.valid) {
+        return {
+          error: gearIR.diagnostics
+            .filter((item) => item.severity === "error")
+            .map((item) => `# ${item.code}: ${item.message}`)
+            .join("\n"),
+          diagnostics: gearIR.diagnostics,
+        };
+      }
+      const gearAgents = gearIR ? gearIR.agents.map((agent) => agent.source) : Array.isArray(input?.gearAgents) ? input.gearAgents : [];
       const adkAgents = {};
       const usedKeys = new Set();
       gearAgents.forEach((gearAgent, index) => {
@@ -401,15 +473,58 @@
         gearAgents,
         moduleConfigs,
         input?.workflowYaml || {},
-        input?.workflowItems || [],
+        gearIR?.workflow || { executionLayers: (input?.workflowItems || []).map((item) => [item]) },
         mappings,
       );
+
+      const consumedPaths = [
+        "AgentIdentity.Name",
+        "AgentIdentity.Purpose",
+        "AgentIdentity.ContextDescription",
+        "LLMConfiguration.Provider",
+        "LLMConfiguration.Model",
+        "LLMConfiguration.BaseURL",
+        "LLMConfiguration.Timeout",
+        "LLMConfiguration.MaxRetries",
+        "LLMConfiguration.ModelParameters.Temperature",
+        "LLMConfiguration.ModelParameters.MaxTokens",
+        "LLMConfiguration.ModelParameters.TopP",
+        "LLMConfiguration.ModelParameters.TopK",
+        "LLMConfiguration.ModelParameters.StopSequences",
+        "LLMConfiguration.ModelParameters.AdditionalParams",
+        "LLMConfiguration.ModelParameters.FrequencyPenalty",
+        "LLMConfiguration.ModelParameters.PresencePenalty",
+        "LLMConfiguration.ModelParameters.Seed",
+        "TaskSpecification.TaskName",
+        "TaskSpecification.TaskDescription",
+        "TaskSpecification.ExpectedOutput",
+        "Memory",
+        "ModuleName",
+        "Strategy.Parallel.ParallelAgents",
+        "Strategy.Parallel.Aggregator",
+        "Strategy.Loop.LoopAgents",
+        "Strategy.Loop.TurnCount",
+        "WorkflowName",
+        "Items.Agents",
+        "Items.Modules",
+        "Edges.From",
+        "Edges.To",
+      ];
+      const report = createConversionReport
+        ? createConversionReport({
+            frameworkId: "adk",
+            gearIR,
+            mappingEntries: [...agentMapping, ...(mappings.adkModule || []), ...(mappings.adkMulti || [])],
+            consumedPaths,
+          })
+        : { framework: "adk", diagnostics: gearIR?.diagnostics || [] };
 
       return {
         outputs: {
           agents: adkAgents,
           modules: moduleConfigs,
           orchestration: workflowCode,
+          report,
         },
       };
     },

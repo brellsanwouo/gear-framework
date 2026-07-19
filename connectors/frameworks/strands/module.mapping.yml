@@ -1,0 +1,6 @@
+- {from: ModuleName, to: GraphNode.node_id, kind: equivalent}
+- {from: Strategy.Parallel.ParallelAgents, to: Graph.parallel_nodes, kind: equivalent}
+- {from: Strategy.Parallel.Aggregator, to: Graph.aggregator, kind: equivalent}
+- {from: Strategy.Loop.LoopAgents, to: LoopAgent.agents, kind: equivalent}
+- {from: Strategy.Loop.TurnCount, to: LoopAgent.turns, kind: equivalent}
+- {from: Strategy.Loop.StopCondition, to: LoopAgent.stop_condition, kind: partial}

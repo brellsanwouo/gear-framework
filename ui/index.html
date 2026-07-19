@@ -6,7 +6,11 @@
     <title>Gear Framework UI</title>
     <link rel="stylesheet" href="ui/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
-    <script src="../SDK/gear_sdk/assembly-engine.js" defer></script>
+    <script src="../runtime/conversion-core.js" defer></script>
+    <script src="../runtime/assembly-engine.js" defer></script>
+    <script src="ui/js/resource-loader.js" defer></script>
+    <script src="ui/js/project-storage.js" defer></script>
+    <script src="ui/js/history.js" defer></script>
     <script src="ui/app.js" defer></script>
     <link rel="stylesheet" href="overlay.css">
     <script src="ui/overlay.js" defer></script>
@@ -135,6 +139,21 @@
           <div id="targetTabs" class="segmented tabs" role="tablist" aria-label="Conversion target"></div>
         </div>
         <div id="targetPanelsContainer"></div>
+        <section class="history-panel" aria-labelledby="historyTitle">
+          <div class="history-header">
+            <h2 id="historyTitle">Builds &amp; execution logs</h2>
+            <div class="history-actions">
+              <button id="recordBuild" type="button">Record current build</button>
+              <button id="refreshHistory" type="button" class="secondary">Refresh</button>
+            </div>
+          </div>
+          <p class="hint">Persistent records created by the SDK, CLI, and local runner.</p>
+          <h3>Recent builds</h3>
+          <ul id="buildHistory" class="history-list"><li>No recorded builds.</li></ul>
+          <h3>Recent executions</h3>
+          <ul id="runHistory" class="history-list"><li>No recorded executions.</li></ul>
+          <pre id="historyDetail" class="code-sample run-output" hidden></pre>
+        </section>
       </aside>
     </main>
 

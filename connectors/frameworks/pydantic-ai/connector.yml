@@ -1,0 +1,19 @@
+id: pydantic-ai
+version: "0.1.0"
+label: PydanticAI
+description: "Type-safe agents with deterministic programmatic orchestration"
+runtime:
+  language: python
+  packages:
+    - pydantic-ai-slim[openai]>=2.13,<3
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: false
+limitations:
+  - The generated connector currently configures the PydanticAI OpenAI provider.
+  - Natural-language loop stop conditions remain metadata while TurnCount is the hard limit.

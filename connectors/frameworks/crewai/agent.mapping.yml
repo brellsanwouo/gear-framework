@@ -5,43 +5,43 @@
 - from: AgentIdentity.Name
   to: Identity.Role
   kind: equivalent
-  notes: CrewAI utilise Role comme identifiant principal.
+  notes: CrewAI uses Role as its primary identifier.
 
 - from: AgentIdentity.Purpose
   to: Identity.Goal
   kind: equivalent
-  notes: Objectif de l'agent.
+  notes: Agent objective.
 
 - from: AgentIdentity.ContextDescription
   to: Identity.Backstory
   kind: equivalent
-  notes: Contexte/persona de l'agent.
+  notes: Agent context and persona.
 
 - from: LLMConfiguration.Provider
   to: LLM.provider
   kind: partial
-  notes: "Expose le provider dans le YAML (en plus du modele)."
+  notes: "Expose the provider in YAML in addition to the model."
 
 - from: LLMConfiguration.Model
   to: LLMConfiguration.Model
   kind: direct
 
 - from: LLMConfiguration.APIKey
-  to: LLMConfiguration.API_KEY
-  kind: equivalent
-
-- from: LLMConfiguration.BaseURL
   to: null
   kind: not_mapped
-  notes: CrewAI Lite ne propose pas BaseURL dans ce schema.
+  notes: Read from the provider environment variable.
+
+- from: LLMConfiguration.BaseURL
+  to: LLMConfiguration.BaseURL
+  kind: direct
 
 - from: LLMConfiguration.Timeout
   to: LLMConfiguration.Advanced_configs.Timeout
   kind: direct
 
 - from: LLMConfiguration.MaxRetries
-  to: LLMConfiguration.Advanced_configs.MaxRetries
-  kind: direct
+  to: Agent.max_retry_limit
+  kind: partial
 
 - from: LLMConfiguration.ModelParameters.Temperature
   to: LLMConfiguration.Advanced_configs.Temperature
@@ -71,6 +71,10 @@
   to: LLMConfiguration.Advanced_configs.Seed
   kind: direct
 
+- from: LLMConfiguration.ModelParameters.AdditionalParams
+  to: LLMConfiguration.Advanced_configs.AdditionalParams
+  kind: partial
+
 - from: TaskSpecification.TaskName
   to: Task.Essential.Name
   kind: partial
@@ -88,9 +92,9 @@
   kind: partial
 
 - from: Tools
-  to: Agent_Tools
-  kind: partial
-  notes: Utiliser Task.Execution.Task_Tools si outils par tache.
+  to: null
+  kind: not_mapped
+  notes: Tool names alone cannot define executable CrewAI BaseTool implementations.
 
 - from: ExecutionControl.DelegationControl
   to: BehavioralControls.AllowDelegation
@@ -101,8 +105,8 @@
   kind: partial
 
 - from: ExecutionControl.AsyncExecutionControl
-  to: Task.Execution.AsyncExecution
-  kind: partial
+  to: Crew.kickoff_async
+  kind: equivalent
 
 - from: ExecutionControl.HumanInteractionControl
   to: Task.Execution.HumanInput

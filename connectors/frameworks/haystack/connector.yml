@@ -1,0 +1,20 @@
+id: haystack
+version: "0.1.0"
+label: Haystack
+description: "Haystack agents with deterministic asynchronous orchestration"
+runtime:
+  language: python
+  packages:
+    - haystack-ai>=2.31,<3
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: false
+limitations:
+  - The generated connector currently configures Haystack's OpenAI chat generator.
+  - GEAR tool names require concrete Haystack Tool implementations and are therefore reported as unmapped.
+  - Natural-language loop stop conditions remain metadata while TurnCount is the hard limit.

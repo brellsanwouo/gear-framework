@@ -9,6 +9,19 @@ body {
     margin: 0;
 }
 
+.consent-row {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    margin: 1rem 0;
+    text-align: left;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .card {
     background: #1e293b;
     padding: 3rem;

@@ -1,0 +1,23 @@
+- {from: AgentIdentity.Name, to: Agent.name, kind: direct}
+- {from: AgentIdentity.Purpose, to: Agent.instructions, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: Agent.instructions, kind: partial}
+- {from: LLMConfiguration.Provider, to: Agent.model.provider, kind: equivalent}
+- {from: LLMConfiguration.Model, to: Agent.model, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from the provider environment variable."}
+- {from: LLMConfiguration.BaseURL, to: OpenAIProvider.base_url, kind: partial, notes: "Supported for the OpenAI provider."}
+- {from: LLMConfiguration.Timeout, to: ModelSettings.timeout, kind: direct}
+- {from: LLMConfiguration.MaxRetries, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.Temperature, to: ModelSettings.temperature, kind: direct}
+- {from: LLMConfiguration.ModelParameters.MaxTokens, to: ModelSettings.max_tokens, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopP, to: ModelSettings.top_p, kind: direct}
+- {from: LLMConfiguration.ModelParameters.FrequencyPenalty, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.PresencePenalty, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.TopK, to: ModelSettings.top_k, kind: partial}
+- {from: LLMConfiguration.ModelParameters.StopSequences, to: ModelSettings.stop_sequences, kind: direct}
+- {from: LLMConfiguration.ModelParameters.Seed, to: ModelSettings.seed, kind: partial}
+- {from: TaskSpecification.TaskName, to: Agent.name, kind: partial}
+- {from: TaskSpecification.TaskDescription, to: Agent.instructions, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: Agent.instructions, kind: partial}
+- {from: Tools, to: Agent.tools, kind: partial}
+- {from: Memory, to: message_history, kind: partial}
+- {from: Reasoning, to: Agent.instructions, kind: partial}

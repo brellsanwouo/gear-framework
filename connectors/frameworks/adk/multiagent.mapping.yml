@@ -4,12 +4,12 @@
 - from: WorkflowName
   to: SystemDefinition.RootAgent
   kind: partial
-  notes: "Nom du root workflow ADK."
+  notes: "ADK root workflow name."
 
 - from: WorkflowName
   to: Runtime.Workflow.RootName
   kind: partial
-  notes: "Nom applique au root_agent dans le code Python."
+  notes: "Name applied to root_agent in the Python code."
 
 - from: Items.Agents
   to: SystemDefinition.Agents
@@ -26,22 +26,21 @@
 - from: Memory
   to: Runtime.Memory.WorkflowEnabled
   kind: partial
-  notes: "Active la memoire long terme au niveau workflow."
+  notes: "Enable long-term memory at workflow level."
 
 - from:
   to: Runtime.Memory.MemoryServiceClass
   value: InMemoryMemoryService
   kind: partial
-  notes: "Classe memory service utilisee quand la memoire est activee."
+  notes: "Memory service class used when memory is enabled."
 
 - from:
   to: Runtime.Memory.AgentToolClass
   value: PreloadMemoryTool
   kind: partial
-  notes: "Outil memory ajoute aux agents quand memoire activee."
+  notes: "Memory tool added to agents when memory is enabled."
 
 - from:
   to: Infrastructure.Runner.Configuration.AppName
   value: gear-framework
   kind: partial
-

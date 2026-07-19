@@ -1,14 +1,1 @@
-flask
-flask-cors
-pyyaml
-python-dotenv
-psycopg2-binary
-mysql-connector-python
-crewai
-google-adk
-mlflow
-flamapy
-markdown
-tiktoken
-opentelemetry-exporter-otlp-proto-http
-litellm
+-e .[execution,dev]

@@ -1,5 +1,8 @@
 /.claude
 /.codex
+.env
+.env.*
+!.env.example
 __pycache__/
 *.egg-info/
 .venv/
@@ -7,3 +10,10 @@ mlflow.db
 mlruns/
 result.json
 result.txt
+.gear/
+dist/
+build/
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/.vitepress/.temp/

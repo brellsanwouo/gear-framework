@@ -1,0 +1,6 @@
+- {from: WorkflowName, to: Graph.graph_id, kind: direct}
+- {from: Memory, to: Graph.session_manager, kind: equivalent}
+- {from: Items.Agents, to: Graph.nodes, kind: equivalent}
+- {from: Items.Modules, to: Graph.nodes, kind: equivalent}
+- {from: Edges.From, to: Graph.edges.from_node, kind: direct}
+- {from: Edges.To, to: Graph.edges.to_node, kind: direct}

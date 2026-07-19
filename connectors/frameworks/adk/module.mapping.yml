@@ -8,16 +8,20 @@
 - from: Strategy.Parallel
   to: Runtime.Module.ADKAgentType.ParallelAgent
   kind: equivalent
-  notes: "Si present, generer un ParallelAgent ADK."
+  notes: "Generate an ADK ParallelAgent when present."
 
 - from: Strategy.Parallel.ParallelAgents
   to: Runtime.Module.Parallel.SubAgents
   kind: direct
 
+- from: Strategy.Parallel.Aggregator
+  to: Runtime.Module.Parallel.Aggregator
+  kind: direct
+
 - from: Strategy.Loop
   to: Runtime.Module.ADKAgentType.LoopAgent
   kind: equivalent
-  notes: "Si present, generer un LoopAgent ADK."
+  notes: "Generate an ADK LoopAgent when present."
 
 - from: Strategy.Loop.LoopAgents
   to: Runtime.Module.Loop.SubAgents
@@ -26,3 +30,8 @@
 - from: Strategy.Loop.TurnCount
   to: Runtime.Module.Loop.MaxIterations
   kind: equivalent
+
+- from: Strategy.Loop.StopCondition
+  to: null
+  kind: not_mapped
+  notes: "ADK LoopAgent uses max_iterations; the natural-language stop condition remains conversion metadata."

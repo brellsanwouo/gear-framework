@@ -1,0 +1,16 @@
+- {from: AgentIdentity.Name, to: Agent.name, kind: direct}
+- {from: AgentIdentity.Purpose, to: Agent.instructions, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: Agent.instructions, kind: partial}
+- {from: LLMConfiguration.Provider, to: ChatClient.provider, kind: partial}
+- {from: LLMConfiguration.Model, to: OpenAIChatClient.model_id, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from the environment."}
+- {from: LLMConfiguration.BaseURL, to: OpenAIChatClient.base_url, kind: direct}
+- {from: LLMConfiguration.Timeout, to: null, kind: not_mapped}
+- {from: LLMConfiguration.MaxRetries, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters, to: Agent.default_options, kind: equivalent}
+- {from: TaskSpecification.TaskName, to: Agent.metadata.task_name, kind: equivalent}
+- {from: TaskSpecification.TaskDescription, to: Agent.instructions, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: Agent.instructions, kind: partial}
+- {from: Tools, to: Agent.tools, kind: partial}
+- {from: Memory, to: AgentThread, kind: equivalent}
+- {from: Reasoning, to: Agent.default_options.reasoning, kind: partial}

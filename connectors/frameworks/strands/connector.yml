@@ -1,0 +1,18 @@
+id: strands
+version: "0.1.0"
+label: Strands Agents
+description: "Deterministic multi-agent graphs with explicit dependency barriers"
+runtime:
+  language: python
+  packages: ["strands-agents[openai]>=1.48,<2"]
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: true
+limitations:
+  - The generated connector currently configures the Strands OpenAI provider.
+  - Natural-language loop stop conditions are retained as metadata while TurnCount is the hard limit.

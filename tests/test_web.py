@@ -1,0 +1,194 @@
+from __future__ import annotations
+
+import importlib
+
+from gear_web.builds import _studio_project
+from gear_web.settings import _studio_model_policy
+
+from gear_sdk.runner import RunResult
+
+
+def test_web_routes_and_build_history(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEAR_STORE_PATH", str(tmp_path / "web.db"))
+    web = importlib.import_module("gear_web.app")
+    client = web.app.test_client()
+
+    assert client.get("/").status_code == 200
+    assert client.get("/studio").status_code == 200
+    assert client.get("/ui/studio.js").status_code == 200
+    assert client.get("/runtime/conversion-core.js").status_code == 200
+    studio_config = client.get("/api/studio/config").get_json()
+    assert set(studio_config["model"]) == {"locked", "provider", "model"}
+    assert isinstance(studio_config["model"]["locked"], bool)
+    templates = client.get("/api/studio/templates").get_json()["templates"]
+    assert {item["id"] for item in templates} == {
+        "minimal", "editorial-pipeline", "research-team", "software-delivery",
+    }
+    starter = client.get(
+        "/api/studio/templates/research-team",
+        query_string={"project_id": "studio-demo", "provider": "google", "model": "test-model"},
+    ).get_json()
+    assert starter["project"]["id"] == "studio-demo"
+    assert len(starter["agents"]) == 5
+    expected_provider = studio_config["model"]["provider"] if studio_config["model"]["locked"] else "google"
+    expected_model = studio_config["model"]["model"] if studio_config["model"]["locked"] else "test-model"
+    assert {agent["LLMConfiguration"]["Provider"] for agent in starter["agents"]} == {expected_provider}
+    assert {agent["LLMConfiguration"]["Model"] for agent in starter["agents"]} == {expected_model}
+    assert client.get("/api/studio/templates/unknown").status_code == 404
+    assert client.get("/.env").status_code == 404
+    assert client.post("/api/run", json={"code": "print(1)"}).status_code == 403
+
+    response = client.post(
+        "/api/builds",
+        json={
+            "project_id": "web-test",
+            "target": "adk",
+            "source": {"agents": []},
+            "outputs": {"orchestration": "print(1)", "report": "valid: true"},
+        },
+    )
+    assert response.status_code == 201
+    builds = client.get("/api/builds").get_json()
+    assert builds[0]["project_id"] == "web-test"
+
+    studio_response = client.post(
+        "/api/studio/builds",
+        json={
+            "project_id": "studio-test",
+            "target": "crewai",
+            "agents": [
+                """GearAgent:
+  AgentIdentity:
+    Name: Writer
+    Purpose: Write a short answer.
+    ContextDescription: A concise technical writer.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: Write
+    TaskDescription: Write an answer.
+    ExpectedOutput: A short answer.
+"""
+            ],
+            "modules": [],
+            "workflows": [
+                """GearMultiAgent:
+  WorkflowName: Main
+  Items:
+    Agents: [Writer]
+    Modules: []
+  Edges: []
+"""
+            ],
+        },
+    )
+    assert studio_response.status_code == 201
+    studio_build = studio_response.get_json()
+    assert studio_build["target"] == "crewai"
+    assert "orchestration" in studio_build["outputs"]
+
+    langgraph_response = client.post(
+        "/api/studio/builds",
+        json={
+            "project_id": "studio-langgraph",
+            "target": "langgraph",
+            "agents": [
+                """GearAgent:
+  AgentIdentity: {Name: Writer, Purpose: Write, ContextDescription: Technical writer}
+  LLMConfiguration: {Provider: openai, Model: gpt-5.1-codex-mini}
+  TaskSpecification: {TaskName: Write, TaskDescription: Write an answer, ExpectedOutput: A short answer}
+"""
+            ],
+            "modules": [],
+            "workflows": [
+                """GearMultiAgent:
+  WorkflowName: Main
+  Items: {Agents: [Writer], Modules: []}
+  Edges: []
+"""
+            ],
+        },
+    )
+    assert langgraph_response.status_code == 201
+    assert "StateGraph" in langgraph_response.get_json()["outputs"]["orchestration"]
+
+    assert client.get("/api/run/status").get_json()["enabled"] is False
+    monkeypatch.setenv("GEAR_ENABLE_LOCAL_RUNNER", "true")
+    monkeypatch.setattr("gear_sdk.runner.run_python", lambda code, timeout: RunResult("done\n", "", 0))
+    run_response = client.post(
+        "/api/run",
+        json={
+            "build_id": studio_build["build_id"],
+            "target": "crewai",
+            "code": "# kickoff(\nprint('generated')",
+        },
+    )
+    assert run_response.status_code == 200
+    assert run_response.get_json()["stdout"] == "done\n"
+    assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
+
+
+def test_studio_project_preserves_mixed_workflow_order():
+    agent = lambda name: {
+        "AgentIdentity": {"Name": name, "Purpose": "Test", "ContextDescription": "Test context"},
+        "LLMConfiguration": {"Provider": "openai", "Model": "gpt-5.1-codex-mini"},
+        "TaskSpecification": {"TaskName": f"{name}Task", "TaskDescription": "Test", "ExpectedOutput": "Test output"},
+    }
+    module = {
+        "ModuleName": "Drafting",
+        "Strategy": {"Parallel": {"ParallelAgents": ["Research"]}},
+    }
+    project = _studio_project({
+        "project_id": "mixed-order",
+        "agents": [agent("Research"), agent("Review")],
+        "modules": [module],
+        "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Research", "Review"], "Modules": ["Drafting"]}},
+        "workflow_sequence": [
+            {"kind": "agent", "name": "Research"},
+            {"kind": "module", "name": "Drafting"},
+            {"kind": "agent", "name": "Review"},
+        ],
+    })
+    assert [node["ref"] for node in project.data["workflow"]["nodes"]] == ["Research", "Drafting", "Review"]
+    assert project.data["workflow"]["edges"] == [
+        {"from": "step-1", "to": "step-2"},
+        {"from": "step-2", "to": "step-3"},
+    ]
+
+
+def test_studio_model_policy_is_optional_and_environment_driven(monkeypatch):
+    monkeypatch.delenv("GEAR_STUDIO_MODEL", raising=False)
+    monkeypatch.setenv("GEAR_STUDIO_PROVIDER", "openai")
+    assert _studio_model_policy() == {
+        "locked": False,
+        "provider": "openai",
+        "model": "gpt-5.1-codex-mini",
+    }
+
+    monkeypatch.setenv("GEAR_STUDIO_PROVIDER", "anthropic")
+    monkeypatch.setenv("GEAR_STUDIO_MODEL", "claude-sonnet")
+    assert _studio_model_policy() == {
+        "locked": True,
+        "provider": "anthropic",
+        "model": "claude-sonnet",
+    }
+
+
+def test_studio_project_enforces_locked_model_policy():
+    project = _studio_project(
+        {
+            "project_id": "locked-model",
+            "agents": [{
+                "AgentIdentity": {"Name": "Writer", "Purpose": "Write", "ContextDescription": "Writer"},
+                "LLMConfiguration": {"Provider": "custom", "Model": "user-choice"},
+                "TaskSpecification": {"TaskName": "Write", "TaskDescription": "Write", "ExpectedOutput": "Text"},
+            }],
+            "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Writer"], "Modules": []}},
+        },
+        {"locked": True, "provider": "openai", "model": "admin-model"},
+    )
+    assert project.data["agents"][0]["LLMConfiguration"] == {
+        "Provider": "openai",
+        "Model": "admin-model",
+    }

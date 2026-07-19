@@ -1,0 +1,68 @@
+schema_version: "1.0"
+project:
+  id: parallel-research
+  name: Parallel research workflow
+  description: Run two research agents in parallel, then review their work.
+
+agents:
+  - AgentIdentity:
+      Name: WebResearcher
+      Purpose: Find relevant public web information.
+      ContextDescription: A web researcher who returns traceable evidence.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: SearchWeb
+      TaskDescription: Find and summarize relevant public web information.
+      ExpectedOutput: A concise list of findings and sources.
+
+  - AgentIdentity:
+      Name: DocumentResearcher
+      Purpose: Extract facts from the supplied documents.
+      ContextDescription: A document analyst who quotes and attributes evidence carefully.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: AnalyzeDocuments
+      TaskDescription: Extract relevant facts from the supplied documents.
+      ExpectedOutput: Structured document findings with source references.
+
+  - AgentIdentity:
+      Name: Reviewer
+      Purpose: Consolidate and verify research results.
+      ContextDescription: A senior analyst who resolves contradictions between sources.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: ReviewResearch
+      TaskDescription: Compare the research results and produce a verified synthesis.
+      ExpectedOutput: A concise synthesis with unresolved uncertainties identified.
+
+modules:
+  - ModuleName: ResearchTeam
+    Strategy:
+      Parallel:
+        ParallelAgents:
+          - WebResearcher
+          - DocumentResearcher
+
+workflow:
+  name: ParallelResearchWorkflow
+  memory: false
+  nodes:
+    - id: research
+      ref: ResearchTeam
+      type: module
+    - id: review
+      ref: Reviewer
+      type: agent
+  edges:
+    - from: research
+      to: review
+
+targets:
+  - crewai
+  - adk

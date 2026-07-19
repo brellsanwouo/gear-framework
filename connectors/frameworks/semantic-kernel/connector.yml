@@ -1,0 +1,20 @@
+id: semantic-kernel
+version: "0.1.0"
+label: Semantic Kernel
+description: "Semantic Kernel agents with deterministic programmatic orchestration"
+runtime:
+  language: python
+  packages:
+    - semantic-kernel>=1.44,<2
+capabilities:
+  agents: true
+  tasks: true
+  modules: true
+  sequential_workflows: true
+  parallel_workflows: true
+  loop_workflows: true
+  tracing: false
+limitations:
+  - The generated connector currently configures the Semantic Kernel OpenAI chat completion service.
+  - Native Semantic Kernel agent orchestration is experimental, so generated workflows use stable agent calls and explicit asyncio orchestration.
+  - Natural-language loop stop conditions remain metadata while TurnCount is the hard limit.

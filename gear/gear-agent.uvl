@@ -15,7 +15,7 @@ features
 							OtherProvider {abstract}
 					Model {abstract}
 						alternative
-							gpt-5.1-codex-mini
+							gpt_5_1_codex_mini
 							OtherModel {abstract}
 				optional
 					APIKey {abstract}
@@ -52,7 +52,7 @@ features
 						CachingControl {abstract}
 
 constraints
-	openai => gpt-5.1-codex-mini
+	openai => gpt_5_1_codex_mini
 	openai => APIKey
 	ollama => BaseURL
 	ollama => OtherModel

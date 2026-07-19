@@ -1,0 +1,23 @@
+- {from: AgentIdentity.Name, to: Agent.name, kind: direct}
+- {from: AgentIdentity.Purpose, to: Agent.instructions, kind: partial}
+- {from: AgentIdentity.ContextDescription, to: Agent.instructions, kind: partial}
+- {from: LLMConfiguration.Provider, to: Agent.model_provider, kind: partial}
+- {from: LLMConfiguration.Model, to: Agent.model, kind: direct}
+- {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from OPENAI_API_KEY."}
+- {from: LLMConfiguration.BaseURL, to: null, kind: not_mapped}
+- {from: LLMConfiguration.Timeout, to: null, kind: not_mapped}
+- {from: LLMConfiguration.MaxRetries, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.Temperature, to: ModelSettings.temperature, kind: direct}
+- {from: LLMConfiguration.ModelParameters.MaxTokens, to: ModelSettings.max_tokens, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopP, to: ModelSettings.top_p, kind: direct}
+- {from: LLMConfiguration.ModelParameters.FrequencyPenalty, to: ModelSettings.frequency_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.PresencePenalty, to: ModelSettings.presence_penalty, kind: direct}
+- {from: LLMConfiguration.ModelParameters.TopK, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.StopSequences, to: null, kind: not_mapped}
+- {from: LLMConfiguration.ModelParameters.Seed, to: null, kind: not_mapped}
+- {from: TaskSpecification.TaskName, to: Agent.handoff_description, kind: partial}
+- {from: TaskSpecification.TaskDescription, to: Agent.instructions, kind: partial}
+- {from: TaskSpecification.ExpectedOutput, to: Agent.instructions, kind: partial}
+- {from: Tools, to: Agent.tools, kind: partial}
+- {from: Memory, to: Session, kind: equivalent}
+- {from: Reasoning, to: ModelSettings.reasoning, kind: partial}

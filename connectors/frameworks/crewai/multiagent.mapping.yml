@@ -4,22 +4,22 @@
 - from: WorkflowName
   to: Crew.Metadata.Name
   kind: partial
-  notes: "Nom logique du workflow."
+  notes: "Logical workflow name."
 
 - from: Items.Agents
   to: Crew.EssentialComponents.Agents
   kind: direct
-  notes: "Liste des agents utilises dans le workflow."
+  notes: "List of agents used in the workflow."
 
 - from: Items.Modules
   to: Crew.EssentialComponents.Modules
   kind: partial
-  notes: "Information de modules (utile pour extensions)."
+  notes: "Module information, useful for extensions."
 
 - from: Edges
   to: Crew.Orchestration.Edges
   kind: partial
-  notes: "Graphe d'ordre du workflow."
+  notes: "Workflow ordering graph."
 
 - from: Memory
   to: Crew.MemoryAndPerformance.Memory
@@ -29,4 +29,4 @@
   to: Crew.EssentialComponents.Process
   value: sequential
   kind: partial
-  notes: "Par defaut, CrewAI utilise Process.sequential."
+  notes: "CrewAI uses Process.sequential by default."

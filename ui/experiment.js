@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextTaskName = document.getElementById('nextTaskName');
     const startBtn = document.getElementById('startBtn');
     const nextBtn = document.getElementById('nextBtn');
+    const consentCheckbox = document.getElementById('consentCheckbox');
+    const progressText = document.getElementById('progressText');
+    const endMessage = document.getElementById('endMessage');
+
+    consentCheckbox.addEventListener('change', () => {
+        startBtn.disabled = !consentCheckbox.checked;
+    });
 
 
     if (state.userId && state.sequence.length > 0) {
@@ -42,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.userId = data.user_id;
             state.sequence = data.sequence;
             state.currentIndex = 0;
+            localStorage.setItem('gear_tracking', data.tracking ? 'true' : 'false');
 
             launchTask();
 
@@ -64,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modeLabel = nextTask.mode === 'GEAR' ? 'Gear' : 'Manual';
         nextTaskName.textContent = `${nextTask.id} (${modeLabel})`;
+        progressText.textContent = `Task ${state.currentIndex + 1} of ${state.sequence.length}`;
     }
 
     function launchTask() {
@@ -82,4 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = `/manual?${params.toString()}`;
         }
     }
+
+    const trackingEnabled = localStorage.getItem('gear_tracking') === 'true';
+    endMessage.textContent = trackingEnabled
+        ? 'The experiment is finished. Your results have been saved.'
+        : 'The experiment is finished. Tracking was disabled, so no study results were stored.';
 });
