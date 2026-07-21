@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (task.mode === 'GEAR') {
-            window.location.href = `/?${params.toString()}`;
+            window.location.href = `/classic?${params.toString()}`;
         } else {
             window.location.href = `/manual?${params.toString()}`;
         }
