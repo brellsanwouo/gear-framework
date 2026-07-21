@@ -58,8 +58,25 @@ def run_python(code: str, *, timeout: int = 180) -> RunResult:
     disabled unless GEAR_ENABLE_LOCAL_RUNNER is explicitly enabled.
     """
     environment = {key: value for key, value in os.environ.items() if key in ALLOWED_ENVIRONMENT}
-    environment.update({"PYTHONUNBUFFERED": "1", "PYTHONNOUSERSITE": "1", "PATH": os.defpath})
     with tempfile.TemporaryDirectory(prefix="gear-run-") as temporary:
+        runtime_home = Path(temporary)
+        runtime_data = runtime_home / ".local" / "share"
+        runtime_cache = runtime_home / ".cache"
+        runtime_config = runtime_home / ".config"
+        for directory in (runtime_data, runtime_cache, runtime_config):
+            directory.mkdir(parents=True, exist_ok=True)
+        environment.update({
+            "HOME": temporary,
+            "XDG_DATA_HOME": str(runtime_data),
+            "XDG_CACHE_HOME": str(runtime_cache),
+            "XDG_CONFIG_HOME": str(runtime_config),
+            "TMPDIR": temporary,
+            "TEMP": temporary,
+            "TMP": temporary,
+            "PYTHONUNBUFFERED": "1",
+            "PYTHONNOUSERSITE": "1",
+            "PATH": os.defpath,
+        })
         script = Path(temporary) / "orchestration.py"
         script.write_text(code, encoding="utf-8")
         completed = subprocess.run(
