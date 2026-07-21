@@ -117,6 +117,9 @@ jobs:
           echo 'GEAR_TRACKING_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
           sudo sed -i '/^GEAR_ENABLE_LOCAL_RUNNER=/d' /etc/gear.env
           echo 'GEAR_ENABLE_LOCAL_RUNNER=true' | sudo tee -a /etc/gear.env > /dev/null
+          sudo install -d -m 0770 -o nzine -g gear /var/lib/gear
+          sudo sed -i '/^GEAR_STORE_PATH=/d' /etc/gear.env
+          echo 'GEAR_STORE_PATH=/var/lib/gear/gear.db' | sudo tee -a /etc/gear.env > /dev/null
           if ! sudo grep -Eq '^DATABASE_URL=.+$' /etc/gear.env; then
             echo 'DATABASE_URL is missing from /etc/gear.env; research tracking cannot be enabled.' >&2
             exit 1
