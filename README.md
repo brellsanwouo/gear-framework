@@ -217,6 +217,10 @@ GEAR_ENABLE_LOCAL_RUNNER=true gear serve
 
 The runner filters environment variables and applies CPU, memory, file-size, descriptor, and wall-time limits. These controls provide defense in depth for a trusted workstation; they are not a multi-tenant security sandbox.
 
+To observe Studio executions in MLflow, set `MLFLOW_TRACKING_URI` and
+`GEAR_MLFLOW_ENABLED=true`. GEAR records one MLflow run per execution with the
+target, build ID, status, duration, output metrics, and bounded console logs.
+
 ## CLI reference
 
 | Command | Purpose |

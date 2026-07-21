@@ -100,6 +100,28 @@ jobs:
 
           sudo /opt/gear/venv/bin/python -m pip install psycopg2-binary
 
+          echo "Configuring MLflow observability..."
+          sudo touch /etc/gear.env
+          if ! sudo grep -Eq '^MLFLOW_TRACKING_URI=.+$' /etc/gear.env; then
+            sudo sed -i '/^MLFLOW_TRACKING_URI=/d' /etc/gear.env
+            echo 'MLFLOW_TRACKING_URI=http://gear-backend.lille.inria.fr:5000' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+          sudo sed -i '/^GEAR_MLFLOW_ENABLED=/d' /etc/gear.env
+          echo 'GEAR_MLFLOW_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
+          if ! sudo grep -Eq '^MLFLOW_EXPERIMENT_NAME=.+$' /etc/gear.env; then
+            echo 'MLFLOW_EXPERIMENT_NAME=gear-framework-production' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+          if ! sudo grep -Eq '^MLFLOW_HTTP_REQUEST_TIMEOUT=.+$' /etc/gear.env; then
+            echo 'MLFLOW_HTTP_REQUEST_TIMEOUT=5' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+          if ! sudo grep -Eq '^MLFLOW_HTTP_REQUEST_MAX_RETRIES=.+$' /etc/gear.env; then
+            echo 'MLFLOW_HTTP_REQUEST_MAX_RETRIES=1' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+
+          mlflow_uri="$(sudo sed -n 's/^MLFLOW_TRACKING_URI=//p' /etc/gear.env | tail -n 1)"
+          echo "Checking MLflow tracking server..."
+          curl -fsS "${mlflow_uri%/}/health" > /dev/null
+
           echo "Restarting gear-app..."
           sudo systemctl daemon-reload
           sudo systemctl restart gear-app
@@ -110,6 +132,15 @@ jobs:
 
           echo "Testing local gear-app..."
           curl -fsS http://127.0.0.1:8200 > /dev/null
+          /opt/gear/venv/bin/python - <<'PY'
+          import json
+          import urllib.request
+
+          with urllib.request.urlopen("http://127.0.0.1:8200/api/run/status") as response:
+              payload = json.load(response)
+          assert payload["observability"]["enabled"], payload
+          print("MLflow observability enabled.")
+          PY
 
           echo "Deployment successful."
           EOF

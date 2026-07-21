@@ -121,6 +121,7 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.get("/api/run/status").get_json()["enabled"] is False
     monkeypatch.setenv("GEAR_ENABLE_LOCAL_RUNNER", "true")
     monkeypatch.setattr("gear_sdk.runner.run_python", lambda code, timeout: RunResult("done\n", "", 0))
+    monkeypatch.setattr("gear_web.services.observability.record_execution", lambda **values: "mlflow-run-1")
     run_response = client.post(
         "/api/run",
         json={
@@ -131,6 +132,8 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     )
     assert run_response.status_code == 200
     assert run_response.get_json()["stdout"] == "done\n"
+    assert run_response.get_json()["mlflow_run_id"] == "mlflow-run-1"
+    assert run_response.get_json()["trace_id"] == "mlflow-run-1"
     assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
 
 

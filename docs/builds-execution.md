@@ -40,3 +40,21 @@ gear logs show <run-id>
 ```
 
 The Studio exposes the same information in its Console tab and recent history.
+
+## MLflow observability
+
+Set a remote tracking server to record every Studio execution in MLflow:
+
+```dotenv
+MLFLOW_TRACKING_URI=http://mlflow.internal:5000
+GEAR_MLFLOW_ENABLED=true
+MLFLOW_EXPERIMENT_NAME=gear-framework-production
+MLFLOW_HTTP_REQUEST_TIMEOUT=5
+MLFLOW_HTTP_REQUEST_MAX_RETRIES=1
+```
+
+Each MLflow run records the GEAR build ID, target framework, success status,
+duration, return code, output sizes, and bounded stdout/stderr artifacts. Set
+`GEAR_MLFLOW_LOG_OUTPUTS=false` when execution output must not leave the
+application host. MLflow failures are logged by GEAR but do not interrupt the
+user workflow.

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 
 from flask import Blueprint, jsonify, request
 
 from gear_sdk import runner as gear_runner
 from gear_sdk.store import BuildStore
 
+from ..services import observability
 from ..services.execution import ensure_crewai_kickoff, parse_trace_id, prepend_google_adk_imports, strip_trace_markers
 
 
@@ -28,6 +30,7 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         return jsonify({
             "enabled": enabled,
             "timeout_seconds": _timeout(),
+            "observability": observability.status(),
             "message": (
                 "Local execution is available for trusted workflows."
                 if enabled
@@ -57,14 +60,26 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             executable = ensure_crewai_kickoff(code)
         else:
             executable = code
+        started_at = time.perf_counter()
         try:
             result = gear_runner.run_python(executable, timeout=_timeout())
         except subprocess.TimeoutExpired:
             return jsonify({"error": "Execution timed out."}), 408
 
-        trace_id = parse_trace_id(result.stderr)
-        run_id = None
+        duration_ms = round((time.perf_counter() - started_at) * 1000)
+        external_trace_id = parse_trace_id(result.stderr)
         build_id = payload.get("build_id")
+        mlflow_run_id = observability.record_execution(
+            build_id=str(build_id) if build_id else None,
+            target=target,
+            returncode=result.returncode,
+            duration_ms=duration_ms,
+            stdout=result.stdout,
+            stderr=strip_trace_markers(result.stderr),
+            external_trace_id=external_trace_id,
+        )
+        trace_id = mlflow_run_id or external_trace_id
+        run_id = None
         if build_id:
             try:
                 run_id = BuildStore(store_path).record_run(
@@ -80,6 +95,7 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         return jsonify({
             "run_id": run_id,
             "trace_id": trace_id,
+            "mlflow_run_id": mlflow_run_id,
             "stdout": result.stdout,
             "stderr": strip_trace_markers(result.stderr),
             "returncode": result.returncode,
