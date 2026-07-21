@@ -95,10 +95,10 @@ jobs:
           echo "Installing dependencies..."
           cd /opt/gear/gear-framework
           if [ -f requirements.txt ]; then
-            /opt/gear/venv/bin/python -m pip install -r requirements.txt
+            sudo /opt/gear/venv/bin/python -m pip install -r requirements.txt
           fi
 
-          /opt/gear/venv/bin/python -m pip install psycopg2-binary
+          sudo /opt/gear/venv/bin/python -m pip install psycopg2-binary
 
           echo "Restarting gear-app..."
           sudo systemctl daemon-reload
