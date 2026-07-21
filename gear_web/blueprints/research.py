@@ -178,13 +178,24 @@ def create_research_blueprint(
         if not tracking_enabled:
             return jsonify({"log_id": None, "tracking": False})
         payload = request.get_json(silent=True) or {}
+        user_id = payload.get("user_id")
+        task_id = payload.get("task_id")
+        mode = str(payload.get("mode") or "").upper()
+        if mode not in ("GEAR", "MANUAL"):
+            return jsonify({"error": "Invalid mode"}), 400
+        if task_id not in tasks:
+            return jsonify({"error": "Invalid task_id"}), 400
+        try:
+            uuid.UUID(str(user_id or ""))
+        except ValueError:
+            return jsonify({"error": "Invalid user_id"}), 400
         started_at = time.time()
         try:
             with store.connect() as connection:
                 cursor = connection.cursor()
                 cursor.execute(
                     "INSERT INTO task_logs (user_id, task_id, mode, start_time, completed) VALUES (%s, %s, %s, %s, %s)",
-                    (payload.get("user_id"), payload.get("task_id"), payload.get("mode"), started_at, False),
+                    (user_id, task_id, mode, started_at, False),
                 )
                 log_id = cursor.lastrowid
                 connection.commit()
