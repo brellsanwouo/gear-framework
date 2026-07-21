@@ -102,10 +102,8 @@ jobs:
 
           echo "Configuring MLflow observability..."
           sudo touch /etc/gear.env
-          if ! sudo grep -Eq '^MLFLOW_TRACKING_URI=.+$' /etc/gear.env; then
-            sudo sed -i '/^MLFLOW_TRACKING_URI=/d' /etc/gear.env
-            echo 'MLFLOW_TRACKING_URI=http://gear-backend.lille.inria.fr:5000' | sudo tee -a /etc/gear.env > /dev/null
-          fi
+          sudo sed -i '/^MLFLOW_TRACKING_URI=/d' /etc/gear.env
+          echo 'MLFLOW_TRACKING_URI=http://gear-backend.lille.inria.fr:5000' | sudo tee -a /etc/gear.env > /dev/null
           sudo sed -i '/^GEAR_MLFLOW_ENABLED=/d' /etc/gear.env
           echo 'GEAR_MLFLOW_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
           if ! sudo grep -Eq '^MLFLOW_EXPERIMENT_NAME=.+$' /etc/gear.env; then
