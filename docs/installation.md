@@ -56,7 +56,7 @@ GEAR installs Google ADK 2.5 with LiteLLM, which is the adapter used by generate
 gear serve
 ```
 
-Open `http://127.0.0.1:8200/studio`.
+Open `http://127.0.0.1:8200/`. The Studio is now the default interface; the classic editor remains available at `http://127.0.0.1:8200/classic`.
 
 ### Configure the Studio model policy
 

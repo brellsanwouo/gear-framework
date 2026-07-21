@@ -192,8 +192,8 @@ gear serve
 
 Then open:
 
-- Guided Studio: <http://127.0.0.1:8200/studio>
-- Classic editor: <http://127.0.0.1:8200/>
+- Guided Studio: <http://127.0.0.1:8200/>
+- Classic editor: <http://127.0.0.1:8200/classic>
 
 The Studio provides five guided stages:
 

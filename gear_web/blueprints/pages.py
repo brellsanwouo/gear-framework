@@ -27,6 +27,10 @@ def create_pages_blueprint(base_dir: Path, ui_dir: Path, runtime_dir: Path) -> B
 
     @blueprint.get("/")
     def index() -> Any:
+        return send_from_directory(ui_dir, "studio.html")
+
+    @blueprint.get("/classic")
+    def classic_ui() -> Any:
         return send_from_directory(ui_dir, "index.html")
 
     @blueprint.get("/ui")

@@ -13,8 +13,13 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     web = importlib.import_module("gear_web.app")
     client = web.app.test_client()
 
-    assert client.get("/").status_code == 200
-    assert client.get("/studio").status_code == 200
+    root_response = client.get("/")
+    assert root_response.status_code == 200
+    assert b"GEAR Studio" in root_response.data
+    assert b"GEAR Studio" in client.get("/studio").data
+    classic_response = client.get("/classic")
+    assert classic_response.status_code == 200
+    assert b"GEAR Studio" not in classic_response.data
     assert client.get("/ui/studio.js").status_code == 200
     assert client.get("/runtime/conversion-core.js").status_code == 200
     studio_config = client.get("/api/studio/config").get_json()
