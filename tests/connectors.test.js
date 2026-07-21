@@ -81,7 +81,10 @@ test("CrewAI preserves parallel graph layers and consumes advanced LLM settings"
   assert.match(result.outputs.orchestration, /tracing=False/);
   assert.match(result.outputs.orchestration, /temperature=0\.2/);
   assert.match(result.outputs.orchestration, /await asyncio\.gather\(run_a\(current\), run_b\(current\)\)/);
-  assert.match(result.outputs.orchestration, /kickoff_async\(inputs=\{"gear_input": prompt\}\)/);
+  assert.match(result.outputs.orchestration, /kickoff_async\(\)/);
+  assert.match(result.outputs.orchestration, /Context from the previous agent/);
+  assert.doesNotMatch(result.outputs.orchestration, /Workflow input/);
+  assert.match(result.outputs.orchestration, /async def run_workflow\(\)/);
   assert.match(result.outputs.orchestration, /if __name__ == "__main__":/);
   assert.equal(result.outputs.report.valid, true);
 });

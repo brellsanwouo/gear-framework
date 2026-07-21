@@ -51,7 +51,7 @@ def _limits() -> None:
     resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
 
 
-def run_python(code: str, *, timeout: int = 180, gear_input: str | None = None) -> RunResult:
+def run_python(code: str, *, timeout: int = 180) -> RunResult:
     """Run trusted local generated code with a minimal environment and hard limits.
 
     This is defense in depth, not a multi-tenant sandbox. The web endpoint remains
@@ -81,8 +81,6 @@ def run_python(code: str, *, timeout: int = 180, gear_input: str | None = None) 
             "CREWAI_TRACING_ENABLED": "false",
             "CREWAI_DISABLE_TELEMETRY": "true",
         })
-        if gear_input is not None:
-            environment["GEAR_INPUT"] = gear_input
         script = Path(temporary) / "orchestration.py"
         script.write_text(code, encoding="utf-8")
         completed = subprocess.run(

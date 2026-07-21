@@ -33,7 +33,8 @@ def test_crewai_and_adk_generate_current_module_orchestration(tmp_path):
     adk_loop = convert(loop, "adk", tmp_path / "adk-loop").outputs["orchestration"]
 
     assert "await asyncio.gather" in crew_parallel
-    assert 'kickoff_async(inputs={"gear_input": prompt})' in crew_parallel
+    assert "kickoff_async()" in crew_parallel
+    assert "Context from the previous agent" in crew_parallel
     assert "for _ in range(3):" in crew_loop
     assert "ParallelAgent(" in adk_parallel
     assert "ResearchTeamPipeline" in adk_parallel

@@ -71,15 +71,6 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         if not code.strip():
             return jsonify({"error": "This build contains no executable orchestration."}), 400
 
-        gear_input = payload.get("input")
-        if gear_input is not None and not isinstance(gear_input, str):
-            return jsonify({"error": "Execution input must be text."}), 400
-        if gear_input is not None and "\x00" in gear_input:
-            return jsonify({"error": "Execution input contains an unsupported null character."}), 400
-        input_limit = int(os.environ.get("GEAR_RUNNER_INPUT_CHARS", "100000"))
-        if gear_input is not None and len(gear_input) > input_limit:
-            return jsonify({"error": f"Execution input exceeds the {input_limit}-character limit."}), 413
-
         if target in {"adk", "googleadk", "google-adk"}:
             executable = prepend_google_adk_imports(code)
         elif target == "crewai":
@@ -88,7 +79,7 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             executable = code
         started_at = time.perf_counter()
         try:
-            result = gear_runner.run_python(executable, timeout=_timeout(), gear_input=gear_input)
+            result = gear_runner.run_python(executable, timeout=_timeout())
         except subprocess.TimeoutExpired:
             return jsonify({"error": "Execution timed out."}), 408
 

@@ -24,14 +24,3 @@ print(home == Path.cwd())
     assert result.returncode == 0
     assert result.stdout.strip() == "True"
     assert result.stderr == ""
-
-
-def test_runner_passes_only_the_explicit_workflow_input():
-    result = run_python(
-        "import os; print(os.environ['GEAR_INPUT']); print(os.environ['CREWAI_TRACING_ENABLED'])",
-        timeout=10,
-        gear_input="Analyze this document",
-    )
-
-    assert result.returncode == 0
-    assert result.stdout.splitlines() == ["Analyze this document", "false"]

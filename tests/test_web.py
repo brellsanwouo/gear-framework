@@ -25,7 +25,6 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert classic_response.status_code == 200
     assert b"GEAR Studio" not in classic_response.data
     assert client.get("/ui/studio.js").status_code == 200
-    assert b'id="executionInput"' in root_response.data
     assert b'id="runExecution"' in root_response.data
     assert client.get("/runtime/conversion-core.js").status_code == 200
     studio_config = client.get("/api/studio/config").get_json()
@@ -129,8 +128,8 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.get("/api/run/status").get_json()["enabled"] is False
     monkeypatch.setenv("GEAR_ENABLE_LOCAL_RUNNER", "true")
     execution = {}
-    def fake_run_python(code, timeout, gear_input=None):
-        execution.update(code=code, timeout=timeout, gear_input=gear_input)
+    def fake_run_python(code, timeout):
+        execution.update(code=code, timeout=timeout)
         return RunResult("done\n", "", 0)
     monkeypatch.setattr("gear_sdk.runner.run_python", fake_run_python)
     monkeypatch.setattr("gear_web.services.observability.record_execution", lambda **values: "mlflow-run-1")
@@ -139,14 +138,12 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
         json={
             "build_id": studio_build["build_id"],
             "target": "crewai",
-            "input": "Write about secure observability.",
         },
     )
     assert run_response.status_code == 200
     assert run_response.get_json()["stdout"] == "done\n"
     assert run_response.get_json()["mlflow_run_id"] == "mlflow-run-1"
     assert run_response.get_json()["trace_id"] == "mlflow-run-1"
-    assert execution["gear_input"] == "Write about secure observability."
     assert "No 'crew' variable defined" not in execution["code"]
     assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
     assert client.post("/api/run", json={"code": "print('untrusted')"}).status_code == 400
@@ -157,10 +154,6 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.post(
         "/api/run",
         json={"build_id": studio_build["build_id"], "target": "langgraph"},
-    ).status_code == 400
-    assert client.post(
-        "/api/run",
-        json={"build_id": studio_build["build_id"], "target": "crewai", "input": "bad\x00input"},
     ).status_code == 400
 
 

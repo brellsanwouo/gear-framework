@@ -41,7 +41,7 @@ Not every GEAR construct has an exact equivalent in every framework. The convers
 
 ## CrewAI notes
 
-The CrewAI connector targets CrewAI 1.15. Each GEAR agent becomes a native `Agent` and `Task`; execution uses asynchronous `Crew.kickoff_async` calls so graph layers and parallel modules remain concurrent. Loop modules enforce `TurnCount`, and an optional aggregator receives the combined branch output. Generated modules expose `run_workflow(user_input)` and only execute from the Python entry point. Tool names remain unmapped until GEAR has an executable tool registry.
+The CrewAI connector targets CrewAI 1.15. Each GEAR agent becomes a native `Agent` and `Task`; execution uses asynchronous `Crew.kickoff_async` calls so graph layers and parallel modules remain concurrent. Agent instructions come entirely from their task definitions, while each completed agent output is passed as context to the next workflow step. Loop modules enforce `TurnCount`, and an optional aggregator receives the combined branch output. Generated modules expose `run_workflow()` and only execute from the Python entry point. Tool names remain unmapped until GEAR has an executable tool registry.
 
 ## Google ADK notes
 
