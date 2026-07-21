@@ -26,6 +26,7 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert b"GEAR Studio" not in classic_response.data
     assert client.get("/ui/studio.js").status_code == 200
     assert b'id="executionInput"' in root_response.data
+    assert b'id="runExecution"' in root_response.data
     assert client.get("/runtime/conversion-core.js").status_code == 200
     studio_config = client.get("/api/studio/config").get_json()
     assert set(studio_config["model"]) == {"locked", "provider", "model"}
