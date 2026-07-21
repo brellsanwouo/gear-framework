@@ -78,6 +78,7 @@ test("CrewAI preserves parallel graph layers and consumes advanced LLM settings"
   assert.equal(result.error, undefined);
   assert.match(result.outputs.orchestration, /model="openai\/gpt-4\.1-mini"/);
   assert.doesNotMatch(result.outputs.orchestration, /provider="openai"/);
+  assert.match(result.outputs.orchestration, /tracing=False/);
   assert.match(result.outputs.orchestration, /temperature=0\.2/);
   assert.match(result.outputs.orchestration, /await asyncio\.gather\(run_a\(current\), run_b\(current\)\)/);
   assert.match(result.outputs.orchestration, /kickoff_async\(inputs=\{"gear_input": prompt\}\)/);

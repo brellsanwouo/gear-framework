@@ -10,7 +10,7 @@ def prepend_google_adk_imports(code: str) -> str:
 
 
 def ensure_crewai_kickoff(code: str) -> str:
-    if "kickoff(" in code:
+    if "kickoff(" in code or "kickoff_async(" in code or "run_workflow(" in code:
         return code
     wrapper = textwrap.dedent(
         """
@@ -22,6 +22,27 @@ def ensure_crewai_kickoff(code: str) -> str:
         """
     ).strip("\n")
     return f"{code}\n{wrapper}\n"
+
+
+def strip_crewai_tracing_messages(output: str) -> str:
+    """Remove CrewAI's first-run tracing panels without touching workflow output."""
+    if not output:
+        return ""
+    kept: list[str] = []
+    skipping = False
+    for line in output.splitlines(keepends=True):
+        stripped = line.strip()
+        if not skipping and stripped.startswith("╭") and (
+            "Tracing Preference Saved" in stripped or "Tracing Status" in stripped
+        ):
+            skipping = True
+            continue
+        if skipping:
+            if stripped.startswith("╰"):
+                skipping = False
+            continue
+        kept.append(line)
+    return "".join(kept).lstrip("\r\n")
 
 
 def parse_trace_id(stderr: str) -> str | None:

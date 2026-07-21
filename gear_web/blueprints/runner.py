@@ -10,7 +10,13 @@ from gear_sdk import runner as gear_runner
 from gear_sdk.store import BuildStore
 
 from ..services import observability
-from ..services.execution import ensure_crewai_kickoff, parse_trace_id, prepend_google_adk_imports, strip_trace_markers
+from ..services.execution import (
+    ensure_crewai_kickoff,
+    parse_trace_id,
+    prepend_google_adk_imports,
+    strip_crewai_tracing_messages,
+    strip_trace_markers,
+)
 
 
 def _enabled() -> bool:
@@ -65,6 +71,15 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         if not code.strip():
             return jsonify({"error": "This build contains no executable orchestration."}), 400
 
+        gear_input = payload.get("input")
+        if gear_input is not None and not isinstance(gear_input, str):
+            return jsonify({"error": "Execution input must be text."}), 400
+        if gear_input is not None and "\x00" in gear_input:
+            return jsonify({"error": "Execution input contains an unsupported null character."}), 400
+        input_limit = int(os.environ.get("GEAR_RUNNER_INPUT_CHARS", "100000"))
+        if gear_input is not None and len(gear_input) > input_limit:
+            return jsonify({"error": f"Execution input exceeds the {input_limit}-character limit."}), 413
+
         if target in {"adk", "googleadk", "google-adk"}:
             executable = prepend_google_adk_imports(code)
         elif target == "crewai":
@@ -73,27 +88,29 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             executable = code
         started_at = time.perf_counter()
         try:
-            result = gear_runner.run_python(executable, timeout=_timeout())
+            result = gear_runner.run_python(executable, timeout=_timeout(), gear_input=gear_input)
         except subprocess.TimeoutExpired:
             return jsonify({"error": "Execution timed out."}), 408
 
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         external_trace_id = parse_trace_id(result.stderr)
+        stdout = strip_crewai_tracing_messages(result.stdout) if target == "crewai" else result.stdout
+        stderr = strip_trace_markers(result.stderr)
         mlflow_run_id = observability.record_execution(
             build_id=build_id,
             target=target,
             returncode=result.returncode,
             duration_ms=duration_ms,
-            stdout=result.stdout,
-            stderr=strip_trace_markers(result.stderr),
+            stdout=stdout,
+            stderr=stderr,
             external_trace_id=external_trace_id,
         )
         trace_id = mlflow_run_id or external_trace_id
         run_id = BuildStore(store_path).record_run(
             build_id,
             "succeeded" if result.returncode == 0 else "failed",
-            result.stdout,
-            result.stderr,
+            stdout,
+            stderr,
             trace_id,
         )
 
@@ -101,8 +118,8 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             "run_id": run_id,
             "trace_id": trace_id,
             "mlflow_run_id": mlflow_run_id,
-            "stdout": result.stdout,
-            "stderr": strip_trace_markers(result.stderr),
+            "stdout": stdout,
+            "stderr": stderr,
             "returncode": result.returncode,
         })
 
