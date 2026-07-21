@@ -12,6 +12,11 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     monkeypatch.setenv("GEAR_STORE_PATH", str(tmp_path / "web.db"))
     web = importlib.import_module("gear_web.app")
     client = web.app.test_client()
+    identity = client.get("/api/session").get_json()
+    assert identity["anonymous"] is True
+    assert identity["user_id"].startswith("participant-")
+    assert identity["session_id"].startswith("session-")
+    assert client.get("/api/session").get_json() == identity
 
     root_response = client.get("/")
     assert root_response.status_code == 200
@@ -62,6 +67,13 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     browser_build_id = response.get_json()["build_id"]
     builds = client.get("/api/builds").get_json()
     assert builds[0]["project_id"] == "web-test"
+    assert builds[0]["participant_id"] == identity["user_id"]
+
+    other_client = web.app.test_client()
+    other_identity = other_client.get("/api/session").get_json()
+    assert other_identity["user_id"] != identity["user_id"]
+    assert other_client.get("/api/builds").get_json() == []
+    assert other_client.get(f"/api/builds/{browser_build_id}").status_code == 404
 
     studio_response = client.post(
         "/api/studio/builds",
@@ -128,8 +140,8 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.get("/api/run/status").get_json()["enabled"] is False
     monkeypatch.setenv("GEAR_ENABLE_LOCAL_RUNNER", "true")
     execution = {}
-    def fake_run_python(code, timeout):
-        execution.update(code=code, timeout=timeout)
+    def fake_run_python(code, timeout, **context):
+        execution.update(code=code, timeout=timeout, **context)
         return RunResult("done\n", "", 0)
     monkeypatch.setattr("gear_sdk.runner.run_python", fake_run_python)
     monkeypatch.setattr("gear_web.services.observability.record_execution", lambda **values: "mlflow-run-1")
@@ -145,7 +157,16 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert run_response.get_json()["mlflow_run_id"] == "mlflow-run-1"
     assert run_response.get_json()["trace_id"] == "mlflow-run-1"
     assert "No 'crew' variable defined" not in execution["code"]
+    assert execution["participant_id"] == identity["user_id"]
+    assert execution["session_id"] == identity["session_id"]
+    assert execution["project_id"] == "studio-test"
     assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
+    assert client.get("/api/logs").get_json()[0]["participant_id"] == identity["user_id"]
+    assert other_client.get("/api/logs").get_json() == []
+    assert other_client.post(
+        "/api/run",
+        json={"build_id": studio_build["build_id"], "target": "crewai"},
+    ).status_code == 404
     assert client.post("/api/run", json={"code": "print('untrusted')"}).status_code == 400
     assert client.post(
         "/api/run",

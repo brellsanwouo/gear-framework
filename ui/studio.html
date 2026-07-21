@@ -154,7 +154,7 @@
               <div id="consoleOutputPanel" class="build-output-panel" role="tabpanel" hidden><p id="executionMeta" class="output-meta">No execution yet.</p><pre id="executionConsole" class="execution-console" aria-live="polite"><code>Waiting for an execution…</code></pre></div>
           </section>
           <section class="history-card history-card--compact">
-            <button id="toggleStudioHistory" class="history-toggle" type="button" aria-expanded="false"><span><strong>History</strong><small>Builds and executions stored locally</small></span><span>Show</span></button>
+            <button id="toggleStudioHistory" class="history-toggle" type="button" aria-expanded="false"><span><strong>History</strong><small>Builds and executions for this participant</small></span><span>Show</span></button>
             <div id="studioHistoryContent" hidden><div class="history-tools"><button id="refreshStudioHistory" class="button button--quiet" type="button">Refresh</button></div><div class="history-columns"><div><h3>Builds</h3><div id="studioBuilds" class="history-rows"></div></div><div><h3>Executions</h3><div id="studioRuns" class="history-rows"></div></div></div></div>
           </section>
         </section>
@@ -162,6 +162,7 @@
 
       <aside class="project-inspector">
         <p class="nav-label">Project status</p>
+        <div class="participant-card"><span>Anonymous participant</span><strong id="participantIdentity">Connecting…</strong></div>
         <div id="projectHealth" class="health-card"><span class="health-icon">✓</span><div><strong>Project ready</strong><small>No blocking errors</small></div></div>
         <h2 class="inspector-heading">Composition</h2>
         <dl class="project-stats">

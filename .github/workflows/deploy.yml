@@ -126,6 +126,10 @@ jobs:
           printf '[Service]\nReadWritePaths=/var/lib/gear\n' | sudo tee /etc/systemd/system/gear-app.service.d/storage.conf > /dev/null
           sudo sed -i '/^GEAR_STORE_PATH=/d' /etc/gear.env
           echo 'GEAR_STORE_PATH=/var/lib/gear/gear.db' | sudo tee -a /etc/gear.env > /dev/null
+          if ! sudo grep -Eq '^GEAR_SESSION_SECRET=.{32,}$' /etc/gear.env; then
+            session_secret="$(openssl rand -hex 32)"
+            echo "GEAR_SESSION_SECRET=${session_secret}" | sudo tee -a /etc/gear.env > /dev/null
+          fi
           if ! sudo grep -Eq '^DATABASE_URL=.+$' /etc/gear.env; then
             echo 'DATABASE_URL is missing from /etc/gear.env; research tracking cannot be enabled.' >&2
             exit 1

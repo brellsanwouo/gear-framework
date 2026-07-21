@@ -150,6 +150,28 @@ def test_store_correlates_execution_log_with_build(tmp_path):
     assert run["trace_id"] == "trace-1"
 
 
+def test_store_filters_builds_and_runs_by_participant(tmp_path):
+    project = load_project("examples/minimal.gear.yml")
+    store = BuildStore(tmp_path / "participants.db")
+    store.touch_participant("participant-a", "session-a")
+    store.touch_participant("participant-b", "session-b")
+    build_a = convert(project, "crewai", tmp_path / "a")
+    build_b = convert(project, "crewai", tmp_path / "b")
+    store.record_build(build_a, participant_id="participant-a", session_id="session-a")
+    store.record_build(build_b, participant_id="participant-b", session_id="session-b")
+    run_a = store.record_run(
+        build_a.id,
+        "succeeded",
+        participant_id="participant-a",
+        session_id="session-a",
+    )
+
+    assert [item["id"] for item in store.list_builds(participant_id="participant-a")] == [build_a.id]
+    assert [item["id"] for item in store.list_runs(participant_id="participant-a")] == [run_a]
+    assert store.get_build(build_b.id, participant_id="participant-a") is None
+    assert store.get_run(run_a, participant_id="participant-b") is None
+
+
 def test_project_schema_and_semantic_validation_are_composed():
     project = load_project("examples/minimal.gear.yml").data
 

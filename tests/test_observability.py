@@ -51,6 +51,9 @@ def test_record_execution_logs_metrics_and_outputs(monkeypatch):
         stdout="result",
         stderr="",
         external_trace_id="trace-123",
+        user_id="participant-123",
+        session_id="session-123",
+        project_id="project-123",
     )
 
     assert run_id == "mlflow-run-1"
@@ -63,4 +66,7 @@ def test_record_execution_logs_metrics_and_outputs(monkeypatch):
         "stderr_chars": 0.0,
     }
     assert calls["tags"]["gear.build_id"] == "build-123"
+    assert calls["tags"]["gear.user_id"] == "participant-123"
+    assert calls["tags"]["gear.session_id"] == "session-123"
+    assert calls["tags"]["gear.project_id"] == "project-123"
     assert calls["texts"] == [("execution/stdout.txt", "result")]

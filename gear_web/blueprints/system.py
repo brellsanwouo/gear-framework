@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 
 from gear_sdk.templates import PROJECT_TEMPLATES, create_project_from_template, template_catalog
 from gear_sdk.version import __studio_version__, __version__
+from ..services.participants import current_participant
 
 
 def create_system_blueprint(studio_model_policy: dict[str, Any]) -> Blueprint:
@@ -14,6 +15,15 @@ def create_system_blueprint(studio_model_policy: dict[str, Any]) -> Blueprint:
     @blueprint.get("/api/version")
     def version():
         return jsonify({"name": "gear-framework", "version": __version__, "studio_version": __studio_version__})
+
+    @blueprint.get("/api/session")
+    def participant_session():
+        identity = current_participant()
+        return jsonify({
+            "anonymous": True,
+            "user_id": identity.user_id,
+            "session_id": identity.session_id,
+        })
 
     @blueprint.get("/api/studio/config")
     def studio_config():

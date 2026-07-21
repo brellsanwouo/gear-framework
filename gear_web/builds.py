@@ -12,6 +12,7 @@ from gear_sdk.conversion import BuildResult, available_targets, convert
 from gear_sdk.project import GearProject, ProjectValidationError
 from gear_sdk.store import BuildStore
 from gear_sdk.conversion import CONNECTOR_DIR
+from .services.participants import current_participant
 
 
 def _load_studio_document(value, root_name: str) -> dict:
@@ -100,7 +101,8 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
     @blueprint.get("/api/builds")
     def list_builds():
         limit = min(max(request.args.get("limit", 50, type=int), 1), 200)
-        return jsonify(BuildStore(store_path).list_builds(limit))
+        identity = current_participant()
+        return jsonify(BuildStore(store_path).list_builds(limit, participant_id=identity.user_id))
 
     @blueprint.post("/api/builds")
     def record_browser_build():
@@ -131,7 +133,12 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
             outputs=outputs,
             report=raw_report if isinstance(raw_report, dict) else {"value": raw_report},
         )
-        BuildStore(store_path).record_build(build)
+        identity = current_participant()
+        BuildStore(store_path).record_build(
+            build,
+            participant_id=identity.user_id,
+            session_id=identity.session_id,
+        )
         return jsonify({"build_id": build.id, "target": target}), 201
 
     @blueprint.post("/api/studio/builds")
@@ -143,7 +150,13 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
         try:
             project = _studio_project(payload, studio_model_policy)
             build = convert(project, target)
-            BuildStore(store_path).record_build(build, server_generated=True)
+            identity = current_participant()
+            BuildStore(store_path).record_build(
+                build,
+                server_generated=True,
+                participant_id=identity.user_id,
+                session_id=identity.session_id,
+            )
         except (ProjectValidationError, ValueError, yaml.YAMLError) as error:
             details = error.errors if isinstance(error, ProjectValidationError) else [str(error)]
             return jsonify({"error": "Studio project is invalid.", "details": details}), 422
@@ -163,17 +176,24 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
 
     @blueprint.get("/api/builds/<build_id>")
     def get_build(build_id: str):
-        build = BuildStore(store_path).get_build(build_id)
+        build = BuildStore(store_path).get_build(
+            build_id,
+            participant_id=current_participant().user_id,
+        )
         return (jsonify(build), 200) if build else (jsonify({"error": "Build not found."}), 404)
 
     @blueprint.get("/api/logs")
     def list_logs():
         limit = min(max(request.args.get("limit", 50, type=int), 1), 200)
-        return jsonify(BuildStore(store_path).list_runs(limit))
+        identity = current_participant()
+        return jsonify(BuildStore(store_path).list_runs(limit, participant_id=identity.user_id))
 
     @blueprint.get("/api/logs/<run_id>")
     def get_log(run_id: str):
-        run = BuildStore(store_path).get_run(run_id)
+        run = BuildStore(store_path).get_run(
+            run_id,
+            participant_id=current_participant().user_id,
+        )
         return (jsonify(run), 200) if run else (jsonify({"error": "Run not found."}), 404)
 
     return blueprint

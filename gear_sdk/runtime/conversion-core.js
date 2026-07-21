@@ -355,7 +355,7 @@
     "        _gear_mlflow.set_tracking_uri(_gear_tracking_uri)",
     "        _gear_mlflow.set_experiment(_gear_os.environ.get(\"MLFLOW_EXPERIMENT_NAME\", \"gear-framework-generated\"))",
     `        _gear_mlflow.start_run(run_name=${JSON.stringify(`gear-${frameworkId}`)})`,
-    `        _gear_mlflow.set_tags({\"gear.source\": \"generated-code\", \"gear.target\": ${JSON.stringify(frameworkId)}})`,
+    `        _gear_mlflow.set_tags({\"gear.source\": \"generated-code\", \"gear.target\": ${JSON.stringify(frameworkId)}, \"gear.user_id\": _gear_os.environ.get(\"GEAR_PARTICIPANT_ID\", \"\"), \"gear.session_id\": _gear_os.environ.get(\"GEAR_SESSION_ID\", \"\"), \"gear.project_id\": _gear_os.environ.get(\"GEAR_PROJECT_ID\", \"\"), \"gear.build_id\": _gear_os.environ.get(\"GEAR_BUILD_ID\", \"\")})`,
     "        _gear_atexit.register(_gear_mlflow.end_run)",
     "except Exception as _gear_mlflow_error:",
     "    print(f\"MLflow observability unavailable: {_gear_mlflow_error}\", file=__import__(\"sys\").stderr)",

@@ -17,6 +17,7 @@ from ..services.execution import (
     strip_crewai_tracing_messages,
     strip_trace_markers,
 )
+from ..services.participants import current_participant
 
 
 def _enabled() -> bool:
@@ -55,10 +56,11 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             }), 403
 
         payload = request.get_json(silent=True) or {}
+        identity = current_participant()
         build_id = str(payload.get("build_id") or "").strip()
         if not build_id:
             return jsonify({"error": "A generated build_id is required."}), 400
-        build = BuildStore(store_path).get_build(build_id)
+        build = BuildStore(store_path).get_build(build_id, participant_id=identity.user_id)
         if build is None:
             return jsonify({"error": "Build not found."}), 404
         if not build.get("server_generated"):
@@ -79,7 +81,14 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             executable = code
         started_at = time.perf_counter()
         try:
-            result = gear_runner.run_python(executable, timeout=_timeout())
+            result = gear_runner.run_python(
+                executable,
+                timeout=_timeout(),
+                participant_id=identity.user_id,
+                session_id=identity.session_id,
+                project_id=str(build.get("project_id") or ""),
+                build_id=build_id,
+            )
         except subprocess.TimeoutExpired:
             return jsonify({"error": "Execution timed out."}), 408
 
@@ -95,6 +104,9 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             stdout=stdout,
             stderr=stderr,
             external_trace_id=external_trace_id,
+            user_id=identity.user_id,
+            session_id=identity.session_id,
+            project_id=str(build.get("project_id") or ""),
         )
         trace_id = mlflow_run_id or external_trace_id
         run_id = BuildStore(store_path).record_run(
@@ -103,6 +115,8 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             stdout,
             stderr,
             trace_id,
+            participant_id=identity.user_id,
+            session_id=identity.session_id,
         )
 
         return jsonify({

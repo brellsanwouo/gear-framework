@@ -24,3 +24,18 @@ print(home == Path.cwd())
     assert result.returncode == 0
     assert result.stdout.strip() == "True"
     assert result.stderr == ""
+
+
+def test_runner_passes_server_tracking_context_to_generated_code():
+    result = run_python(
+        "import os; print('|'.join(os.environ[key] for key in "
+        "['GEAR_PARTICIPANT_ID', 'GEAR_SESSION_ID', 'GEAR_PROJECT_ID', 'GEAR_BUILD_ID']))",
+        timeout=10,
+        participant_id="participant-one",
+        session_id="session-one",
+        project_id="project-one",
+        build_id="build-one",
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "participant-one|session-one|project-one|build-one"

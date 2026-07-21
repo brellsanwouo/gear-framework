@@ -142,6 +142,9 @@
     try{const response=await fetch("/api/version");if(!response.ok)throw new Error("Version unavailable");const payload=await response.json();gear.textContent=`v${payload.version}`;studio.textContent=`v${payload.studio_version||payload.version}`;}
     catch(error){gear.textContent="unavailable";studio.textContent="unavailable";}
   };
+  const loadParticipantIdentity = async () => {
+    const element=document.getElementById("participantIdentity");try{const response=await fetch("/api/session");if(!response.ok)throw new Error("Participant unavailable");const identity=await response.json();element.textContent=identity.user_id;element.title=`${identity.user_id}\n${identity.session_id}`;}catch(error){element.textContent="Unavailable";}
+  };
   const loadStudioConfig = async () => {
     try {
       const response=await fetch("/api/studio/config");if(!response.ok)throw new Error("Studio configuration unavailable");const config=(await response.json())?.model||{};
@@ -366,6 +369,6 @@
   document.getElementById("newProjectButton").addEventListener("click",openProjectLauncher);document.getElementById("closeProjectLauncher").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("continueCurrentProject").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("launcherImportButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("createStarterProject").addEventListener("click",createStarterProject);document.getElementById("starterProvider").addEventListener("change",(event)=>{if(PROVIDER_MODELS[event.target.value])document.getElementById("starterModel").value=PROVIDER_MODELS[event.target.value];});
 
   try { const meta=JSON.parse(localStorage.getItem(META_KEY)||"null");if(meta?.name)document.getElementById("projectName").value=meta.name; } catch(error) { console.warn(error); }
-  const initialize=async()=>{await Promise.all([loadStudioConfig(),loadStarterTemplates()]);updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();loadGearVersion();openProjectLauncher();};
+  const initialize=async()=>{await Promise.all([loadStudioConfig(),loadStarterTemplates(),loadParticipantIdentity()]);updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();loadGearVersion();openProjectLauncher();};
   initialize();
 })();

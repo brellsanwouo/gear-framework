@@ -37,6 +37,9 @@ def record_execution(
     stdout: str,
     stderr: str,
     external_trace_id: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    project_id: str | None = None,
 ) -> str | None:
     configuration = status()
     if not configuration["enabled"]:
@@ -53,6 +56,9 @@ def record_execution(
                 "gear.target": target,
                 "gear.status": "succeeded" if returncode == 0 else "failed",
                 "gear.build_id": build_id or "",
+                "gear.user_id": user_id or "",
+                "gear.session_id": session_id or "",
+                "gear.project_id": project_id or "",
                 "gear.external_trace_id": external_trace_id or "",
             })
             mlflow.log_metrics({
