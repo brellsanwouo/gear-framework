@@ -150,6 +150,7 @@ jobs:
           curl -fsS http://127.0.0.1:8200 > /dev/null
           /opt/gear/venv/bin/python - <<'PY'
           import json
+          import urllib.error
           import urllib.request
 
           with urllib.request.urlopen("http://127.0.0.1:8200/api/run/status") as response:
@@ -181,8 +182,12 @@ jobs:
               headers={"Content-Type": "application/json"},
               method="POST",
           )
-          with urllib.request.urlopen(build_request) as response:
-              build = json.load(response)
+          try:
+              with urllib.request.urlopen(build_request) as response:
+                  build = json.load(response)
+          except urllib.error.HTTPError as error:
+              print(error.read().decode())
+              raise
           code = build["outputs"]["orchestration"]
           assert "GEAR MLflow observability" in code, build
           print("Online code generation enabled and MLflow-instrumented.")

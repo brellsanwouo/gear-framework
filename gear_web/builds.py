@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 import yaml
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from gear_sdk.conversion import BuildResult, available_targets, convert
 from gear_sdk.project import GearProject, ProjectValidationError
@@ -149,6 +149,9 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
             return jsonify({"error": "Studio project is invalid.", "details": details}), 422
         except RuntimeError as error:
             return jsonify({"error": str(error)}), 500
+        except Exception as error:
+            current_app.logger.exception("Studio build failed")
+            return jsonify({"error": f"Unable to store generated code: {error}"}), 500
         return jsonify({
             "build_id": build.id,
             "project_id": build.project_id,
