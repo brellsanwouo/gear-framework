@@ -49,10 +49,21 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             }), 403
 
         payload = request.get_json(silent=True) or {}
-        code = str(payload.get("code") or "")
-        target = str(payload.get("target") or "crewai").lower()
+        build_id = str(payload.get("build_id") or "").strip()
+        if not build_id:
+            return jsonify({"error": "A generated build_id is required."}), 400
+        build = BuildStore(store_path).get_build(build_id)
+        if build is None:
+            return jsonify({"error": "Build not found."}), 404
+        if not build.get("server_generated"):
+            return jsonify({"error": "Only server-generated Studio builds can be executed."}), 403
+        target = str(build.get("target") or "").lower()
+        requested_target = str(payload.get("target") or target).lower()
+        if requested_target != target:
+            return jsonify({"error": "Build target does not match the requested target."}), 400
+        code = str((build.get("outputs") or {}).get("orchestration") or "")
         if not code.strip():
-            return jsonify({"error": "Empty code"}), 400
+            return jsonify({"error": "This build contains no executable orchestration."}), 400
 
         if target in {"adk", "googleadk", "google-adk"}:
             executable = prepend_google_adk_imports(code)
@@ -68,9 +79,8 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
 
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         external_trace_id = parse_trace_id(result.stderr)
-        build_id = payload.get("build_id")
         mlflow_run_id = observability.record_execution(
-            build_id=str(build_id) if build_id else None,
+            build_id=build_id,
             target=target,
             returncode=result.returncode,
             duration_ms=duration_ms,
@@ -79,18 +89,13 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             external_trace_id=external_trace_id,
         )
         trace_id = mlflow_run_id or external_trace_id
-        run_id = None
-        if build_id:
-            try:
-                run_id = BuildStore(store_path).record_run(
-                    build_id,
-                    "succeeded" if result.returncode == 0 else "failed",
-                    result.stdout,
-                    result.stderr,
-                    trace_id,
-                )
-            except KeyError as error:
-                return jsonify({"error": str(error)}), 404
+        run_id = BuildStore(store_path).record_run(
+            build_id,
+            "succeeded" if result.returncode == 0 else "failed",
+            result.stdout,
+            result.stderr,
+            trace_id,
+        )
 
         return jsonify({
             "run_id": run_id,

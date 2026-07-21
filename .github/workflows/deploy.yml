@@ -108,8 +108,10 @@ jobs:
           echo 'GEAR_MLFLOW_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
           sudo sed -i '/^GEAR_TRACKING_ENABLED=/d' /etc/gear.env
           echo 'GEAR_TRACKING_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
+          sudo sed -i '/^GEAR_ENABLE_LOCAL_RUNNER=/d' /etc/gear.env
+          echo 'GEAR_ENABLE_LOCAL_RUNNER=true' | sudo tee -a /etc/gear.env > /dev/null
           if ! sudo grep -Eq '^DATABASE_URL=.+$' /etc/gear.env; then
-            echo 'DATABASE_URL is missing from /etc/gear.env; the participant database cannot be enabled.' >&2
+            echo 'DATABASE_URL is missing from /etc/gear.env; research tracking cannot be enabled.' >&2
             exit 1
           fi
           if ! sudo grep -Eq '^MLFLOW_EXPERIMENT_NAME=.+$' /etc/gear.env; then
@@ -143,13 +145,14 @@ jobs:
           with urllib.request.urlopen("http://127.0.0.1:8200/api/run/status") as response:
               payload = json.load(response)
           assert payload["observability"]["enabled"], payload
+          assert payload["enabled"], payload
           print("MLflow observability enabled.")
 
           with urllib.request.urlopen("http://127.0.0.1:8200/api/experiment/status") as response:
               research = json.load(response)
           assert research["tracking_enabled"], research
           assert research["database_available"], research
-          print("Participant database enabled.")
+          print("Research database enabled.")
           PY
 
           echo "Deployment successful."

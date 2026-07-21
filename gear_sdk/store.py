@@ -38,6 +38,7 @@ class BuildStore:
                     schema_version TEXT NOT NULL DEFAULT '1.0',
                     connector_version TEXT NOT NULL DEFAULT 'unknown',
                     duration_ms INTEGER NOT NULL DEFAULT 0,
+                    server_generated INTEGER NOT NULL DEFAULT 0,
                     report_json TEXT NOT NULL,
                     outputs_json TEXT NOT NULL
                 );
@@ -61,18 +62,19 @@ class BuildStore:
                 "schema_version": "TEXT NOT NULL DEFAULT '1.0'",
                 "connector_version": "TEXT NOT NULL DEFAULT 'unknown'",
                 "duration_ms": "INTEGER NOT NULL DEFAULT 0",
+                "server_generated": "INTEGER NOT NULL DEFAULT 0",
             }.items():
                 if name not in columns:
                     connection.execute(f"ALTER TABLE builds ADD COLUMN {name} {definition}")
 
-    def record_build(self, build: BuildResult) -> None:
+    def record_build(self, build: BuildResult, *, server_generated: bool = False) -> None:
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO builds
                 (id, project_id, target, source_hash, created_at, output_dir, schema_version,
-                 connector_version, duration_ms, report_json, outputs_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 connector_version, duration_ms, server_generated, report_json, outputs_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     build.id,
@@ -84,6 +86,7 @@ class BuildStore:
                     build.schema_version,
                     build.connector_version,
                     build.duration_ms,
+                    int(server_generated),
                     json.dumps(build.report, ensure_ascii=False),
                     json.dumps(build.outputs, ensure_ascii=False),
                 ),
@@ -93,7 +96,7 @@ class BuildStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """SELECT id, project_id, target, source_hash, created_at, output_dir,
-                          schema_version, connector_version, duration_ms
+                          schema_version, connector_version, duration_ms, server_generated
                    FROM builds ORDER BY created_at DESC LIMIT ?""",
                 (limit,),
             ).fetchall()

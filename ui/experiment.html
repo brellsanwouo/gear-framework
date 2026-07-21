@@ -3,28 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription à la compétition GEAR</title>
+    <title>Gear Experiment Lobby</title>
     <link rel="stylesheet" href="experiment.css">
     <script src="experiment.js" defer></script>
 </head>
 <body>
 
-    <div id="introScreen" class="card registration-card">
-        <p class="eyebrow">Compétition GEAR</p>
-        <h1>Inscription du participant</h1>
-        <p>Inscrivez votre nom et acceptez les règles avant de commencer.</p>
-        <label class="field-label" for="participantName">Nom complet</label>
-        <input id="participantName" name="participant_name" type="text" minlength="2" maxlength="120" autocomplete="name" required>
-        <section class="rules" aria-labelledby="rulesTitle">
-            <h2 id="rulesTitle">Règles de la compétition</h2>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Chaque participant doit réaliser les tâches dans l’ordre indiqué, respecter les autres participants, ne pas partager de réponses et suivre les consignes affichées pour chaque épreuve. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-        </section>
+    <div id="introScreen" class="card">
+        <h1>Gear Experiment</h1>
+        <p>Welcome. You will complete tasks in both Gear and manual modes.</p>
         <label class="consent-row">
             <input id="consentCheckbox" type="checkbox">
-            <span>J’ai lu et j’accepte l’ensemble des règles de la compétition.</span>
+            I have read the study information and consent to participate.
         </label>
-        <p id="registrationError" class="form-error" role="alert" hidden></p>
-        <button id="startBtn" disabled>Valider mon inscription</button>
+        <button id="startBtn" disabled>Start the experiment</button>
     </div>
 
     <div id="pauseScreen" class="card hidden">

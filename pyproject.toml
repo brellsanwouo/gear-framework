@@ -85,6 +85,7 @@ gear_sdk = ["py.typed", "runtime/*.js"]
   "ui/js/resource-loader.js",
   "ui/js/project-storage.js",
 ]
+"share/gear-framework/ui/vendor" = ["ui/vendor/js-yaml.min.js"]
 "share/gear-framework/ui/assets" = [
   "ui/assets/GEAR-logo.png",
   "ui/assets/GEAR-logo-horizontal.png",

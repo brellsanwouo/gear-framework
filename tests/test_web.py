@@ -17,10 +17,10 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert root_response.status_code == 200
     assert b"GEAR Studio" in root_response.data
     assert b"GEAR Studio" in client.get("/studio").data
-    competition_response = client.get("/competition")
-    assert competition_response.status_code == 200
-    assert b"participantName" in competition_response.data
-    assert b"consentCheckbox" in competition_response.data
+    yaml_runtime = client.get("/ui/vendor/js-yaml.min.js")
+    assert yaml_runtime.status_code == 200
+    assert b"js-yaml" in yaml_runtime.data
+    assert client.get("/competition").status_code == 404
     classic_response = client.get("/classic")
     assert classic_response.status_code == 200
     assert b"GEAR Studio" not in classic_response.data
@@ -46,17 +46,7 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.get("/api/studio/templates/unknown").status_code == 404
     assert client.get("/.env").status_code == 404
     assert client.post("/api/run", json={"code": "print(1)"}).status_code == 403
-    assert client.post("/api/experiment/start", json={}).status_code == 400
-    assert client.post(
-        "/api/experiment/start",
-        json={"participant_name": "Ada Lovelace", "rules_accepted": False},
-    ).status_code == 400
-    registration = client.post(
-        "/api/experiment/start",
-        json={"participant_name": "Ada Lovelace", "rules_accepted": True},
-    )
-    assert registration.status_code == 200
-    assert registration.get_json()["participant_name"] == "Ada Lovelace"
+    assert client.post("/api/experiment/start").status_code == 200
 
     response = client.post(
         "/api/builds",
@@ -68,6 +58,7 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
         },
     )
     assert response.status_code == 201
+    browser_build_id = response.get_json()["build_id"]
     builds = client.get("/api/builds").get_json()
     assert builds[0]["project_id"] == "web-test"
 
@@ -142,7 +133,6 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
         json={
             "build_id": studio_build["build_id"],
             "target": "crewai",
-            "code": "# kickoff(\nprint('generated')",
         },
     )
     assert run_response.status_code == 200
@@ -150,6 +140,15 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert run_response.get_json()["mlflow_run_id"] == "mlflow-run-1"
     assert run_response.get_json()["trace_id"] == "mlflow-run-1"
     assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
+    assert client.post("/api/run", json={"code": "print('untrusted')"}).status_code == 400
+    assert client.post(
+        "/api/run",
+        json={"build_id": browser_build_id, "target": "adk"},
+    ).status_code == 403
+    assert client.post(
+        "/api/run",
+        json={"build_id": studio_build["build_id"], "target": "langgraph"},
+    ).status_code == 400
 
 
 def test_studio_project_preserves_mixed_workflow_order():

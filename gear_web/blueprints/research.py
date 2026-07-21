@@ -41,10 +41,6 @@ class ResearchStore:
                     """
                     CREATE TABLE IF NOT EXISTS users (
                         user_id VARCHAR(255) PRIMARY KEY,
-                        participant_name VARCHAR(120),
-                        rules_accepted BOOLEAN NOT NULL DEFAULT FALSE,
-                        rules_accepted_at TIMESTAMPTZ,
-                        rules_version VARCHAR(64) NOT NULL DEFAULT 'competition-rules-v1',
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                         group_order TEXT,
                         current_task_index INT DEFAULT 0
@@ -77,13 +73,6 @@ class ResearchStore:
                         FOREIGN KEY (log_id) REFERENCES task_logs(id)
                     )
                     """
-                )
-                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS participant_name VARCHAR(120)")
-                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted BOOLEAN NOT NULL DEFAULT FALSE")
-                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted_at TIMESTAMPTZ")
-                cursor.execute(
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_version VARCHAR(64) "
-                    "NOT NULL DEFAULT 'competition-rules-v1'"
                 )
                 connection.commit()
                 cursor.close()
@@ -178,13 +167,6 @@ def create_research_blueprint(
 
     @blueprint.post("/api/experiment/start")
     def start():
-        payload = request.get_json(silent=True) or {}
-        participant_name = str(payload.get("participant_name") or "").strip()
-        rules_accepted = payload.get("rules_accepted") is True
-        if len(participant_name) < 2 or len(participant_name) > 120:
-            return jsonify({"error": "Le nom doit contenir entre 2 et 120 caractères."}), 400
-        if not rules_accepted:
-            return jsonify({"error": "Vous devez accepter les règles de la compétition."}), 400
         user_id = str(uuid.uuid4())
         first_mode = random.choice(["GEAR", "MANUAL"])
         second_mode = "MANUAL" if first_mode == "GEAR" else "GEAR"
@@ -204,12 +186,10 @@ def create_research_blueprint(
                     cursor = connection.cursor()
                     cursor.execute(
                         """
-                        INSERT INTO users
-                            (user_id, participant_name, rules_accepted, rules_accepted_at,
-                             rules_version, group_order, current_task_index)
-                        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
+                        INSERT INTO users (user_id, group_order, current_task_index)
+                        VALUES (%s, %s, %s)
                         """,
-                        (user_id, participant_name, True, "competition-rules-v1", json.dumps(sequence), 0),
+                        (user_id, json.dumps(sequence), 0),
                     )
                     connection.commit()
                     cursor.close()
@@ -217,7 +197,6 @@ def create_research_blueprint(
                 return jsonify({"error": str(error)}), 500
         return jsonify({
             "user_id": user_id,
-            "participant_name": participant_name,
             "mode": "MIXED",
             "sequence": sequence,
             "first_task": sequence[0],

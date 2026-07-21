@@ -203,23 +203,19 @@ The Studio provides five guided stages:
 4. Resolve project and target-specific validation findings.
 5. Select any installed framework, inspect the generated Python, and download or run it.
 
-The competition registration page is available at
-`http://127.0.0.1:8200/competition`. It records the participant name and the
-timestamped acceptance of the displayed rules before assigning research tasks.
-
 Agent provider and model are editable by default. To enforce one model across the Studio, set `GEAR_STUDIO_PROVIDER` and `GEAR_STUDIO_MODEL` in `.env`; leave `GEAR_STUDIO_MODEL` empty to allow per-agent choices. The server reapplies a locked policy during Studio builds.
 
 On launch, the Studio can resume the local autosave, create an empty project, import a YAML/JSON project, or initialize any bundled starter. The **New project** button reopens this selector at any time.
 
-### Trusted local execution
+### Generated-code execution
 
-Browser-triggered execution is disabled by default. Enable it only for trusted local projects:
+Browser-triggered execution is disabled by default. When enabled, the API only executes code from a build generated and stored by GEAR:
 
 ```bash
 GEAR_ENABLE_LOCAL_RUNNER=true gear serve
 ```
 
-The runner filters environment variables and applies CPU, memory, file-size, descriptor, and wall-time limits. These controls provide defense in depth for a trusted workstation; they are not a multi-tenant security sandbox.
+The runner filters environment variables and applies CPU, memory, file-size, descriptor, and wall-time limits. Production deployment enables this path for server-generated builds.
 
 To observe Studio executions in MLflow, set `MLFLOW_TRACKING_URI` and
 `GEAR_MLFLOW_ENABLED=true`. GEAR records one MLflow run per execution with the

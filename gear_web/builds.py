@@ -143,7 +143,7 @@ def create_builds_blueprint(store_path: str, studio_model_policy: dict | None = 
         try:
             project = _studio_project(payload, studio_model_policy)
             build = convert(project, target)
-            BuildStore(store_path).record_build(build)
+            BuildStore(store_path).record_build(build, server_generated=True)
         except (ProjectValidationError, ValueError, yaml.YAMLError) as error:
             details = error.errors if isinstance(error, ProjectValidationError) else [str(error)]
             return jsonify({"error": "Studio project is invalid.", "details": details}), 422

@@ -13,7 +13,6 @@ def create_pages_blueprint(base_dir: Path, ui_dir: Path, runtime_dir: Path) -> B
         "connectors": {".uvl", ".yml", ".yaml", ".js", ".tmpl"},
     }
 
-    @blueprint.get("/competition")
     @blueprint.get("/experiment")
     def experiment_ui() -> Any:
         return send_from_directory(ui_dir, "experiment.html")
