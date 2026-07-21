@@ -17,6 +17,10 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert root_response.status_code == 200
     assert b"GEAR Studio" in root_response.data
     assert b"GEAR Studio" in client.get("/studio").data
+    competition_response = client.get("/competition")
+    assert competition_response.status_code == 200
+    assert b"participantName" in competition_response.data
+    assert b"consentCheckbox" in competition_response.data
     classic_response = client.get("/classic")
     assert classic_response.status_code == 200
     assert b"GEAR Studio" not in classic_response.data
@@ -42,6 +46,17 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert client.get("/api/studio/templates/unknown").status_code == 404
     assert client.get("/.env").status_code == 404
     assert client.post("/api/run", json={"code": "print(1)"}).status_code == 403
+    assert client.post("/api/experiment/start", json={}).status_code == 400
+    assert client.post(
+        "/api/experiment/start",
+        json={"participant_name": "Ada Lovelace", "rules_accepted": False},
+    ).status_code == 400
+    registration = client.post(
+        "/api/experiment/start",
+        json={"participant_name": "Ada Lovelace", "rules_accepted": True},
+    )
+    assert registration.status_code == 200
+    assert registration.get_json()["participant_name"] == "Ada Lovelace"
 
     response = client.post(
         "/api/builds",

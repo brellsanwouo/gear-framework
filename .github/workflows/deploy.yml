@@ -106,6 +106,12 @@ jobs:
           echo 'MLFLOW_TRACKING_URI=http://gear-backend.lille.inria.fr:5000' | sudo tee -a /etc/gear.env > /dev/null
           sudo sed -i '/^GEAR_MLFLOW_ENABLED=/d' /etc/gear.env
           echo 'GEAR_MLFLOW_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
+          sudo sed -i '/^GEAR_TRACKING_ENABLED=/d' /etc/gear.env
+          echo 'GEAR_TRACKING_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
+          if ! sudo grep -Eq '^DATABASE_URL=.+$' /etc/gear.env; then
+            echo 'DATABASE_URL is missing from /etc/gear.env; the participant database cannot be enabled.' >&2
+            exit 1
+          fi
           if ! sudo grep -Eq '^MLFLOW_EXPERIMENT_NAME=.+$' /etc/gear.env; then
             echo 'MLFLOW_EXPERIMENT_NAME=gear-framework-production' | sudo tee -a /etc/gear.env > /dev/null
           fi
@@ -138,6 +144,12 @@ jobs:
               payload = json.load(response)
           assert payload["observability"]["enabled"], payload
           print("MLflow observability enabled.")
+
+          with urllib.request.urlopen("http://127.0.0.1:8200/api/experiment/status") as response:
+              research = json.load(response)
+          assert research["tracking_enabled"], research
+          assert research["database_available"], research
+          print("Participant database enabled.")
           PY
 
           echo "Deployment successful."

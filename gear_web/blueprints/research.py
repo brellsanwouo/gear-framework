@@ -6,10 +6,11 @@ import os
 import random
 import time
 import uuid
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-import mysql.connector
+import psycopg2
 import yaml
 from flask import Blueprint, jsonify, request
 from markdown import markdown
@@ -20,19 +21,31 @@ class ResearchStore:
         self.database = database
 
     def connect(self):
+        if self.database.get("url"):
+            return psycopg2.connect(self.database["url"])
         if not self.database.get("password"):
             raise ValueError("DB_PASSWORD missing")
-        return mysql.connector.connect(**self.database)
+        return psycopg2.connect(
+            host=self.database["host"],
+            port=self.database["port"],
+            user=self.database["user"],
+            password=self.database["password"],
+            dbname=self.database["database"],
+        )
 
     def initialize(self) -> None:
         try:
-            with self.connect() as connection:
+            with closing(self.connect()) as connection:
                 cursor = connection.cursor()
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS users (
                         user_id VARCHAR(255) PRIMARY KEY,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        participant_name VARCHAR(120),
+                        rules_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+                        rules_accepted_at TIMESTAMPTZ,
+                        rules_version VARCHAR(64) NOT NULL DEFAULT 'competition-rules-v1',
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                         group_order TEXT,
                         current_task_index INT DEFAULT 0
                     )
@@ -41,13 +54,13 @@ class ResearchStore:
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS task_logs (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        id BIGSERIAL PRIMARY KEY,
                         user_id VARCHAR(255),
                         task_id VARCHAR(255),
                         mode VARCHAR(50),
-                        start_time DOUBLE,
-                        end_time DOUBLE,
-                        duration DOUBLE,
+                        start_time DOUBLE PRECISION,
+                        end_time DOUBLE PRECISION,
+                        duration DOUBLE PRECISION,
                         completed BOOLEAN DEFAULT FALSE,
                         FOREIGN KEY (user_id) REFERENCES users(user_id)
                     )
@@ -56,19 +69,37 @@ class ResearchStore:
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS task_runs (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        log_id INT NOT NULL,
-                        trace_id VARCHAR(64) NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        trace_json LONGTEXT NULL,
+                        id BIGSERIAL PRIMARY KEY,
+                        log_id BIGINT NOT NULL,
+                        trace_id VARCHAR(64),
+                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                        trace_json TEXT,
                         FOREIGN KEY (log_id) REFERENCES task_logs(id)
                     )
                     """
+                )
+                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS participant_name VARCHAR(120)")
+                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted BOOLEAN NOT NULL DEFAULT FALSE")
+                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted_at TIMESTAMPTZ")
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_version VARCHAR(64) "
+                    "NOT NULL DEFAULT 'competition-rules-v1'"
                 )
                 connection.commit()
                 cursor.close()
         except Exception as error:
             print(f"DB Error: {error}")
+
+    def available(self) -> bool:
+        try:
+            with closing(self.connect()) as connection:
+                cursor = connection.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                cursor.close()
+            return True
+        except Exception:
+            return False
 
 
 def _load_tasks(path: Path) -> dict[str, Any]:
@@ -103,6 +134,14 @@ def create_research_blueprint(
     store = ResearchStore(database)
     if tracking_enabled:
         store.initialize()
+
+    @blueprint.get("/api/experiment/status")
+    def experiment_status():
+        return jsonify({
+            "tracking_enabled": tracking_enabled,
+            "database_configured": bool(database.get("url") or database.get("password")),
+            "database_available": store.available() if tracking_enabled else False,
+        })
 
     @blueprint.get("/api/experiment/task_info/<task_id>")
     def task_info(task_id: str):
@@ -139,6 +178,13 @@ def create_research_blueprint(
 
     @blueprint.post("/api/experiment/start")
     def start():
+        payload = request.get_json(silent=True) or {}
+        participant_name = str(payload.get("participant_name") or "").strip()
+        rules_accepted = payload.get("rules_accepted") is True
+        if len(participant_name) < 2 or len(participant_name) > 120:
+            return jsonify({"error": "Le nom doit contenir entre 2 et 120 caractères."}), 400
+        if not rules_accepted:
+            return jsonify({"error": "Vous devez accepter les règles de la compétition."}), 400
         user_id = str(uuid.uuid4())
         first_mode = random.choice(["GEAR", "MANUAL"])
         second_mode = "MANUAL" if first_mode == "GEAR" else "GEAR"
@@ -154,11 +200,16 @@ def create_research_blueprint(
             return jsonify({"error": "No research tasks are configured."}), 503
         if tracking_enabled:
             try:
-                with store.connect() as connection:
+                with closing(store.connect()) as connection:
                     cursor = connection.cursor()
                     cursor.execute(
-                        "INSERT INTO users (user_id, group_order, current_task_index) VALUES (%s, %s, %s)",
-                        (user_id, json.dumps(sequence), 0),
+                        """
+                        INSERT INTO users
+                            (user_id, participant_name, rules_accepted, rules_accepted_at,
+                             rules_version, group_order, current_task_index)
+                        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
+                        """,
+                        (user_id, participant_name, True, "competition-rules-v1", json.dumps(sequence), 0),
                     )
                     connection.commit()
                     cursor.close()
@@ -166,6 +217,7 @@ def create_research_blueprint(
                 return jsonify({"error": str(error)}), 500
         return jsonify({
             "user_id": user_id,
+            "participant_name": participant_name,
             "mode": "MIXED",
             "sequence": sequence,
             "first_task": sequence[0],
@@ -180,13 +232,17 @@ def create_research_blueprint(
         payload = request.get_json(silent=True) or {}
         started_at = time.time()
         try:
-            with store.connect() as connection:
+            with closing(store.connect()) as connection:
                 cursor = connection.cursor()
                 cursor.execute(
-                    "INSERT INTO task_logs (user_id, task_id, mode, start_time, completed) VALUES (%s, %s, %s, %s, %s)",
+                    """
+                    INSERT INTO task_logs (user_id, task_id, mode, start_time, completed)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
                     (payload.get("user_id"), payload.get("task_id"), payload.get("mode"), started_at, False),
                 )
-                log_id = cursor.lastrowid
+                log_id = cursor.fetchone()[0]
                 connection.commit()
                 cursor.close()
             return jsonify({"log_id": log_id, "start_time": started_at})
@@ -201,7 +257,7 @@ def create_research_blueprint(
         log_id = payload.get("log_id")
         ended_at = time.time()
         try:
-            with store.connect() as connection:
+            with closing(store.connect()) as connection:
                 cursor = connection.cursor()
                 cursor.execute("SELECT start_time FROM task_logs WHERE id=%s", (log_id,))
                 row = cursor.fetchone()

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildGearIR, createConversionReport } = require("../gear_sdk/runtime/conversion-core.js");
+const { buildGearIR, createConversionReport, instrumentPython, instrumentResult } = require("../gear_sdk/runtime/conversion-core.js");
 
 const agent = (name) => ({
   AgentIdentity: { Name: name, Purpose: `${name} purpose`, ContextDescription: `${name} context` },
@@ -92,4 +92,20 @@ test("uses the same fallback module name as the workflow builder", () => {
   });
   assert.equal(ir.modules[0].id, "Module 1");
   assert.equal(ir.diagnostics.some((item) => item.code === "GEAR-WORKFLOW-UNKNOWN-REF"), false);
+});
+
+test("adds MLflow observability to every generated Python orchestration", () => {
+  const frameworks = [
+    "crewai", "adk", "langgraph", "openai-agents", "microsoft-agent-framework",
+    "strands", "pydantic-ai", "autogen", "semantic-kernel", "haystack",
+  ];
+  frameworks.forEach((framework) => {
+    const result = instrumentResult({ outputs: { orchestration: "print('ok')" } }, framework);
+    assert.match(result.outputs.orchestration, /GEAR MLflow observability/);
+    assert.match(result.outputs.orchestration, /MLFLOW_TRACKING_URI/);
+    assert.match(result.outputs.orchestration, new RegExp(`gear.target\\\": \\\"${framework}`));
+  });
+  const once = instrumentPython("#!/usr/bin/env python\nprint('ok')", "crewai");
+  assert.equal((instrumentPython(once, "crewai").match(/GEAR MLflow observability/g) || []).length, 2);
+  assert.ok(once.startsWith("#!/usr/bin/env python\n# --- GEAR MLflow"));
 });

@@ -342,5 +342,46 @@
     };
   };
 
-  return { buildGearIR, collectLeafPaths, createConversionReport };
+  const mlflowBootstrap = (frameworkId) => [
+    "# --- GEAR MLflow observability ---",
+    "try:",
+    "    import atexit as _gear_atexit",
+    "    import os as _gear_os",
+    "    from dotenv import load_dotenv as _gear_load_dotenv",
+    "    _gear_load_dotenv()",
+    "    import mlflow as _gear_mlflow",
+    "    _gear_tracking_uri = _gear_os.environ.get(\"MLFLOW_TRACKING_URI\", \"\").strip()",
+    "    if _gear_tracking_uri:",
+    "        _gear_mlflow.set_tracking_uri(_gear_tracking_uri)",
+    "        _gear_mlflow.set_experiment(_gear_os.environ.get(\"MLFLOW_EXPERIMENT_NAME\", \"gear-framework-generated\"))",
+    `        _gear_mlflow.start_run(run_name=${JSON.stringify(`gear-${frameworkId}`)})`,
+    `        _gear_mlflow.set_tags({\"gear.source\": \"generated-code\", \"gear.target\": ${JSON.stringify(frameworkId)}})`,
+    "        _gear_atexit.register(_gear_mlflow.end_run)",
+    "except Exception as _gear_mlflow_error:",
+    "    print(f\"MLflow observability unavailable: {_gear_mlflow_error}\", file=__import__(\"sys\").stderr)",
+    "# --- End GEAR MLflow observability ---",
+    "",
+  ].join("\n");
+
+  const instrumentPython = (source, frameworkId) => {
+    if (typeof source !== "string" || source.includes("# --- GEAR MLflow observability ---")) return source;
+    const lines = source.split("\n");
+    let insertionIndex = lines[0]?.startsWith("#!") ? 1 : 0;
+    while (lines[insertionIndex]?.startsWith("from __future__ import ")) insertionIndex += 1;
+    lines.splice(insertionIndex, 0, mlflowBootstrap(nonEmptyString(frameworkId) || "unknown"));
+    return lines.join("\n");
+  };
+
+  const instrumentResult = (result, frameworkId) => {
+    if (!result?.outputs || typeof result.outputs.orchestration !== "string") return result;
+    return {
+      ...result,
+      outputs: {
+        ...result.outputs,
+        orchestration: instrumentPython(result.outputs.orchestration, frameworkId),
+      },
+    };
+  };
+
+  return { buildGearIR, collectLeafPaths, createConversionReport, instrumentPython, instrumentResult };
 });

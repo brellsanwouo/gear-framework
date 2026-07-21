@@ -203,7 +203,10 @@
     frameworks.forEach((fw) => {
       const plugin = pluginCache.get(fw.id);
       if (!plugin?.assemble) return;
-      outputs[fw.id] = plugin.assemble({ ...input, gearIR });
+      const result = plugin.assemble({ ...input, gearIR });
+      outputs[fw.id] = conversionCore?.instrumentResult
+        ? conversionCore.instrumentResult(result, fw.id)
+        : result;
     });
     return outputs;
   };

@@ -203,6 +203,10 @@ The Studio provides five guided stages:
 4. Resolve project and target-specific validation findings.
 5. Select any installed framework, inspect the generated Python, and download or run it.
 
+The competition registration page is available at
+`http://127.0.0.1:8200/competition`. It records the participant name and the
+timestamped acceptance of the displayed rules before assigning research tasks.
+
 Agent provider and model are editable by default. To enforce one model across the Studio, set `GEAR_STUDIO_PROVIDER` and `GEAR_STUDIO_MODEL` in `.env`; leave `GEAR_STUDIO_MODEL` empty to allow per-agent choices. The server reapplies a locked policy during Studio builds.
 
 On launch, the Studio can resume the local autosave, create an empty project, import a YAML/JSON project, or initialize any bundled starter. The **New project** button reopens this selector at any time.
@@ -220,6 +224,8 @@ The runner filters environment variables and applies CPU, memory, file-size, des
 To observe Studio executions in MLflow, set `MLFLOW_TRACKING_URI` and
 `GEAR_MLFLOW_ENABLED=true`. GEAR records one MLflow run per execution with the
 target, build ID, status, duration, output metrics, and bounded console logs.
+Every generated Python orchestration also loads the same MLflow URI from `.env`
+and creates a target-tagged run.
 
 ## CLI reference
 

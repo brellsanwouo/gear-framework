@@ -45,11 +45,15 @@ CONFIG = _load_config()
 HOST = os.environ.get("GEAR_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", CONFIG["server"]["port"]))
 STORE_PATH = os.environ.get("GEAR_STORE_PATH", str(BASE_DIR / ".gear" / "gear.db"))
-TRACKING_ENABLED = os.environ.get("GEAR_TRACKING_ENABLED", "").lower() in {"1", "true", "yes"}
+TRACKING_ENABLED = os.environ.get(
+    "GEAR_TRACKING_ENABLED",
+    os.environ.get("TRACKING_ENABLED", ""),
+).lower() in {"1", "true", "yes"}
 STUDIO_MODEL_POLICY = _studio_model_policy()
 TASKS_FILE_PATH = BASE_DIR / CONFIG["paths"]["tasks_file"]
 
 DB_CONFIG = {
+    "url": os.environ.get("DATABASE_URL"),
     "host": os.environ.get("DB_HOST", CONFIG["database"]["host"]),
     "port": int(os.environ.get("DB_PORT", CONFIG["database"]["port"])),
     "user": os.environ.get("DB_USER", CONFIG["database"]["user"]),
