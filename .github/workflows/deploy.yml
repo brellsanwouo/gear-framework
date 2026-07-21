@@ -117,7 +117,13 @@ jobs:
           echo 'GEAR_TRACKING_ENABLED=true' | sudo tee -a /etc/gear.env > /dev/null
           sudo sed -i '/^GEAR_ENABLE_LOCAL_RUNNER=/d' /etc/gear.env
           echo 'GEAR_ENABLE_LOCAL_RUNNER=true' | sudo tee -a /etc/gear.env > /dev/null
-          sudo install -d -m 0770 -o nzine -g gear /var/lib/gear
+          gear_service_user="$(sudo systemctl show gear-app --property=User --value)"
+          gear_service_group="$(sudo systemctl show gear-app --property=Group --value)"
+          gear_service_user="${gear_service_user:-nzine}"
+          gear_service_group="${gear_service_group:-gear}"
+          sudo install -d -m 0770 -o "$gear_service_user" -g "$gear_service_group" /var/lib/gear
+          sudo install -d -m 0755 /etc/systemd/system/gear-app.service.d
+          printf '[Service]\nReadWritePaths=/var/lib/gear\n' | sudo tee /etc/systemd/system/gear-app.service.d/storage.conf > /dev/null
           sudo sed -i '/^GEAR_STORE_PATH=/d' /etc/gear.env
           echo 'GEAR_STORE_PATH=/var/lib/gear/gear.db' | sudo tee -a /etc/gear.env > /dev/null
           if ! sudo grep -Eq '^DATABASE_URL=.+$' /etc/gear.env; then
