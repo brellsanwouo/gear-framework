@@ -92,6 +92,13 @@ jobs:
           echo "Fixing ownership..."
           sudo chown -R nzine:gear /opt/gear/gear-framework || true
 
+          echo "Checking the Node.js conversion runtime..."
+          if ! command -v node > /dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y nodejs
+          fi
+          node --version
+
           echo "Installing dependencies..."
           cd /opt/gear/gear-framework
           if [ -f requirements.txt ]; then
@@ -147,6 +154,35 @@ jobs:
           assert payload["observability"]["enabled"], payload
           assert payload["enabled"], payload
           print("MLflow observability enabled.")
+
+          build_payload = {
+              "project_id": "deployment-smoke",
+              "project_name": "Deployment smoke",
+              "target": "crewai",
+              "agents": [{
+                  "AgentIdentity": {"Name": "Smoke", "Purpose": "Verify deployment", "ContextDescription": "CI"},
+                  "LLMConfiguration": {"Provider": "openai", "Model": "gpt-4o-mini"},
+                  "TaskSpecification": {"TaskName": "Smoke", "TaskDescription": "Verify", "ExpectedOutput": "Ready"},
+              }],
+              "modules": [],
+              "workflow": {
+                  "WorkflowName": "Main",
+                  "Items": {"Agents": ["Smoke"], "Modules": []},
+                  "Edges": [],
+              },
+              "workflow_sequence": [{"kind": "agent", "name": "Smoke"}],
+          }
+          build_request = urllib.request.Request(
+              "http://127.0.0.1:8200/api/studio/builds",
+              data=json.dumps(build_payload).encode(),
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(build_request) as response:
+              build = json.load(response)
+          code = build["outputs"]["orchestration"]
+          assert "GEAR MLflow observability" in code, build
+          print("Online code generation enabled and MLflow-instrumented.")
 
           with urllib.request.urlopen("http://127.0.0.1:8200/api/experiment/status") as response:
               research = json.load(response)
