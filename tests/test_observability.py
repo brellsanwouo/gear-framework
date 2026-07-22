@@ -17,6 +17,29 @@ class _RunContext:
         return None
 
 
+class _SpanContext:
+    def __init__(self) -> None:
+        self.trace_id = "trace-mlflow-1"
+        self.inputs = None
+        self.outputs = None
+        self.status = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    def set_inputs(self, values) -> None:
+        self.inputs = values
+
+    def set_outputs(self, values) -> None:
+        self.outputs = values
+
+    def set_status(self, value) -> None:
+        self.status = value
+
+
 def test_mlflow_status_requires_a_tracking_uri(monkeypatch):
     monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
     monkeypatch.setenv("GEAR_MLFLOW_ENABLED", "true")
@@ -30,6 +53,7 @@ def test_mlflow_status_requires_a_tracking_uri(monkeypatch):
 
 def test_record_execution_logs_metrics_and_outputs(monkeypatch):
     calls: dict[str, object] = {}
+    span = _SpanContext()
     fake_mlflow = SimpleNamespace(
         set_tracking_uri=lambda value: calls.update(tracking_uri=value),
         set_experiment=lambda value: calls.update(experiment=value),
@@ -37,6 +61,8 @@ def test_record_execution_logs_metrics_and_outputs(monkeypatch):
         set_tags=lambda values: calls.update(tags=values),
         log_metrics=lambda values: calls.update(metrics=values),
         log_text=lambda value, path: calls.setdefault("texts", []).append((path, value)),
+        start_span=lambda **values: (calls.update(span=values) or span),
+        set_tag=lambda key, value: calls.setdefault("single_tags", {}).update({key: value}),
     )
     monkeypatch.setitem(sys.modules, "mlflow", fake_mlflow)
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://mlflow.internal:5000")
@@ -70,3 +96,14 @@ def test_record_execution_logs_metrics_and_outputs(monkeypatch):
     assert calls["tags"]["gear.session_id"] == "session-123"
     assert calls["tags"]["gear.project_id"] == "project-123"
     assert calls["texts"] == [("execution/stdout.txt", "result")]
+    assert calls["span"]["name"] == "gear.crewai"
+    assert calls["span"]["span_type"] == "CHAIN"
+    assert span.inputs == {"build_id": "build-123", "project_id": "project-123", "target": "crewai"}
+    assert span.outputs == {
+        "status": "succeeded",
+        "return_code": 0,
+        "stdout": "result",
+        "stderr": "",
+    }
+    assert span.status == "OK"
+    assert calls["single_tags"]["gear.mlflow_trace_id"] == "trace-mlflow-1"
