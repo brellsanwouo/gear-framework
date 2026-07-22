@@ -38,6 +38,7 @@
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini", provider };
       });
 
+      const helpers = ["async def _run_agent(agent: Agent, prompt: str):", "    name = getattr(agent, \"name\", agent.__class__.__name__)", "    return await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.run(prompt), {\"gear.agent\": name})"];
       const moduleVars = new Map();
       const moduleLines = [];
       ir.modules.forEach((module, index) => {
@@ -45,17 +46,17 @@
         moduleVars.set(module.id, fn);
         const agents = module.agentRefs.map((ref) => agentVars.get(ref)).filter(Boolean);
         if (module.strategy === "parallel") {
-          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `${agent}.run(prompt)`).join(", ")})`, "    combined = \"\\n\\n\".join(str(result.output) for result in results)");
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `_run_agent(${agent}, prompt)`).join(", ")})`, "    combined = \"\\n\\n\".join(str(result.output) for result in results)");
           const aggregator = agentVars.get(module.aggregator);
-          moduleLines.push(...(aggregator ? [`    return str((await ${aggregator}.run(combined)).output)`] : ["    return combined"]), "");
+          moduleLines.push(...(aggregator ? [`    return str((await _run_agent(${aggregator}, combined)).output)`] : ["    return combined"]), "");
         } else {
           const turns = Number.isInteger(module.maxIterations) && module.maxIterations > 0 ? module.maxIterations : 1;
-          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, "    current = prompt", `    stop_condition = ${lit(module.stopCondition || "")}`, `    for _ in range(${turns}):`, ...agents.map((agent) => `        current = str((await ${agent}.run(current)).output)`), "    return current", "");
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, "    current = prompt", `    stop_condition = ${lit(module.stopCondition || "")}`, `    for _ in range(${turns}):`, ...agents.map((agent) => `        current = str((await _run_agent(${agent}, current)).output)`), "    return current", "");
           if (module.stopCondition) diagnostics.push({ code: "PYDANTIC-AI-LOOP-STOP-ADAPTED", severity: "warning", message: `Loop module ${module.name} uses TurnCount as its hard limit.`, path: module.name });
         }
       });
 
-      const callFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `${agentVars.get(node.ref)}.run(current)`;
+      const callFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `_run_agent(${agentVars.get(node.ref)}, current)`;
       const workflowLines = ["async def run_workflow(user_input: str) -> str:", "    current = user_input"];
       ir.workflow.executionLayers.forEach((layer) => {
         if (layer.length === 1) {
@@ -68,7 +69,7 @@
       });
       workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from pydantic_ai import Agent", "from pydantic_ai.models.openai import OpenAIChatModel", "from pydantic_ai.providers.openai import OpenAIProvider", "from dotenv import load_dotenv", "", "load_dotenv()"];
-      const orchestration = renderTemplate(getTemplate("pydantic-ai") || "{{imports}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
+      const orchestration = renderTemplate(getTemplate("pydantic-ai") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
       const mappingEntries = [...(mappings["pydantic-aiAgent"] || []), ...(mappings["pydantic-aiModule"] || []), ...(mappings["pydantic-aiMulti"] || [])];
       const consumedPaths = ["AgentIdentity.Name", "AgentIdentity.Purpose", "AgentIdentity.ContextDescription", "LLMConfiguration.Provider", "LLMConfiguration.Model", "LLMConfiguration.BaseURL", "LLMConfiguration.Timeout", "LLMConfiguration.ModelParameters.Temperature", "LLMConfiguration.ModelParameters.MaxTokens", "LLMConfiguration.ModelParameters.TopP", "LLMConfiguration.ModelParameters.TopK", "LLMConfiguration.ModelParameters.StopSequences", "LLMConfiguration.ModelParameters.Seed", "TaskSpecification.TaskName", "TaskSpecification.TaskDescription", "TaskSpecification.ExpectedOutput", "ModuleName", "Strategy.Parallel.ParallelAgents", "Strategy.Parallel.Aggregator", "Strategy.Loop.LoopAgents", "Strategy.Loop.TurnCount", "Strategy.Loop.StopCondition", "WorkflowName", "Items.Agents", "Items.Modules", "Edges.From", "Edges.To"];
       return { outputs: { agents: manifest, orchestration, report: createConversionReport({ frameworkId: "pydantic-ai", gearIR: ir, mappingEntries, consumedPaths, diagnostics }) } };

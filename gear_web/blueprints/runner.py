@@ -109,7 +109,7 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             session_id=identity.session_id,
             project_id=str(build.get("project_id") or ""),
         )
-        trace_id = mlflow_run_id or external_trace_id
+        trace_id = external_trace_id or mlflow_run_id
         run_id = BuildStore(store_path).record_run(
             build_id,
             "succeeded" if result.returncode == 0 else "failed",

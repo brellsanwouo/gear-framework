@@ -38,7 +38,7 @@
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini", provider };
       });
 
-      const helpers = ["def task_output(result) -> str:", "    if not result.messages:", "        return \"\"", "    content = result.messages[-1].content", "    return content if isinstance(content, str) else str(content)"];
+      const helpers = ["def task_output(result) -> str:", "    if not result.messages:", "        return \"\"", "    content = result.messages[-1].content", "    return content if isinstance(content, str) else str(content)", "", "async def _run_agent(agent, prompt: str):", "    name = getattr(agent, \"name\", agent.__class__.__name__)", "    return await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.run(task=prompt), {\"gear.agent\": name})"];
       const moduleVars = new Map();
       const moduleLines = [];
       ir.modules.forEach((module, index) => {
@@ -46,9 +46,9 @@
         moduleVars.set(module.id, fn);
         const agents = module.agentRefs.map((ref) => agentVars.get(ref)).filter(Boolean);
         if (module.strategy === "parallel") {
-          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `${agent}.run(task=prompt)`).join(", ")})`, "    combined = \"\\n\\n\".join(task_output(result) for result in results)");
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `_run_agent(${agent}, prompt)`).join(", ")})`, "    combined = \"\\n\\n\".join(task_output(result) for result in results)");
           const aggregator = agentVars.get(module.aggregator);
-          moduleLines.push(...(aggregator ? [`    return task_output(await ${aggregator}.run(task=combined))`] : ["    return combined"]), "");
+          moduleLines.push(...(aggregator ? [`    return task_output(await _run_agent(${aggregator}, combined))`] : ["    return combined"]), "");
         } else {
           const turns = Number.isInteger(module.maxIterations) && module.maxIterations > 0 ? module.maxIterations : 1;
           const maxTurns = Math.max(1, turns * Math.max(1, agents.length));
@@ -58,7 +58,7 @@
         }
       });
 
-      const callFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `${agentVars.get(node.ref)}.run(task=current)`;
+      const callFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `_run_agent(${agentVars.get(node.ref)}, current)`;
       const workflowLines = ["async def run_workflow(user_input: str) -> str:", "    current = user_input"];
       ir.workflow.executionLayers.forEach((layer) => {
         if (layer.length === 1) {

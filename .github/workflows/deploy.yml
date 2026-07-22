@@ -118,6 +118,11 @@ jobs:
           from semantic_kernel.agents import ChatCompletionAgent
           from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings
           from semantic_kernel.functions import KernelArguments
+          import mlflow
+
+          for integration in ("autogen", "crewai", "haystack", "langchain", "litellm", "openai", "pydantic_ai", "semantic_kernel", "strands"):
+              assert callable(getattr(getattr(mlflow, integration), "autolog")), integration
+          assert callable(mlflow.start_span_no_context)
 
           print("Generated-code framework imports available.")
           PY

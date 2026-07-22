@@ -58,12 +58,14 @@ duration, return code, output sizes, and bounded stdout/stderr artifacts. Set
 `GEAR_MLFLOW_LOG_OUTPUTS=false` when execution output must not leave the
 application host. MLflow failures are logged by GEAR but do not interrupt the
 user workflow. Online Studio execution is managed by the backend and creates
-one MLflow run per execution. It also records a root `gear.<framework>` trace
-with inputs, outputs, status, duration, and participant context so the same
-execution is visible in MLflow's GenAI Traces view.
+one MLflow run per execution. The generated process records one root
+`gear.workflow.<framework>` trace plus one `agent.<name>` child span for every
+agent invocation. Repeated loop calls therefore create repeated spans, while
+parallel calls appear as sibling spans. Native MLflow integrations add model,
+tool, token-usage, latency, and error spans when the target SDK exposes them.
 
 Generated Python orchestration files also contain a framework-neutral MLflow
-bootstrap. It loads `MLFLOW_TRACKING_URI` from `.env`, opens a run tagged with
-the target framework, and closes that run when the generated process exits.
-The Studio runner disables this autonomous bootstrap because the backend owns
-the online run; downloaded files keep the autonomous behavior.
+bootstrap. It loads `MLFLOW_TRACKING_URI` from `.env` and records the detailed
+workflow trace. The Studio runner disables only the bootstrap's autonomous
+tracking run because the backend owns the online run; downloaded files keep
+both the autonomous run and detailed trace behavior.

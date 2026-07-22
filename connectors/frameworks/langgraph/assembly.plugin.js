@@ -82,7 +82,8 @@
           "",
           `def ${functionName}(state: WorkflowState) -> dict:`,
           `    prompt = ${toPythonLiteral(promptFor(item.source))}`,
-          `    response = ${modelVariable}.invoke([SystemMessage(content=prompt), *state.get("messages", [])])`,
+          `    messages = [SystemMessage(content=prompt), *state.get("messages", [])]`,
+          `    response = _gear_trace_call(${toPythonLiteral(`agent.${item.name}`)}, messages, lambda: ${modelVariable}.invoke(messages), {"gear.agent": ${toPythonLiteral(item.name)}, "gen_ai.request.model": ${toPythonLiteral(item.source?.LLMConfiguration?.Model || "gpt-4.1-mini")}})`,
           `    return {"messages": [response]}`,
           "",
         );

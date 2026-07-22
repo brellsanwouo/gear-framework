@@ -96,14 +96,38 @@ def test_record_execution_logs_metrics_and_outputs(monkeypatch):
     assert calls["tags"]["gear.session_id"] == "session-123"
     assert calls["tags"]["gear.project_id"] == "project-123"
     assert calls["texts"] == [("execution/stdout.txt", "result")]
+    assert "span" not in calls
+    assert calls["single_tags"]["gear.mlflow_trace_id"] == "trace-123"
+
+
+def test_record_execution_creates_a_fallback_trace_without_generated_trace(monkeypatch):
+    calls: dict[str, object] = {}
+    span = _SpanContext()
+    fake_mlflow = SimpleNamespace(
+        set_tracking_uri=lambda value: None,
+        set_experiment=lambda value: None,
+        start_run=lambda **values: _RunContext("mlflow-run-1"),
+        set_tags=lambda values: None,
+        log_metrics=lambda values: None,
+        log_text=lambda value, path: None,
+        start_span=lambda **values: (calls.update(span=values) or span),
+        set_tag=lambda key, value: calls.update(trace_tag=value),
+    )
+    monkeypatch.setitem(sys.modules, "mlflow", fake_mlflow)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://mlflow.internal:5000")
+    monkeypatch.setenv("GEAR_MLFLOW_ENABLED", "true")
+
+    run_id = observability.record_execution(
+        build_id="build-123",
+        target="crewai",
+        returncode=1,
+        duration_ms=250,
+        stdout="",
+        stderr="failed",
+    )
+
+    assert run_id == "mlflow-run-1"
     assert calls["span"]["name"] == "gear.crewai"
-    assert calls["span"]["span_type"] == "CHAIN"
-    assert span.inputs == {"build_id": "build-123", "project_id": "project-123", "target": "crewai"}
-    assert span.outputs == {
-        "status": "succeeded",
-        "return_code": 0,
-        "stdout": "result",
-        "stderr": "",
-    }
-    assert span.status == "OK"
-    assert calls["single_tags"]["gear.mlflow_trace_id"] == "trace-mlflow-1"
+    assert span.status == "ERROR"
+    assert span.outputs["stderr"] == "failed"
+    assert calls["trace_tag"] == "trace-mlflow-1"

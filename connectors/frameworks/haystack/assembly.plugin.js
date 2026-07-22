@@ -40,7 +40,7 @@
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini", provider };
       });
 
-      const helpers = ["async def _run_agent(agent: Agent, prompt: str) -> str:", "    result = await agent.run_async(messages=[ChatMessage.from_user(prompt)])", "    return result[\"last_message\"].text"];
+      const helpers = ["async def _run_agent(agent: Agent, prompt: str) -> str:", "    name = getattr(agent, \"name\", agent.__class__.__name__)", "    result = await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.run_async(messages=[ChatMessage.from_user(prompt)]), {\"gear.agent\": name})", "    return result[\"last_message\"].text"];
       const moduleVars = new Map();
       const moduleLines = [];
       ir.modules.forEach((module, index) => {

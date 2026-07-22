@@ -33,6 +33,7 @@
         agentLines.push(`${variable} = Agent(`, `    name=${toPythonLiteral(item.name)},`, `    instructions=${toPythonLiteral(instructions(item.source))},`, `    handoff_description=${toPythonLiteral(item.source?.TaskSpecification?.TaskName || item.name)},`, `    model=${toPythonLiteral(item.source?.LLMConfiguration?.Model || "gpt-4.1-mini")},`, `    model_settings=${settingsValue},`, ")", "");
         manifest[item.id] = { variable, model: item.source?.LLMConfiguration?.Model || "gpt-4.1-mini" };
       });
+      const helpers = ["async def _run_agent(agent: Agent, prompt: str):", "    name = getattr(agent, \"name\", agent.__class__.__name__)", "    return await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: Runner.run(agent, prompt), {\"gear.agent\": name})"];
       const moduleVars = new Map();
       const moduleLines = [];
       ir.modules.forEach((module, index) => {
@@ -40,16 +41,16 @@
         moduleVars.set(module.id, fn);
         const agents = module.agentRefs.map((ref) => agentVars.get(ref)).filter(Boolean);
         if (module.strategy === "parallel") {
-          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `Runner.run(${agent}, prompt)`).join(", ")})`, "    outputs = [str(result.final_output) for result in results]", "    combined = \"\\n\\n\".join(outputs)");
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, `    results = await asyncio.gather(${agents.map((agent) => `_run_agent(${agent}, prompt)`).join(", ")})`, "    outputs = [str(result.final_output) for result in results]", "    combined = \"\\n\\n\".join(outputs)");
           const aggregator = agentVars.get(module.aggregator);
-          moduleLines.push(...(aggregator ? [`    aggregated = await Runner.run(${aggregator}, combined)`, "    return str(aggregated.final_output)"] : ["    return combined"]), "");
+          moduleLines.push(...(aggregator ? [`    aggregated = await _run_agent(${aggregator}, combined)`, "    return str(aggregated.final_output)"] : ["    return combined"]), "");
         } else {
           const turns = Number.isInteger(module.maxIterations) && module.maxIterations > 0 ? module.maxIterations : 1;
-          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, "    current = prompt", `    stop_condition = ${toPythonLiteral(module.stopCondition || "")}`, `    for _ in range(${turns}):`, ...agents.map((agent) => `        current = str((await Runner.run(${agent}, current)).final_output)`), "    return current", "");
+          moduleLines.push(`async def ${fn}(prompt: str) -> str:`, "    current = prompt", `    stop_condition = ${toPythonLiteral(module.stopCondition || "")}`, `    for _ in range(${turns}):`, ...agents.map((agent) => `        current = str((await _run_agent(${agent}, current)).final_output)`), "    return current", "");
           if (module.stopCondition) diagnostics.push({ code: "OPENAI-AGENTS-LOOP-STOP-ADAPTED", severity: "warning", message: `Loop module ${module.name} uses TurnCount as its hard limit.`, path: module.name });
         }
       });
-      const runnerFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `Runner.run(${agentVars.get(node.ref)}, current)`;
+      const runnerFor = (node) => node.type === "module" ? `${moduleVars.get(node.ref)}(current)` : `_run_agent(${agentVars.get(node.ref)}, current)`;
       const workflowLines = ["async def run_workflow(user_input: str) -> str:", "    current = user_input"];
       ir.workflow.executionLayers.forEach((layer) => {
         if (layer.length === 1) {
@@ -63,7 +64,7 @@
       });
       workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", `    with trace(${toPythonLiteral(ir.workflow.name)}):`, "        print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from agents import Agent, ModelSettings, Runner, trace", "from dotenv import load_dotenv", "", "load_dotenv()"];
-      const orchestration = renderTemplate(getTemplate("openai-agents") || "{{imports}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
+      const orchestration = renderTemplate(getTemplate("openai-agents") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
       const mappingEntries = [...(mappings["openai-agentsAgent"] || []), ...(mappings["openai-agentsModule"] || []), ...(mappings["openai-agentsMulti"] || [])];
       const consumedPaths = ["AgentIdentity.Name", "AgentIdentity.Purpose", "AgentIdentity.ContextDescription", "LLMConfiguration.Provider", "LLMConfiguration.Model", "LLMConfiguration.ModelParameters.Temperature", "LLMConfiguration.ModelParameters.MaxTokens", "LLMConfiguration.ModelParameters.TopP", "LLMConfiguration.ModelParameters.FrequencyPenalty", "LLMConfiguration.ModelParameters.PresencePenalty", "TaskSpecification.TaskName", "TaskSpecification.TaskDescription", "TaskSpecification.ExpectedOutput", "Memory", "ModuleName", "Strategy.Parallel.ParallelAgents", "Strategy.Parallel.Aggregator", "Strategy.Loop.LoopAgents", "Strategy.Loop.TurnCount", "Strategy.Loop.StopCondition", "WorkflowName", "Items.Agents", "Items.Modules", "Edges.From", "Edges.To"];
       const report = createConversionReport({ frameworkId: "openai-agents", gearIR: ir, mappingEntries, consumedPaths, diagnostics });

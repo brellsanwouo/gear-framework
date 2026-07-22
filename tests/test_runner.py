@@ -50,3 +50,16 @@ def test_runner_keeps_generated_mlflow_autonomous_by_default():
 
     assert result.returncode == 0
     assert result.stdout.strip() == "autonomous"
+
+
+def test_runner_passes_mlflow_payload_policy(monkeypatch):
+    monkeypatch.setenv("GEAR_MLFLOW_LOG_OUTPUTS", "false")
+    monkeypatch.setenv("GEAR_MLFLOW_MAX_LOG_CHARS", "321")
+
+    result = run_python(
+        "import os; print(os.environ['GEAR_MLFLOW_LOG_OUTPUTS'] + '|' + os.environ['GEAR_MLFLOW_MAX_LOG_CHARS'])",
+        timeout=10,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "false|321"

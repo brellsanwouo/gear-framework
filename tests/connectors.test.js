@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 
 global.window = {};
 window.GearConversionCore = require("../gear_sdk/runtime/conversion-core.js");
@@ -155,7 +156,7 @@ test("PydanticAI compiles deterministic parallel agent hand-offs", () => {
   const result = window.GearAssemblyPlugins["pydantic-ai"].assemble(input);
   assert.equal(result.error, undefined);
   assert.match(result.outputs.orchestration, /from pydantic_ai import Agent/);
-  assert.match(result.outputs.orchestration, /await asyncio\.gather\(a\.run\(current\), b\.run\(current\)\)/);
+  assert.match(result.outputs.orchestration, /await asyncio\.gather\(_run_agent\(a, current\), _run_agent\(b, current\)\)/);
   assert.equal(result.outputs.report.valid, true);
 });
 
@@ -167,7 +168,7 @@ test("AutoGen compiles parallel agents and bounded round-robin teams", () => {
   const result = window.GearAssemblyPlugins.autogen.assemble(input);
   assert.equal(result.error, undefined);
   assert.match(result.outputs.orchestration, /from autogen_agentchat\.agents import AssistantAgent/);
-  assert.match(result.outputs.orchestration, /await asyncio\.gather\(a\.run\(task=current\), b\.run\(task=current\)\)/);
+  assert.match(result.outputs.orchestration, /await asyncio\.gather\(_run_agent\(a, current\), _run_agent\(b, current\)\)/);
   assert.equal(result.outputs.report.valid, true);
 });
 
@@ -208,4 +209,25 @@ test("Haystack compiles native agents, model settings, and parallel hand-offs", 
   assert.match(result.outputs.orchestration, /await asyncio\.gather\(_run_agent\(a, current\), _run_agent\(b, current\)\)/);
   assert.match(result.outputs.orchestration, /WORKFLOW_NAME = "Graph"/);
   assert.equal(result.outputs.report.valid, true);
+});
+
+test("every instrumented connector produces syntactically valid Python", () => {
+  const frameworks = [
+    "crewai", "adk", "langgraph", "openai-agents", "microsoft-agent-framework",
+    "strands", "pydantic-ai", "autogen", "semantic-kernel", "haystack",
+  ];
+  for (const framework of frameworks) {
+    const input = makeInput();
+    input.mappings[`${framework}Agent`] ||= agentMappings;
+    input.mappings[`${framework}Module`] ||= [];
+    input.mappings[`${framework}Multi`] ||= workflowMappings;
+    const result = window.GearAssemblyPlugins[framework].assemble(input);
+    assert.equal(result.error, undefined, framework);
+    const code = window.GearConversionCore.instrumentResult(result, framework).outputs.orchestration;
+    const compiled = spawnSync("python", ["-c", "import sys; compile(sys.stdin.read(), '<generated>', 'exec')"], {
+      input: code,
+      encoding: "utf8",
+    });
+    assert.equal(compiled.status, 0, `${framework}: ${compiled.stderr}`);
+  }
 });

@@ -33,6 +33,10 @@
       });
 
       const moduleLines = [
+        "async def _run_agent(agent: Agent, prompt: str, **kwargs):",
+        "    name = getattr(agent, \"name\", agent.__class__.__name__)",
+        "    return await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.invoke_async(prompt, **kwargs), {\"gear.agent\": name})",
+        "",
         "class LoopAgent:",
         "    def __init__(self, name: str, agents: list[Agent], turns: int, stop_condition: str = \"\"):",
         "        self.name, self.id = name, name",
@@ -42,7 +46,7 @@
         "        current, result = str(prompt or \"\"), None",
         "        for _ in range(self.turns):",
         "            for agent in self.agents:",
-        "                result = await agent.invoke_async(current, **kwargs)",
+        "                result = await _run_agent(agent, current, **kwargs)",
         "                current = str(result)",
         "        return result",
         "",

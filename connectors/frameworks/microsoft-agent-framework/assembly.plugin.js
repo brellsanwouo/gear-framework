@@ -25,7 +25,7 @@
         if (provider !== "openai") diagnostics.push({ code: "MAF-PROVIDER-ADAPTER", severity: "error", message: `Agent ${item.name} requires a ${provider} client adapter.`, path: item.name });
         const params = llm.ModelParameters || {};
         const options = [["temperature", params.Temperature], ["max_tokens", params.MaxTokens], ["top_p", params.TopP], ["frequency_penalty", params.FrequencyPenalty], ["presence_penalty", params.PresencePenalty], ["seed", params.Seed], ["stop", params.StopSequences]].filter(([, v]) => v !== undefined && v !== null && v !== "");
-        const clientArgs = [`model_id=${lit(llm.Model || "gpt-4.1-mini")}`];
+        const clientArgs = [`model=${lit(llm.Model || "gpt-4.1-mini")}`];
         if (llm.BaseURL) clientArgs.push(`base_url=${lit(llm.BaseURL)}`);
         agentLines.push(`${variable} = Agent(`, `    client=OpenAIChatClient(${clientArgs.join(", ")}),`, `    name=${lit(item.name)},`, `    instructions=${lit(prompt(item.source))},`, ...(options.length ? [`    default_options={${options.map(([k, v]) => `${lit(k)}: ${lit(v)}`).join(", ")}},`] : []), ")", "");
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini" };
@@ -33,6 +33,10 @@
 
       const nodeExecutors = new Map();
       const executorLines = [
+        "async def _run_agent(agent: Agent, prompt: str):",
+        "    name = getattr(agent, \"name\", agent.__class__.__name__)",
+        "    return await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.run(prompt), {\"gear.agent\": name})",
+        "",
         "class StartExecutor(Executor):",
         "    @handler",
         "    async def forward(self, message: str, ctx: WorkflowContext[str]) -> None:",
@@ -47,7 +51,7 @@
         "    @handler",
         "    async def invoke(self, message: str | list[str], ctx: WorkflowContext) -> None:",
         "        value = \"\\n\\n\".join(map(str, message)) if isinstance(message, list) else str(message)",
-        "        result = str(await self.agent.run(value))",
+        "        result = str(await _run_agent(self.agent, value))",
         "        if self.output:",
         "            await ctx.yield_output(result)",
         "        else:",
@@ -63,14 +67,14 @@
         "    async def invoke(self, message: str | list[str], ctx: WorkflowContext) -> None:",
         "        current = \"\\n\\n\".join(map(str, message)) if isinstance(message, list) else str(message)",
         "        if self.strategy == \"parallel\":",
-        "            values = [str(value) for value in await asyncio.gather(*(agent.run(current) for agent in self.agents))]",
+        "            values = [str(value) for value in await asyncio.gather(*(_run_agent(agent, current) for agent in self.agents))]",
         "            current = \"\\n\\n\".join(values)",
         "            if self.aggregator:",
-        "                current = str(await self.aggregator.run(current))",
+        "                current = str(await _run_agent(self.aggregator, current))",
         "        else:",
         "            for _ in range(self.turns):",
         "                for agent in self.agents:",
-        "                    current = str(await agent.run(current))",
+        "                    current = str(await _run_agent(agent, current))",
         "        if self.output:",
         "            await ctx.yield_output(current)",
         "        else:",

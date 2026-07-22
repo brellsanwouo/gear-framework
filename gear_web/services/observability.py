@@ -76,28 +76,29 @@ def record_execution(
                 if stderr:
                     mlflow.log_text(stderr[:max_chars], "execution/stderr.txt")
 
-            # MLflow's Runs and Traces are separate UI views. Record a root
-            # span as well so online agent executions are visible in the GenAI
-            # observability view with their inputs, outputs, and identity.
-            with mlflow.start_span(
-                name=f"gear.{target}",
-                span_type="CHAIN",
-                attributes={**tags, "gear.duration_ms": duration_ms},
-            ) as span:
-                span.set_inputs({
-                    "build_id": build_id or "",
-                    "project_id": project_id or "",
-                    "target": target,
-                })
-                span.set_outputs({
-                    "status": tags["gear.status"],
-                    "return_code": returncode,
-                    "stdout": stdout[:max_chars] if log_outputs else "",
-                    "stderr": stderr[:max_chars] if log_outputs else "",
-                })
-                span.set_status("OK" if returncode == 0 else "ERROR")
-                trace_id = span.trace_id
-            mlflow.set_tag("gear.mlflow_trace_id", trace_id)
+            # Generated code owns the detailed trace and reports its ID back
+            # through a private stderr marker. Keep a summary trace only as a
+            # fallback for failures that occur before instrumentation starts.
+            if not external_trace_id:
+                with mlflow.start_span(
+                    name=f"gear.{target}",
+                    span_type="CHAIN",
+                    attributes={**tags, "gear.duration_ms": duration_ms},
+                ) as span:
+                    span.set_inputs({
+                        "build_id": build_id or "",
+                        "project_id": project_id or "",
+                        "target": target,
+                    })
+                    span.set_outputs({
+                        "status": tags["gear.status"],
+                        "return_code": returncode,
+                        "stdout": stdout[:max_chars] if log_outputs else "",
+                        "stderr": stderr[:max_chars] if log_outputs else "",
+                    })
+                    span.set_status("OK" if returncode == 0 else "ERROR")
+                    external_trace_id = span.trace_id
+            mlflow.set_tag("gear.mlflow_trace_id", external_trace_id)
         return run_id
     except Exception:
         LOGGER.exception("Unable to record the GEAR execution in MLflow")
