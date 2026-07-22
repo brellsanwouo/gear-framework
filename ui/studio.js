@@ -17,6 +17,7 @@
   const frameworkLabel = (target) => frameworkLabels[target] || target;
   const buildsByTarget = { crewai: null, adk: null, langgraph: null, "openai-agents": null, "microsoft-agent-framework": null, strands: null, "pydantic-ai": null, autogen: null, "semantic-kernel": null, haystack: null };
   let runnerEnabled = false;
+  let runnerTimeoutSeconds = 180;
   let buildBusy = false;
   let runBusy = false;
   const DEFAULT_MODEL_POLICY = Object.freeze({ locked: false, provider: "openai", model: "gpt-5.1-codex-mini" });
@@ -123,6 +124,23 @@
     element.textContent = message; element.classList.add("is-visible");
     setTimeout(() => element.classList.remove("is-visible"), 2600);
   };
+  const readApiResponse = async (response) => {
+    const body=await response.text();
+    try{return body?JSON.parse(body):{};}catch(error){
+      const gateway=[502,503,504].includes(response.status);const detail=gateway?"The execution gateway interrupted the request.":"The server returned a non-JSON response.";
+      throw new Error(`${detail} (HTTP ${response.status || "unknown"})`);
+    }
+  };
+  const waitForRun = async (jobId) => {
+    const deadline=Date.now()+(runnerTimeoutSeconds+30)*1000;
+    while(Date.now()<deadline){
+      const response=await fetch(`/api/run/jobs/${encodeURIComponent(jobId)}`);const result=await readApiResponse(response);
+      if(response.status===202){await new Promise((resolve)=>setTimeout(resolve,1000));continue;}
+      if(!response.ok)throw new Error(result.error||"Execution failed.");
+      return result;
+    }
+    throw new Error("Execution status timed out. Check the saved execution history.");
+  };
 
   const artifactText = (value) => typeof value === "string" ? value : window.jsyaml.dump(value,{noRefs:true,lineWidth:-1,sortKeys:false});
   const setBuildOutput = (view) => {const code=view==="code";document.getElementById("codeOutputPanel").hidden=!code;document.getElementById("consoleOutputPanel").hidden=code;document.getElementById("pythonActions").hidden=!code;document.getElementById("executionActions").hidden=code;document.querySelectorAll("[data-build-output]").forEach((button)=>{const active=button.dataset.buildOutput===view;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active));});};
@@ -134,7 +152,7 @@
   const selectFramework = (target) => {buildTarget=target;document.querySelectorAll("[data-framework]").forEach((card)=>{const selected=card.dataset.framework===target;card.classList.toggle("is-selected",selected);card.setAttribute("aria-selected",String(selected));const choice=card.querySelector(".framework-choice");choice.querySelector("span").textContent=selected?"✓":"";choice.querySelector("b").textContent=selected?"Selected":"Select";});};
   const openBuildOutput = (target,view="code") => {selectFramework(target);lastBuild=buildsByTarget[target];document.getElementById("buildOutputCard").hidden=false;document.getElementById("buildOutputTitle").textContent=frameworkLabel(target);document.getElementById("buildOutputSubtitle").textContent=lastBuild?`Build ${lastBuild.build_id.slice(0,8)}`:"Output";renderBuildArtifacts();setBuildOutput(view);document.getElementById("buildOutputCard").scrollIntoView({behavior:"smooth",block:"nearest"});};
   const loadRunnerStatus = async () => {
-    const notice=document.getElementById("runnerNotice");try{const response=await fetch("/api/run/status");const status=await response.json();runnerEnabled=Boolean(status.enabled);notice.classList.toggle("is-enabled",runnerEnabled);notice.classList.toggle("is-disabled",!runnerEnabled);notice.querySelector("p").textContent=runnerEnabled?`Local execution available · ${status.timeout_seconds}s timeout`:"Local execution disabled. Set GEAR_ENABLE_LOCAL_RUNNER=true and restart the server.";}catch(error){runnerEnabled=false;notice.classList.add("is-disabled");notice.querySelector("p").textContent="Local execution status unavailable.";}refreshFrameworkControls();
+    const notice=document.getElementById("runnerNotice");try{const response=await fetch("/api/run/status");const status=await readApiResponse(response);runnerEnabled=Boolean(status.enabled);runnerTimeoutSeconds=Number(status.timeout_seconds)||180;notice.classList.toggle("is-enabled",runnerEnabled);notice.classList.toggle("is-disabled",!runnerEnabled);notice.querySelector("p").textContent=runnerEnabled?`Local execution available · ${status.timeout_seconds}s timeout`:"Local execution disabled. Set GEAR_ENABLE_LOCAL_RUNNER=true and restart the server.";}catch(error){runnerEnabled=false;notice.classList.add("is-disabled");notice.querySelector("p").textContent="Local execution status unavailable.";}refreshFrameworkControls();
   };
 
   const loadGearVersion = async () => {
@@ -188,7 +206,7 @@
   const runStudioBuild = async (target=buildTarget) => {
     if(runBusy)return;if(!runnerEnabled){toast("Local execution is disabled.");return;}const build=buildsByTarget[target]||await createStudioBuild(target,false);if(!build)return;const code=build.outputs?.orchestration;if(typeof code!=="string"||!code.trim()){toast("This build contains no executable workflow.");return;}
     lastBuild=build;openBuildOutput(target,"console");runBusy=true;refreshFrameworkControls();setFrameworkStatus(target,"building","Running…");const consoleElement=document.getElementById("executionConsole");consoleElement.classList.remove("has-error");consoleElement.querySelector("code").textContent="Workflow execution in progress…";document.getElementById("executionMeta").textContent=`Build ${build.build_id.slice(0,8)} · ${target}`;
-    try{const response=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,build_id:build.build_id})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Execution failed.");const succeeded=result.returncode===0;const sections=[];if(result.stdout)sections.push(`OUTPUT\n${result.stdout.trimEnd()}`);if(result.stderr)sections.push(`ERRORS\n${result.stderr.trimEnd()}`);if(!sections.length)sections.push("Execution completed without output.");consoleElement.querySelector("code").textContent=sections.join("\n\n");consoleElement.classList.toggle("has-error",!succeeded);document.getElementById("executionMeta").textContent=`${succeeded?"Completed":"Failed"} · code ${result.returncode}${result.trace_id?` · trace ${result.trace_id}`:""}`;setFrameworkStatus(target,succeeded?"ready":"failed",succeeded?"Last execution succeeded":"Last execution failed");toast(succeeded?"Execution completed.":"The workflow returned an error.");await renderHistory();}catch(error){consoleElement.querySelector("code").textContent=error.message;consoleElement.classList.add("has-error");document.getElementById("executionMeta").textContent="Execution failed";setFrameworkStatus(target,"failed","Last execution failed");toast("Execution failed.");}finally{runBusy=false;refreshFrameworkControls();}
+    try{const response=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,build_id:build.build_id,async:true})});let result=await readApiResponse(response);if(response.status===202)result=await waitForRun(result.job_id);else if(!response.ok)throw new Error(result.error||"Execution failed.");const succeeded=result.returncode===0;const sections=[];if(result.stdout)sections.push(`OUTPUT\n${result.stdout.trimEnd()}`);if(result.stderr)sections.push(`ERRORS\n${result.stderr.trimEnd()}`);if(!sections.length)sections.push("Execution completed without output.");consoleElement.querySelector("code").textContent=sections.join("\n\n");consoleElement.classList.toggle("has-error",!succeeded);document.getElementById("executionMeta").textContent=`${succeeded?"Completed":"Failed"} · code ${result.returncode}${result.trace_id?` · trace ${result.trace_id}`:""}`;setFrameworkStatus(target,succeeded?"ready":"failed",succeeded?"Last execution succeeded":"Last execution failed");toast(succeeded?"Execution completed.":"The workflow returned an error.");await renderHistory();}catch(error){consoleElement.querySelector("code").textContent=error.message;consoleElement.classList.add("has-error");document.getElementById("executionMeta").textContent="Execution failed";setFrameworkStatus(target,"failed","Last execution failed");toast("Execution failed.");}finally{runBusy=false;refreshFrameworkControls();}
   };
   const downloadStudioScript = (build) => {const value=build?.outputs?.orchestration;if(typeof value!=="string")return;const blob=new Blob([value.endsWith("\n")?value:`${value}\n`],{type:"text/x-python"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`gear-${build.target}.py`;link.click();URL.revokeObjectURL(url);toast(`gear-${build.target}.py downloaded.`);};
 

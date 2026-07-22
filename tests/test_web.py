@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import time
 
 from gear_web.builds import _studio_project
 from gear_web.settings import _studio_model_policy
@@ -161,6 +162,22 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert execution["participant_id"] == identity["user_id"]
     assert execution["session_id"] == identity["session_id"]
     assert execution["project_id"] == "studio-test"
+
+    async_response = client.post(
+        "/api/run",
+        json={"build_id": studio_build["build_id"], "target": "crewai", "async": True},
+    )
+    assert async_response.status_code == 202
+    job_id = async_response.get_json()["job_id"]
+    assert other_client.get(f"/api/run/jobs/{job_id}").status_code == 404
+    for _ in range(100):
+        job_response = client.get(f"/api/run/jobs/{job_id}")
+        if job_response.status_code != 202:
+            break
+        time.sleep(0.01)
+    assert job_response.status_code == 200
+    assert job_response.get_json()["stdout"] == "done\n"
+    assert job_response.get_json()["status"] == "completed"
     assert client.get("/api/logs").get_json()[0]["build_id"] == studio_build["build_id"]
     assert client.get("/api/logs").get_json()[0]["participant_id"] == identity["user_id"]
     assert other_client.get("/api/logs").get_json() == []
