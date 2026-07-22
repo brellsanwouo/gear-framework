@@ -406,7 +406,7 @@
       "  return _event_text(events)",
       "",
       "if __name__ == \"__main__\":",
-      "  prompt = os.environ.get(\"GEAR_INPUT\", \"\")",
+      "  prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")",
       "  print(asyncio.run(run_workflow(prompt)))",
     ];
 

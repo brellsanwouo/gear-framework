@@ -124,5 +124,5 @@ test("adds MLflow observability to every generated Python orchestration", () => 
   assert.match(traced, /Researcher context/);
   assert.match(traced, /Do work/);
   assert.match(traced, /expected_output/);
-  assert.doesNotMatch(traced, /Run the configured Gear workflow/);
+  assert.doesNotMatch(traced, /set_inputs\(\{\"prompt\"/);
 });

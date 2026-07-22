@@ -396,7 +396,7 @@
     "    task = {key: _gear_trace_value(item) for key, item in _gear_agent_task(agent_name).items() if item}",
     "    if isinstance(value, dict):",
     "        task.update({str(key): _gear_trace_value(item) for key, item in value.items()})",
-    "    elif value not in (None, ''):",
+    "    elif value not in (None, '', 'Run the configured Gear workflow.'):",
     "        task['prior_context'] = _gear_trace_value(value)",
     "    return task",
     "",

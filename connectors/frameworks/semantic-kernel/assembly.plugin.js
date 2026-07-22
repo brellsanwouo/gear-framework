@@ -66,7 +66,7 @@
         if (layer.length === 1) workflowLines.push(`    current = await ${callFor(layer[0])}`);
         else workflowLines.push(`    layer_results = await asyncio.gather(${layer.map(callFor).join(", ")})`, "    current = \"\\n\\n\".join(layer_results)");
       });
-      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"\")", "    print(asyncio.run(run_workflow(prompt)))");
+      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from openai import AsyncOpenAI", "from semantic_kernel.agents import ChatCompletionAgent", "from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings", "from semantic_kernel.functions import KernelArguments", "from dotenv import load_dotenv", "", "load_dotenv()"];
       const helpers = ["async def _run_agent(agent: ChatCompletionAgent, prompt: str) -> str:", "    name = getattr(agent, \"name\", agent.__class__.__name__)", "    response = await _gear_trace_async_call(f\"agent.{name}\", prompt, lambda: agent.get_response(messages=prompt), {\"gear.agent\": name})", "    return str(response.content)"];
       const orchestration = renderTemplate(getTemplate("semantic-kernel") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });

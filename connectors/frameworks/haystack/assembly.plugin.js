@@ -64,7 +64,7 @@
         if (layer.length === 1) workflowLines.push(`    current = await ${callFor(layer[0])}`);
         else workflowLines.push(`    layer_results = await asyncio.gather(${layer.map(callFor).join(", ")})`, "    current = \"\\n\\n\".join(layer_results)");
       });
-      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"\")", "    print(asyncio.run(run_workflow(prompt)))");
+      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from haystack.components.agents import Agent", "from haystack.components.generators.chat import OpenAIChatGenerator", "from haystack.dataclasses import ChatMessage", "from haystack.utils import Secret", "from dotenv import load_dotenv", "", "load_dotenv()"];
       const orchestration = renderTemplate(getTemplate("haystack") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
       const mappingEntries = [...(mappings.haystackAgent || []), ...(mappings.haystackModule || []), ...(mappings.haystackMulti || [])];
