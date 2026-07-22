@@ -4,7 +4,9 @@ label: Microsoft Agent Framework
 description: "Production agent workflows with native fan-out and synchronized fan-in"
 runtime:
   language: python
-  packages: ["agent-framework>=1.11,<2"]
+  packages:
+    - agent-framework-core>=1.11,<2
+    - agent-framework-openai>=1.10,<2
 capabilities:
   agents: true
   tasks: true

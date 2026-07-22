@@ -28,10 +28,16 @@ execution = [
   "crewai>=1.15.4,<2",
   "google-adk>=2.5,<3",
   "langchain>=1.0,<2",
+  "langchain-openai>=1.0,<2",
   "langgraph>=1.0,<2",
+  "agent-framework-core>=1.11,<2",
+  "agent-framework-openai>=1.10,<2",
   "openai-agents>=0.18,<1",
   "strands-agents[openai]>=1.48,<2",
   "pydantic-ai-slim[openai]>=2.13,<3",
+  "autogen-agentchat>=0.7.5,<1",
+  "autogen-ext[openai]>=0.7.5,<1",
+  "semantic-kernel>=1.44,<2",
   "haystack-ai>=2.31,<3",
   "litellm>=1.84,<2",
   "mlflow>=3.0,<4",
@@ -41,9 +47,9 @@ execution = [
 ]
 execution-crewai = ["crewai>=1.15.4,<2", "mlflow>=3.0,<4"]
 execution-adk = ["google-adk>=2.5,<3", "litellm>=1.84,<2", "mlflow>=3.0,<4"]
-execution-langgraph = ["langchain>=1.0,<2", "langgraph>=1.0,<2", "mlflow>=3.0,<4"]
+execution-langgraph = ["langchain>=1.0,<2", "langchain-openai>=1.0,<2", "langgraph>=1.0,<2", "mlflow>=3.0,<4"]
 execution-openai-agents = ["openai-agents>=0.18,<1", "mlflow>=3.0,<4"]
-execution-microsoft-agent-framework = ["agent-framework>=1.11,<2", "mlflow>=3.0,<4"]
+execution-microsoft-agent-framework = ["agent-framework-core>=1.11,<2", "agent-framework-openai>=1.10,<2", "mlflow>=3.0,<4"]
 execution-strands = ["strands-agents[openai]>=1.48,<2", "mlflow>=3.0,<4"]
 execution-pydantic-ai = ["pydantic-ai-slim[openai]>=2.13,<3", "mlflow>=3.0,<4"]
 execution-autogen = ["autogen-agentchat>=0.7.5,<1", "autogen-ext[openai]>=0.7.5,<1", "mlflow>=3.0,<4"]

@@ -107,6 +107,21 @@ jobs:
 
           sudo /opt/gear/venv/bin/python -m pip install psycopg2-binary
 
+          echo "Checking generated-code framework imports..."
+          /opt/gear/venv/bin/python - <<'PY'
+          from agent_framework import Agent, Executor, WorkflowBuilder, WorkflowContext, handler
+          from agent_framework.openai import OpenAIChatClient
+          from autogen_agentchat.agents import AssistantAgent
+          from autogen_agentchat.teams import RoundRobinGroupChat
+          from autogen_ext.models.openai import OpenAIChatCompletionClient
+          from langchain.chat_models import init_chat_model
+          from semantic_kernel.agents import ChatCompletionAgent
+          from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings
+          from semantic_kernel.functions import KernelArguments
+
+          print("Generated-code framework imports available.")
+          PY
+
           echo "Configuring MLflow observability..."
           sudo touch /etc/gear.env
           sudo sed -i '/^MLFLOW_TRACKING_URI=/d' /etc/gear.env
