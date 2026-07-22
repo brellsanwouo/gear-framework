@@ -110,6 +110,7 @@ jobs:
           echo "Checking generated-code framework imports..."
           /opt/gear/venv/bin/python - <<'PY'
           from agent_framework import Agent, Executor, WorkflowBuilder, WorkflowContext, handler
+          from agent_framework.observability import configure_otel_providers
           from agent_framework.openai import OpenAIChatClient
           from autogen_agentchat.agents import AssistantAgent
           from autogen_agentchat.teams import RoundRobinGroupChat
@@ -123,6 +124,7 @@ jobs:
           for integration in ("autogen", "crewai", "haystack", "langchain", "litellm", "openai", "pydantic_ai", "semantic_kernel", "strands"):
               assert callable(getattr(getattr(mlflow, integration), "autolog")), integration
           assert callable(mlflow.start_span_no_context)
+          assert callable(configure_otel_providers)
 
           print("Generated-code framework imports available.")
           PY

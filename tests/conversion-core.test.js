@@ -112,4 +112,9 @@ test("adds MLflow observability to every generated Python orchestration", () => 
   const once = instrumentPython("#!/usr/bin/env python\nprint('ok')", "crewai");
   assert.equal((instrumentPython(once, "crewai").match(/GEAR MLflow observability/g) || []).length, 2);
   assert.ok(once.startsWith("#!/usr/bin/env python\n# --- GEAR MLflow"));
+
+  const microsoft = instrumentPython("print('ok')", "microsoft-agent-framework");
+  assert.match(microsoft, /configure_otel_providers/);
+  assert.doesNotMatch(microsoft, /setup_observability/);
+  assert.ok(microsoft.indexOf("_gear_atexit.register(_gear_finish_trace)") < microsoft.indexOf("configure_otel_providers"));
 });
