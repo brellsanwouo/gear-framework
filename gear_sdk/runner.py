@@ -55,6 +55,7 @@ def run_python(
     code: str,
     *,
     timeout: int = 180,
+    managed_mlflow: bool = False,
     participant_id: str | None = None,
     session_id: str | None = None,
     project_id: str | None = None,
@@ -89,6 +90,10 @@ def run_python(
             "CREWAI_TRACING_ENABLED": "false",
             "CREWAI_DISABLE_TELEMETRY": "true",
         })
+        if managed_mlflow:
+            # The web backend records the complete execution after the child
+            # exits. Tell generated code not to create a second, empty run.
+            environment["GEAR_MLFLOW_MANAGED"] = "true"
         for key, value in {
             "GEAR_PARTICIPANT_ID": participant_id,
             "GEAR_SESSION_ID": session_id,

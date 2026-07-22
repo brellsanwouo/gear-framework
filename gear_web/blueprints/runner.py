@@ -84,6 +84,7 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
             result = gear_runner.run_python(
                 executable,
                 timeout=_timeout(),
+                managed_mlflow=True,
                 participant_id=identity.user_id,
                 session_id=identity.session_id,
                 project_id=str(build.get("project_id") or ""),

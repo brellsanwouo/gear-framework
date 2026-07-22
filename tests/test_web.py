@@ -157,6 +157,7 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     assert run_response.get_json()["mlflow_run_id"] == "mlflow-run-1"
     assert run_response.get_json()["trace_id"] == "mlflow-run-1"
     assert "No 'crew' variable defined" not in execution["code"]
+    assert execution["managed_mlflow"] is True
     assert execution["participant_id"] == identity["user_id"]
     assert execution["session_id"] == identity["session_id"]
     assert execution["project_id"] == "studio-test"

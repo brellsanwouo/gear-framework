@@ -57,8 +57,11 @@ Each MLflow run records the GEAR build ID, target framework, success status,
 duration, return code, output sizes, and bounded stdout/stderr artifacts. Set
 `GEAR_MLFLOW_LOG_OUTPUTS=false` when execution output must not leave the
 application host. MLflow failures are logged by GEAR but do not interrupt the
-user workflow.
+user workflow. Online Studio execution is managed by the backend and creates
+one MLflow run per execution.
 
 Generated Python orchestration files also contain a framework-neutral MLflow
 bootstrap. It loads `MLFLOW_TRACKING_URI` from `.env`, opens a run tagged with
 the target framework, and closes that run when the generated process exits.
+The Studio runner disables this autonomous bootstrap because the backend owns
+the online run; downloaded files keep the autonomous behavior.

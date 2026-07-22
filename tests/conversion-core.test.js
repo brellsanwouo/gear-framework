@@ -103,6 +103,8 @@ test("adds MLflow observability to every generated Python orchestration", () => 
     const result = instrumentResult({ outputs: { orchestration: "print('ok')" } }, framework);
     assert.match(result.outputs.orchestration, /GEAR MLflow observability/);
     assert.match(result.outputs.orchestration, /MLFLOW_TRACKING_URI/);
+    assert.match(result.outputs.orchestration, /GEAR_MLFLOW_MANAGED/);
+    assert.match(result.outputs.orchestration, /not _gear_mlflow_managed/);
     assert.match(result.outputs.orchestration, /GEAR_PARTICIPANT_ID/);
     assert.match(result.outputs.orchestration, /gear\.session_id/);
     assert.match(result.outputs.orchestration, new RegExp(`gear.target\\\": \\\"${framework}`));
