@@ -222,6 +222,9 @@ jobs:
               raise
           code = build["outputs"]["orchestration"]
           assert "GEAR MLflow observability" in code, build
+          assert "Run the configured Gear workflow." not in code, build
+          assert '"task": "Verify"' in code, build
+          assert '"expected_output": "Ready"' in code, build
           print("Online code generation enabled and MLflow-instrumented.")
 
           with urllib.request.urlopen("http://127.0.0.1:8200/api/experiment/status") as response:

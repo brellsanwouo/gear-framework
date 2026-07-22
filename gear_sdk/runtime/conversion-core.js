@@ -342,12 +342,35 @@
     };
   };
 
-  const mlflowBootstrap = (frameworkId) => [
+  const traceMetadata = (gearIR) => {
+    const agents = {};
+    (gearIR?.agents || []).forEach((item) => {
+      const source = item?.source || {};
+      agents[item.name] = {
+        purpose: nonEmptyString(source?.AgentIdentity?.Purpose),
+        context: nonEmptyString(source?.AgentIdentity?.ContextDescription),
+        task_name: nonEmptyString(source?.TaskSpecification?.TaskName),
+        task: nonEmptyString(source?.TaskSpecification?.TaskDescription),
+        expected_output: nonEmptyString(source?.TaskSpecification?.ExpectedOutput),
+      };
+    });
+    return {
+      workflow: {
+        name: nonEmptyString(gearIR?.workflow?.name) || "GearWorkflow",
+        agents: Object.keys(agents),
+      },
+      agents,
+    };
+  };
+
+  const mlflowBootstrap = (frameworkId, metadata = {}) => [
     "# --- GEAR MLflow observability ---",
     "_gear_mlflow = None",
     "_gear_root_span = None",
     "_gear_root_context = None",
     "_gear_trace_closed = False",
+    `_gear_workflow_inputs = ${JSON.stringify(metadata.workflow || { name: "GearWorkflow", agents: [] })}`,
+    `_gear_agent_tasks = ${JSON.stringify(metadata.agents || {})}`,
     "",
     "def _gear_trace_value(value):",
     "    enabled = _gear_os.environ.get(\"GEAR_MLFLOW_LOG_OUTPUTS\", \"true\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"} if '_gear_os' in globals() else True",
@@ -356,12 +379,33 @@
     "    limit = int(_gear_os.environ.get(\"GEAR_MLFLOW_MAX_LOG_CHARS\", \"100000\")) if '_gear_os' in globals() else 100000",
     "    return str(value)[:limit]",
     "",
+    "def _gear_normalize_agent_name(value):",
+    "    return ''.join(character if character.isalnum() else '_' for character in str(value)).strip('_').lower()",
+    "",
+    "def _gear_agent_task(name):",
+    "    if name in _gear_agent_tasks:",
+    "        return _gear_agent_tasks[name]",
+    "    normalized = _gear_normalize_agent_name(name)",
+    "    for candidate, task in _gear_agent_tasks.items():",
+    "        if _gear_normalize_agent_name(candidate) == normalized:",
+    "            return task",
+    "    return next(iter(_gear_agent_tasks.values())) if len(_gear_agent_tasks) == 1 else {}",
+    "",
+    "def _gear_trace_inputs(value, attributes=None):",
+    "    agent_name = str((attributes or {}).get('gear.agent', ''))",
+    "    task = {key: _gear_trace_value(item) for key, item in _gear_agent_task(agent_name).items() if item}",
+    "    if isinstance(value, dict):",
+    "        task.update({str(key): _gear_trace_value(item) for key, item in value.items()})",
+    "    elif value not in (None, ''):",
+    "        task['prior_context'] = _gear_trace_value(value)",
+    "    return task",
+    "",
     "def _gear_trace_call(name, inputs, operation, attributes=None):",
     "    if _gear_mlflow is None or _gear_root_span is None:",
     "        return operation()",
     "    values = {str(key): str(value) for key, value in (attributes or {}).items()}",
     "    if _gear_mlflow.get_current_active_span() is None:",
-    "        span = _gear_mlflow.start_span_no_context(name=name, span_type=\"AGENT\", parent_span=_gear_root_span, inputs={\"value\": _gear_trace_value(inputs)}, attributes=values)",
+    "        span = _gear_mlflow.start_span_no_context(name=name, span_type=\"AGENT\", parent_span=_gear_root_span, inputs=_gear_trace_inputs(inputs, attributes), attributes=values)",
     "        try:",
     "            result = operation()",
     "            span.end(outputs={\"value\": _gear_trace_value(result)}, status=\"OK\")",
@@ -370,7 +414,7 @@
     "            span.end(outputs={\"error\": _gear_trace_value(error)}, status=\"ERROR\")",
     "            raise",
     "    with _gear_mlflow.start_span(name=name, span_type=\"AGENT\", attributes=values) as span:",
-    "        span.set_inputs({\"value\": _gear_trace_value(inputs)})",
+    "        span.set_inputs(_gear_trace_inputs(inputs, attributes))",
     "        result = operation()",
     "        span.set_outputs({\"value\": _gear_trace_value(result)})",
     "        return result",
@@ -380,7 +424,7 @@
     "        return await operation()",
     "    values = {str(key): str(value) for key, value in (attributes or {}).items()}",
     "    with _gear_mlflow.start_span(name=name, span_type=\"AGENT\", attributes=values) as span:",
-    "        span.set_inputs({\"value\": _gear_trace_value(inputs)})",
+    "        span.set_inputs(_gear_trace_inputs(inputs, attributes))",
     "        result = await operation()",
     "        span.set_outputs({\"value\": _gear_trace_value(result)})",
     "        return result",
@@ -422,7 +466,7 @@
     "                print(f\"MLflow model tracing unavailable: {_gear_model_autolog_error}\", file=_gear_sys.stderr)",
     `        _gear_root_context = _gear_mlflow.start_span(name=${JSON.stringify(`gear.workflow.${frameworkId}`)}, span_type="CHAIN", attributes=_gear_tags)`,
     "        _gear_root_span = _gear_root_context.__enter__()",
-    "        _gear_root_span.set_inputs({\"prompt\": _gear_trace_value(_gear_os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\"))})",
+    `        _gear_root_span.set_inputs({"workflow": _gear_workflow_inputs.get("name", "GearWorkflow"), "target": ${JSON.stringify(frameworkId)}, "agents": _gear_workflow_inputs.get("agents", [])})`,
     "        _gear_mlflow.update_current_trace(tags=_gear_tags)",
     "        _gear_sys.stderr.write(\"__GEAR_TRACE_START__\\n\" + _gear_json.dumps({\"trace_id\": _gear_root_span.trace_id}) + \"\\n__GEAR_TRACE_END__\\n\")",
     "        _gear_sys.stderr.flush()",
@@ -468,23 +512,23 @@
     "",
   ].join("\n");
 
-  const instrumentPython = (source, frameworkId) => {
+  const instrumentPython = (source, frameworkId, gearIR = null) => {
     if (typeof source !== "string" || source.includes("# --- GEAR MLflow observability ---")) return source;
     const lines = source.split("\n");
     let insertionIndex = lines[0]?.startsWith("#!") ? 1 : 0;
     while (lines[insertionIndex]?.startsWith("from __future__ import ")) insertionIndex += 1;
     while (insertionIndex < lines.length && (/^(?:from\s+\S+\s+import|import\s+)/.test(lines[insertionIndex]) || !lines[insertionIndex].trim())) insertionIndex += 1;
-    lines.splice(insertionIndex, 0, mlflowBootstrap(nonEmptyString(frameworkId) || "unknown"));
+    lines.splice(insertionIndex, 0, mlflowBootstrap(nonEmptyString(frameworkId) || "unknown", traceMetadata(gearIR)));
     return lines.join("\n");
   };
 
-  const instrumentResult = (result, frameworkId) => {
+  const instrumentResult = (result, frameworkId, gearIR = null) => {
     if (!result?.outputs || typeof result.outputs.orchestration !== "string") return result;
     return {
       ...result,
       outputs: {
         ...result.outputs,
-        orchestration: instrumentPython(result.outputs.orchestration, frameworkId),
+        orchestration: instrumentPython(result.outputs.orchestration, frameworkId, gearIR),
       },
     };
   };

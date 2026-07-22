@@ -23,7 +23,7 @@ process.stdin.on("end", () => {
     input.gearIR = window.GearConversionCore.buildGearIR(input);
     const plugin = window.GearAssemblyPlugins?.[input.target];
     if (!plugin) throw new Error(`Unknown connector: ${input.target}`);
-    const result = window.GearConversionCore.instrumentResult(plugin.assemble(input), input.target);
+    const result = window.GearConversionCore.instrumentResult(plugin.assemble(input), input.target, input.gearIR);
     process.stdout.write(JSON.stringify(result));
   } catch (error) {
     process.stderr.write(String(error?.stack || error));

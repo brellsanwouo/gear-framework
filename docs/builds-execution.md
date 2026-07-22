@@ -63,6 +63,10 @@ one MLflow run per execution. The generated process records one root
 agent invocation. Repeated loop calls therefore create repeated spans, while
 parallel calls appear as sibling spans. Native MLflow integrations add model,
 tool, token-usage, latency, and error spans when the target SDK exposes them.
+The root trace identifies the workflow and its agents without inventing a user
+prompt. Each agent span records the configured purpose, context, task name,
+task description, expected output, and any result received from an earlier
+agent as `prior_context`.
 
 Generated Python orchestration files also contain a framework-neutral MLflow
 bootstrap. It loads `MLFLOW_TRACKING_URI` from `.env` and records the detailed

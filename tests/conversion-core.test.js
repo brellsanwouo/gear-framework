@@ -117,4 +117,12 @@ test("adds MLflow observability to every generated Python orchestration", () => 
   assert.match(microsoft, /configure_otel_providers/);
   assert.doesNotMatch(microsoft, /setup_observability/);
   assert.ok(microsoft.indexOf("_gear_atexit.register(_gear_finish_trace)") < microsoft.indexOf("configure_otel_providers"));
+
+  const ir = buildGearIR({ gearAgents: [agent("Researcher")], workflowYaml: { WorkflowName: "Research" } });
+  const traced = instrumentResult({ outputs: { orchestration: "print('ok')" } }, "crewai", ir).outputs.orchestration;
+  assert.match(traced, /Researcher purpose/);
+  assert.match(traced, /Researcher context/);
+  assert.match(traced, /Do work/);
+  assert.match(traced, /expected_output/);
+  assert.doesNotMatch(traced, /Run the configured Gear workflow/);
 });

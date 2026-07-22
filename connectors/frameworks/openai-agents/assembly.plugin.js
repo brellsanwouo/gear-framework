@@ -62,7 +62,7 @@
           workflowLines.push(`    layer_results = await asyncio.gather(${calls.join(", ")})`, "    current = \"\\n\\n\".join(str(result.final_output) if hasattr(result, \"final_output\") else str(result) for result in layer_results)");
         }
       });
-      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", `    with trace(${toPythonLiteral(ir.workflow.name)}):`, "        print(asyncio.run(run_workflow(prompt)))");
+      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"\")", `    with trace(${toPythonLiteral(ir.workflow.name)}):`, "        print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from agents import Agent, ModelSettings, Runner, trace", "from dotenv import load_dotenv", "", "load_dotenv()"];
       const orchestration = renderTemplate(getTemplate("openai-agents") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
       const mappingEntries = [...(mappings["openai-agentsAgent"] || []), ...(mappings["openai-agentsModule"] || []), ...(mappings["openai-agentsMulti"] || [])];

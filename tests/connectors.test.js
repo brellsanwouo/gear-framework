@@ -223,7 +223,8 @@ test("every instrumented connector produces syntactically valid Python", () => {
     input.mappings[`${framework}Multi`] ||= workflowMappings;
     const result = window.GearAssemblyPlugins[framework].assemble(input);
     assert.equal(result.error, undefined, framework);
-    const code = window.GearConversionCore.instrumentResult(result, framework).outputs.orchestration;
+    const code = window.GearConversionCore.instrumentResult(result, framework, input.gearIR).outputs.orchestration;
+    assert.doesNotMatch(code, /Run the configured Gear workflow/, framework);
     const compiled = spawnSync("python", ["-c", "import sys; compile(sys.stdin.read(), '<generated>', 'exec')"], {
       input: code,
       encoding: "utf8",

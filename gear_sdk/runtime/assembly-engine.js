@@ -205,7 +205,7 @@
       if (!plugin?.assemble) return;
       const result = plugin.assemble({ ...input, gearIR });
       outputs[fw.id] = conversionCore?.instrumentResult
-        ? conversionCore.instrumentResult(result, fw.id)
+        ? conversionCore.instrumentResult(result, fw.id, gearIR)
         : result;
     });
     return outputs;

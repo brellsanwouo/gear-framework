@@ -189,7 +189,7 @@
       ];
       const runLines = [
         "if __name__ == \"__main__\":",
-        "    user_input = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")",
+        "    user_input = os.environ.get(\"GEAR_INPUT\", \"\")",
         ...(gearIR.workflow.memory
           ? ["    result = workflow.invoke({\"messages\": [HumanMessage(content=user_input)]}, {\"configurable\": {\"thread_id\": \"gear-local\"}})"]
           : ["    result = workflow.invoke({\"messages\": [HumanMessage(content=user_input)]})"]),

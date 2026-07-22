@@ -67,7 +67,7 @@
           workflowLines.push(`    layer_results = await asyncio.gather(${layer.map(callFor).join(", ")})`, "    current = \"\\n\\n\".join(str(result.output) if hasattr(result, \"output\") else str(result) for result in layer_results)");
         }
       });
-      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    print(asyncio.run(run_workflow(prompt)))");
+      workflowLines.push("    return current", "", "if __name__ == \"__main__\":", "    prompt = os.environ.get(\"GEAR_INPUT\", \"\")", "    print(asyncio.run(run_workflow(prompt)))");
       const imports = ["import asyncio", "import os", "from pydantic_ai import Agent", "from pydantic_ai.models.openai import OpenAIChatModel", "from pydantic_ai.providers.openai import OpenAIProvider", "from dotenv import load_dotenv", "", "load_dotenv()"];
       const orchestration = renderTemplate(getTemplate("pydantic-ai") || "{{imports}}\n\n{{helpers_code}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{workflow_code}}", { imports: imports.join("\n"), helpers_code: helpers.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n").trim(), workflow_code: workflowLines.join("\n") });
       const mappingEntries = [...(mappings["pydantic-aiAgent"] || []), ...(mappings["pydantic-aiModule"] || []), ...(mappings["pydantic-aiMulti"] || [])];
