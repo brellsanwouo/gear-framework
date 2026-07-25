@@ -1,0 +1,1344 @@
+% Ce fichier est prévu pour être inclus dans un document LaTeX à deux colonnes.
+% Packages requis dans le préambule :
+% \usepackage{amsmath,amssymb,array,booktabs,tabularx}
+
+\section{Protocole d'évaluation technique de GEAR}
+\label{sec:protocole-evaluation-technique}
+
+L'évaluation technique de GEAR poursuit deux objectifs complémentaires.
+Le premier consiste à déterminer dans quelle mesure son métamodèle représente
+les capacités des frameworks étudiés et dans quelle mesure ses connecteurs
+préservent ces capacités lors de la génération. Le second consiste à vérifier
+que les artefacts générés sont valides, exécutables et conformes aux workflows
+sources. Ces objectifs sont formulés par les questions de recherche suivantes :
+
+\begin{quote}
+\textbf{RQ1 :} Dans quelle mesure GEAR permet-il de représenter et de préserver
+les principales capacités de conception et d'orchestration de frameworks
+hétérogènes pour systèmes multi-agents basés sur des \gls{llm} ?
+\end{quote}
+
+\begin{quote}
+\textbf{RQ1.1 :} Dans quelle mesure le métamodèle de GEAR permet-il de
+représenter les capacités proposées par les frameworks sélectionnés ?
+\end{quote}
+
+\begin{quote}
+\textbf{RQ1.2 :} Dans quelle mesure les spécifications GEAR sont-elles
+sémantiquement préservées lors de la génération d'implémentations propres aux
+différents frameworks ?
+\end{quote}
+
+\begin{quote}
+\textbf{RQ2 :} Dans quelle mesure les implémentations générées par GEAR
+sont-elles exécutables et préservent-elles la sémantique des workflows
+spécifiés ?
+\end{quote}
+
+\begin{quote}
+\textbf{RQ2.1 :} Dans quelle mesure GEAR génère-t-il des artefacts
+syntaxiquement valides, importables et exécutables ?
+\end{quote}
+
+\begin{quote}
+\textbf{RQ2.2 :} Dans quelle mesure les traces des artefacts générés
+respectent-elles les contraintes des spécifications GEAR ?
+\end{quote}
+
+La suite présente d'abord la sélection des frameworks, puis le protocole de
+couverture fonctionnelle associé à RQ1 et, enfin, l'évaluation de la correction
+et de la fidélité associée à RQ2.
+
+\section{Sélection des frameworks étudiés}
+\label{sec:selection-frameworks}
+
+Les frameworks sélectionnés pour cette étude sont CrewAI, Google ADK,
+LangGraph, OpenAI Agents SDK, Microsoft Agent Framework, Strands
+Agents, PydanticAI, AutoGen, Semantic Kernel et Haystack.
+
+Nous avons adopté une stratégie d'échantillonnage raisonné visant à
+maximiser la diversité des frameworks étudiés. Notre objectif n'était
+pas d'établir un classement exhaustif des solutions existantes, mais
+de couvrir différentes approches de conception et d'orchestration des
+\gls{mas} basés sur des \gls{llm}. Les frameworks retenus représentent
+notamment les systèmes organisés autour de rôles et de tâches, les
+équipes conversationnelles, les workflows fondés sur des graphes, les
+définitions typées d'agents, les architectures en pipeline et les SDK
+d'agents proposés par différents fournisseurs.
+
+Un framework a été inclus lorsqu'il répondait aux critères suivants :
+
+\begin{itemize}
+    \item il était publiquement accessible et suffisamment documenté ;
+    \item il proposait une API Python ;
+    \item il permettait de définir au moins un agent basé sur un
+    \gls{llm} ;
+    \item il permettait de composer plusieurs agents ou plusieurs
+    tâches ;
+    \item il disposait d'une version identifiable et installable ;
+    \item il était activement maintenu au moment de la sélection ;
+    \item il représentait un paradigme pertinent de conception ou
+    d'orchestration des systèmes multi-agents.
+\end{itemize}
+
+À l'inverse, nous avons exclu les bibliothèques limitées aux appels
+directs à des \gls{llm}, les plateformes fermées ne proposant pas
+d'API accessible, les projets inactifs, les frameworks exclusivement
+destinés aux agents d'apprentissage par renforcement et les outils
+d'observabilité ne permettant pas de construire des systèmes
+multi-agents. Dans la mesure où la version actuelle de GEAR génère des
+implémentations en Python, les frameworks exclusivement destinés à
+d'autres langages de programmation ont également été exclus.
+
+Le Tableau~\ref{tab:frameworks-selectionnes} présente le principal
+paradigme représenté par chacun des frameworks sélectionnés.
+
+\begin{table}[t]
+    \centering
+    \caption{Frameworks sélectionnés et principaux paradigmes représentés.}
+    \label{tab:frameworks-selectionnes}
+    \small
+    \begin{tabularx}{\columnwidth}{@{}p{0.28\columnwidth}>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Framework} & \textbf{Principal paradigme représenté} \\
+        \midrule
+        CrewAI & Organisation des agents autour de rôles et de tâches \\
+        Google ADK & Agents hiérarchiques et agents de workflow \\
+        LangGraph & Orchestration par graphe avec gestion d'un état \\
+        OpenAI Agents SDK & Agents, transferts entre agents et traçage \\
+        Microsoft Agent Framework & Workflows d'entreprise et orchestration fan-out/fan-in \\
+        Strands Agents & Composition légère d'agents et graphes d'agents \\
+        PydanticAI & Agents typés et sorties structurées \\
+        AutoGen & Conversations et équipes d'agents \\
+        Semantic Kernel & Agents, services et plugins d'entreprise \\
+        Haystack & Pipelines de composants et workflows d'agents \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Afin d'assurer la traçabilité et la reproductibilité de la sélection,
+nous relevons, pour chaque framework, la version étudiée, l'URL
+officielle, la date de publication de la version, le paradigme
+représenté et la raison de son inclusion. Le
+Tableau~\ref{tab:metadonnees-frameworks} présente la structure utilisée
+pour collecter ces informations.
+
+\begin{table*}[t]
+    \centering
+    \caption{Métadonnées documentant la sélection des frameworks.}
+    \label{tab:metadonnees-frameworks}
+    \small
+    \begin{tabular}{
+        @{}
+        p{0.18\textwidth}
+        p{0.09\textwidth}
+        p{0.10\textwidth}
+        p{0.12\textwidth}
+        p{0.36\textwidth}
+        @{}
+    }
+        \hline
+        \textbf{Framework}
+        & \textbf{Version}
+        & \textbf{Date}
+        & \textbf{Source}
+        & \textbf{Raison de l'inclusion} \\
+        \hline
+
+        CrewAI
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Orchestration fondée sur les rôles et les tâches \\
+
+        Google ADK
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Agents hiérarchiques et agents de workflow \\
+
+        LangGraph
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Workflows fondés sur des graphes avec état \\
+
+        OpenAI Agents SDK
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Transferts entre agents et traçage natif \\
+
+        Microsoft Agent Framework
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Orchestration de workflows d'entreprise \\
+
+        Strands Agents
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Composition légère fondée sur des graphes \\
+
+        PydanticAI
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Agents typés et sorties structurées \\
+
+        AutoGen
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Équipes conversationnelles d'agents \\
+
+        Semantic Kernel
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Architecture orientée services et plugins \\
+
+        Haystack
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & \emph{À renseigner}
+        & Composition d'agents orientée pipeline \\
+
+        \hline
+    \end{tabular}
+\end{table*}
+
+
+\section{Évaluation de la couverture fonctionnelle}
+\label{sec:couverture-fonctionnelle}
+
+La couverture fonctionnelle de GEAR est examinée dans deux directions
+complémentaires :
+
+\begin{itemize}
+    \item \textbf{de GEAR vers les frameworks :} parmi les
+    fonctionnalités spécifiées dans GEAR, lesquelles peuvent être
+    correctement générées et exécutées dans chaque framework cible ?
+
+    \item \textbf{des frameworks vers GEAR :} parmi les fonctionnalités
+    pertinentes proposées par chaque framework, lesquelles peuvent
+    être représentées par le métamodèle de GEAR ?
+\end{itemize}
+
+La première direction évalue les capacités de génération et de
+préservation sémantique des connecteurs de GEAR. La seconde évalue
+l'expressivité du métamodèle de GEAR. L'étude de ces deux directions
+évite que GEAR obtienne artificiellement une couverture élevée en
+définissant uniquement un ensemble restreint de fonctionnalités.
+
+
+\subsection{Étape 1 : définition du périmètre fonctionnel}
+\label{subsec:perimetre-fonctionnel}
+
+L'évaluation se concentre sur les capacités à la conception et à
+l'exécution qui sont directement liées à la spécification, à la
+configuration, à l'orchestration, à la génération et à l'exécution des
+\gls{mas} basés sur des \gls{llm}.
+
+Les services de déploiement propres à un fournisseur, les
+fonctionnalités cloud propriétaires, les interfaces graphiques et les
+capacités de traitement de données qui ne relèvent pas directement du
+cœur de GEAR sont exclues du périmètre.
+
+Le Tableau~\ref{tab:perimetre-fonctionnel} présente les catégories
+fonctionnelles étudiées.
+
+\begin{table}[t]
+    \centering
+    \caption{Catégories fonctionnelles considérées dans l'évaluation de la couverture.}
+    \label{tab:perimetre-fonctionnel}
+    \small
+    \begin{tabularx}{\columnwidth}{@{}p{0.25\columnwidth}>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Catégorie} & \textbf{Exemples de fonctionnalités} \\
+        \midrule
+        Agent & Rôle, instructions, modèle, fournisseur et délégation \\
+        Tâche & Description, entrée, sortie attendue et dépendances \\
+        Outils & Déclaration, association aux agents et appels d'outils \\
+        Mémoire & Mémoire individuelle et mémoire partagée \\
+        Sorties & Texte, JSON et sorties structurées \\
+        Orchestration & Exécution séquentielle, exécution parallèle et fan-out/fan-in \\
+        Contrôle & Boucles, conditions, branchements et routage \\
+        Workflow & Nœuds, arêtes, dépendances et détection des cycles \\
+        Exécution & Asynchronisme, gestion des erreurs et limites d'exécution \\
+        Observabilité & Traces, builds, exécutions, journaux et métriques \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Chaque fonctionnalité est associée à une définition explicite afin de
+limiter les ambiguïtés au moment de la classification. Par exemple,
+nous définissons l'exécution parallèle de la manière suivante :
+
+\begin{quote}
+L'exécution parallèle désigne la capacité à exécuter simultanément au
+moins deux agents ou deux tâches sans imposer de relation de dépendance
+séquentielle entre eux.
+\end{quote}
+
+
+\subsection{Étape 2 : construire un catalogue indépendant des fonctionnalités}
+\label{subsec:catalogue-fonctionnalites}
+
+L'objectif de cette étape est de déterminer précisément les
+fonctionnalités qui seront évaluées. Le catalogue ne doit pas être
+construit uniquement à partir des fonctionnalités déjà proposées par
+GEAR. Une telle approche pourrait conduire à une évaluation circulaire :
+GEAR serait évalué uniquement par rapport à ce qu'il sait déjà faire.
+
+Nous construisons donc un catalogue commun à partir des sources
+suivantes :
+
+\begin{itemize}
+    \item le métamodèle, les schémas, les modèles de fonctionnalités
+    et la documentation de GEAR ;
+    \item la documentation officielle des dix frameworks ;
+    \item les API publiques des frameworks ;
+    \item les exemples officiellement fournis par les frameworks.
+\end{itemize}
+
+La construction du catalogue comprend quatre activités principales.
+
+
+\subsubsection{Identifier les fonctionnalités de GEAR}
+
+Nous recensons d'abord les fonctionnalités définies dans GEAR, telles
+que :
+
+\begin{itemize}
+    \item la définition des agents et de leurs instructions ;
+    \item la définition des tâches et de leurs dépendances ;
+    \item la configuration des modèles et des fournisseurs ;
+    \item l'association d'outils et de mémoires aux agents ;
+    \item la composition de workflows séquentiels ;
+    \item l'exécution parallèle et la synchronisation fan-out/fan-in ;
+    \item la définition de boucles bornées ;
+    \item la génération, l'exécution et le traçage des systèmes
+    générés.
+\end{itemize}
+
+
+\subsubsection{Identifier les fonctionnalités des frameworks}
+
+Nous examinons ensuite chaque framework afin d'identifier les
+fonctionnalités qui relèvent de la conception et de l'orchestration des
+systèmes multi-agents.
+
+Par exemple, l'analyse de LangGraph peut faire apparaître les
+fonctionnalités suivantes :
+
+\begin{itemize}
+    \item workflows représentés sous forme de graphes ;
+    \item état partagé entre les nœuds ;
+    \item arêtes conditionnelles ;
+    \item boucles ;
+    \item persistance de l'état ;
+    \item interruptions humaines.
+\end{itemize}
+
+De la même manière, l'analyse de CrewAI peut faire apparaître :
+
+\begin{itemize}
+    \item agents définis par des rôles ;
+    \item tâches et dépendances entre tâches ;
+    \item équipes d'agents ;
+    \item processus séquentiels ou hiérarchiques ;
+    \item délégation ;
+    \item outils et mémoire.
+\end{itemize}
+
+
+\subsubsection{Normaliser les fonctionnalités}
+
+Les frameworks peuvent utiliser des termes différents pour désigner une
+même capacité. Nous regroupons donc les termes équivalents sous une
+fonctionnalité commune et indépendante des frameworks.
+
+Le Tableau~\ref{tab:normalisation-fonctionnalites} présente un exemple
+de cette normalisation.
+
+\begin{table*}[t]
+    \centering
+    \caption{Exemple de normalisation des fonctionnalités provenant de
+    différents frameworks.}
+    \label{tab:normalisation-fonctionnalites}
+    \begin{tabularx}{\textwidth}{@{}l l >{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Framework}
+        & \textbf{Terme utilisé}
+        & \textbf{Fonctionnalité normalisée} \\
+        \midrule
+        Google ADK
+            & \texttt{ParallelAgent}
+            & Exécution parallèle \\
+        LangGraph
+            & Branches parallèles
+            & Exécution parallèle \\
+        CrewAI
+            & Tâches asynchrones
+            & Exécution parallèle \\
+        Strands Agents
+            & Exécution concurrente
+            & Exécution parallèle \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Chaque fonctionnalité normalisée est ensuite associée à une définition
+précise. Par exemple :
+
+\begin{quote}
+L'exécution parallèle désigne la capacité à exécuter simultanément au
+moins deux agents ou deux tâches indépendants, sans imposer entre eux
+une relation d'ordre séquentielle.
+\end{quote}
+
+
+\subsubsection{Limiter le catalogue au périmètre de l'étude}
+
+Toutes les fonctionnalités identifiées dans les documentations ne sont
+pas nécessairement retenues. Nous excluons notamment :
+
+\begin{itemize}
+    \item les services de déploiement propres à un fournisseur ;
+    \item les fonctionnalités cloud propriétaires ;
+    \item les mécanismes de facturation ou d'authentification ;
+    \item les interfaces graphiques propres aux frameworks ;
+    \item les capacités de traitement de données sans lien direct avec
+    la conception ou l'orchestration des agents.
+\end{itemize}
+
+Soit $\mathcal{F}_{G}$ l'ensemble des fonctionnalités de GEAR et
+$\mathcal{F}_{j}$ l'ensemble des fonctionnalités identifiées pour le
+framework $j$. Le catalogue initial est défini par :
+
+\begin{equation}
+\mathcal{F}
+=
+\mathcal{F}_{G}
+\cup
+\bigcup_{j=1}^{m}\mathcal{F}_{j},
+\label{eq:union-fonctionnalites}
+\end{equation}
+
+où $m=10$ correspond au nombre de frameworks étudiés.
+
+Seules les fonctionnalités appartenant au périmètre fonctionnel
+$\mathcal{S}$ sont conservées dans le catalogue final :
+
+\begin{equation}
+\mathcal{F}^{*}
+=
+\left(
+\mathcal{F}_{G}
+\cup
+\bigcup_{j=1}^{m}\mathcal{F}_{j}
+\right)
+\cap \mathcal{S}.
+\label{eq:catalogue-final}
+\end{equation}
+
+Le résultat de cette étape est un catalogue structuré comportant, pour
+chaque fonctionnalité, un identifiant, une catégorie, une définition
+et les technologies dans lesquelles elle apparaît.
+
+\begin{table*}[t]
+    \centering
+    \caption{Exemple de structure du catalogue fonctionnel.}
+    \label{tab:catalogue-fonctionnel}
+    \begin{tabularx}{\textwidth}{@{}l l l >{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{ID}
+        & \textbf{Catégorie}
+        & \textbf{Fonctionnalité}
+        & \textbf{Définition} \\
+        \midrule
+        AG1
+            & Agent
+            & Instructions
+            & Définition du comportement attendu d'un agent \\
+        TK1
+            & Tâche
+            & Dépendance
+            & Utilisation du résultat d'une tâche par une autre tâche \\
+        OR1
+            & Orchestration
+            & Séquence
+            & Exécution des agents ou des tâches selon un ordre défini \\
+        OR2
+            & Orchestration
+            & Parallélisme
+            & Exécution simultanée de branches indépendantes \\
+        OR3
+            & Orchestration
+            & Fan-in
+            & Synchronisation des résultats produits par plusieurs
+              branches \\
+        CT1
+            & Contrôle
+            & Boucle bornée
+            & Répétition limitée par un nombre maximal d'itérations \\
+        OB1
+            & Observabilité
+            & Traçage
+            & Enregistrement des différentes étapes d'une exécution \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Ce catalogue constitue le référentiel utilisé pour construire les
+matrices de couverture. Il permet notamment de déterminer :
+
+\begin{itemize}
+    \item quelles fonctionnalités de GEAR peuvent être générées pour
+    chaque framework ;
+    \item quelles fonctionnalités des frameworks peuvent être
+    représentées dans GEAR.
+\end{itemize}
+
+
+\subsection{Étape 3 : construction des matrices de couverture}
+\label{subsec:matrices-couverture}
+
+Deux matrices complémentaires sont construites à partir du catalogue
+des fonctionnalités.
+
+\subsubsection{Matrice de présence des fonctionnalités}
+
+La première matrice indique si chaque fonctionnalité est proposée par
+GEAR et par chacun des frameworks. Elle répond à la question suivante :
+\emph{quelles fonctionnalités sont proposées par chaque technologie ?}
+
+Le Tableau~\ref{tab:presence-fonctionnalites} illustre cette matrice.
+Les points d'interrogation représentent des classifications qui devront
+être établies à partir de la documentation officielle et des API.
+
+\begin{table*}[t]
+    \centering
+    \caption{Exemple de matrice de présence des fonctionnalités.}
+    \label{tab:presence-fonctionnalites}
+    \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}Xccccc@{}}
+        \toprule
+        \textbf{Fonctionnalité}
+        & \textbf{GEAR}
+        & \textbf{CrewAI}
+        & \textbf{ADK}
+        & \textbf{LangGraph}
+        & \textbf{\ldots} \\
+        \midrule
+        Exécution séquentielle
+            & $\checkmark$ & $\checkmark$ & $\checkmark$
+            & $\checkmark$ & \\
+        Exécution parallèle
+            & $\checkmark$ & $\checkmark$ & $\checkmark$
+            & $\checkmark$ & \\
+        Boucle bornée
+            & $\checkmark$ & $\checkmark$ & $\checkmark$
+            & $\checkmark$ & \\
+        Routage conditionnel
+            & ? & ? & ? & $\checkmark$ & \\
+        Création dynamique d'agents
+            & ? & ? & ? & ? & \\
+        Mémoire partagée
+            & $\checkmark$ & ? & ? & $\checkmark$ & \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+
+\subsubsection{Matrice de préservation sémantique}
+
+La seconde matrice indique la manière dont chaque fonctionnalité de
+GEAR est implémentée dans chaque framework cible. Nous utilisons la
+classification suivante :
+
+\begin{description}
+    \item[\textbf{N --- Native :}]
+    GEAR utilise directement un mécanisme natif proposé par le
+    framework cible.
+
+    \item[\textbf{S --- Synthétisée :}]
+    GEAR reproduit fidèlement la fonctionnalité au moyen du code
+    d'orchestration généré, même si le framework cible ne propose pas
+    directement une abstraction équivalente.
+
+    \item[\textbf{A --- Adaptée :}]
+    GEAR génère une implémentation, mais cette adaptation introduit une
+    différence sémantique documentée.
+
+    \item[\textbf{U --- Non supportée :}]
+    la fonctionnalité ne peut pas être générée pour le framework cible.
+
+    \item[\textbf{NA --- Non applicable :}]
+    la fonctionnalité ne s'applique pas au framework considéré.
+\end{description}
+
+Le Tableau~\ref{tab:preservation-semantique} présente un exemple
+illustratif.
+
+\begin{table*}[t]
+    \centering
+    \caption{Exemple de matrice de préservation sémantique.}
+    \label{tab:preservation-semantique}
+    \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}Xcccc@{}}
+        \toprule
+        \textbf{Fonctionnalité GEAR}
+        & \textbf{CrewAI}
+        & \textbf{ADK}
+        & \textbf{LangGraph}
+        & \textbf{AutoGen} \\
+        \midrule
+        Workflow séquentiel
+            & N & N & N & S \\
+        Fan-out/fan-in
+            & S & N & N & S \\
+        Boucle bornée
+            & S & N & S & A \\
+        Condition d'arrêt en langage naturel
+            & A & N & A & A \\
+        Traçage
+            & S & S & N & S \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Les classifications présentées dans le
+Tableau~\ref{tab:preservation-semantique} sont uniquement illustratives.
+La classification finale devra être établie à partir de preuves
+documentaires et expérimentales.
+
+
+\subsection{Étape 4 : vérifier la couverture par des preuves documentaires et expérimentales}
+\label{subsec:preuves-couverture}
+
+L'objectif de cette étape est de vérifier que les fonctionnalités
+annoncées comme supportées par GEAR sont réellement représentées,
+générées et exécutées conformément à leur sémantique.
+
+Une déclaration présente dans un manifeste de connecteur, telle que :
+
+\begin{verbatim}
+parallel_workflows: true
+\end{verbatim}
+
+ne constitue pas, à elle seule, une preuve suffisante. Le code généré
+peut être syntaxiquement incorrect, ne pas s'exécuter ou reproduire un
+comportement différent de celui défini dans la spécification GEAR.
+
+Chaque classification de la matrice de couverture doit donc être
+étayée par cinq types de preuves.
+
+
+\subsubsection{Preuve documentaire}
+
+Nous vérifions dans la documentation officielle si le framework propose
+réellement la fonctionnalité considérée.
+
+Par exemple, la présence de \texttt{ParallelAgent} dans Google ADK
+permet d'établir que ce framework propose un mécanisme natif
+d'exécution parallèle.
+
+
+\subsubsection{Preuve dans le connecteur GEAR}
+
+Nous identifions le mapping ou la partie du connecteur qui transforme
+la fonctionnalité GEAR en une implémentation spécifique au framework.
+
+Par exemple, le connecteur associe le module parallèle de GEAR à
+\texttt{ParallelAgent} dans Google ADK.
+
+Dans ce cas, la fonctionnalité peut être classifiée comme
+\emph{native}.
+
+Pour un autre framework, GEAR pourrait traduire ce même module par un
+appel à \texttt{asyncio.gather(...)}.
+
+La fonctionnalité serait alors classifiée comme \emph{synthétisée}, à
+condition que le comportement obtenu soit équivalent à celui attendu.
+
+
+\subsubsection{Exemple minimal généré}
+
+Pour chaque fonctionnalité, nous construisons une spécification GEAR
+minimale permettant d'isoler son comportement.
+
+Pour tester le parallélisme et la synchronisation fan-out/fan-in, nous
+utilisons par exemple le workflow suivant :
+
+\begin{equation}
+A
+\longrightarrow
+(B \parallel C)
+\longrightarrow
+D.
+\label{eq:workflow-parallele}
+\end{equation}
+
+Dans ce workflow :
+
+\begin{itemize}
+    \item l'agent $A$ doit être exécuté en premier ;
+    \item les agents $B$ et $C$ doivent être exécutés en parallèle ;
+    \item l'agent $D$ ne doit commencer qu'après la fin de $B$ et de
+    $C$.
+\end{itemize}
+
+Cette spécification est générée pour chacun des frameworks étudiés.
+
+
+\subsubsection{Test d'exécution}
+
+Le code généré est exécuté avec des agents déterministes afin d'éviter
+que la variabilité des \gls{llm} influence l'évaluation.
+
+Par exemple :
+
+\begin{itemize}
+    \item l'agent $A$ enregistre le début et la fin de son exécution ;
+    \item les agents $B$ et $C$ enregistrent leur démarrage, attendent
+    une durée définie, puis enregistrent leur fin ;
+    \item l'agent $D$ enregistre son démarrage et sa fin.
+\end{itemize}
+
+La mesure du temps peut fournir une indication sur le parallélisme,
+mais elle ne constitue pas une preuve suffisante en raison des
+variations possibles de l'environnement d'exécution. Nous utilisons
+donc principalement les traces d'événements.
+
+
+\subsubsection{Comparaison des traces}
+
+Pour le workflow défini dans l'Équation~\ref{eq:workflow-parallele}, une
+trace valide doit respecter les contraintes d'ordre suivantes :
+
+\begin{align}
+A_{\text{fin}} &< B_{\text{début}}, \\
+A_{\text{fin}} &< C_{\text{début}}, \\
+B_{\text{fin}} &< D_{\text{début}}, \\
+C_{\text{fin}} &< D_{\text{début}}.
+\end{align}
+
+En revanche, aucun ordre particulier n'est imposé entre $B$ et $C$.
+Ainsi, les deux traces suivantes sont toutes les deux valides :
+
+\begin{verbatim}
+A-debut, A-fin, B-debut, C-debut,
+B-fin, C-fin, D-debut, D-fin
+\end{verbatim}
+
+\begin{verbatim}
+A-debut, A-fin, C-debut, B-debut,
+C-fin, B-fin, D-debut, D-fin
+\end{verbatim}
+
+Cette comparaison permet de vérifier la sémantique du workflow sans
+imposer artificiellement un ordre entre les branches parallèles.
+
+
+\subsubsection{Détermination de la classification}
+
+À partir des preuves collectées, chaque fonctionnalité est classifiée
+selon les règles suivantes :
+
+\begin{description}
+    \item[\textbf{Native (N) :}]
+    la fonctionnalité est traduite vers un mécanisme natif équivalent
+    du framework. Le code généré est valide et sa trace est conforme à
+    la sémantique attendue.
+
+    \item[\textbf{Synthétisée (S) :}]
+    le framework ne propose pas directement une abstraction
+    équivalente, mais le code d'orchestration généré par GEAR reproduit
+    fidèlement le comportement attendu.
+
+    \item[\textbf{Adaptée (A) :}]
+    GEAR génère une implémentation utilisable, mais celle-ci introduit
+    une différence sémantique documentée.
+
+    \item[\textbf{Non supportée (U) :}]
+    la fonctionnalité ne peut pas être correctement générée pour le
+    framework. GEAR doit alors produire un diagnostic explicite ou
+    bloquer la génération.
+
+    \item[\textbf{Non applicable (NA) :}]
+    la fonctionnalité ne concerne pas le framework considéré.
+\end{description}
+
+Par exemple, si une condition d'arrêt exprimée en langage naturel est
+remplacée par un nombre fixe d'itérations, la boucle reste exécutable,
+mais sa condition d'arrêt n'est pas entièrement préservée. La
+fonctionnalité est donc classifiée comme \emph{adaptée}.
+
+
+\subsubsection{Fiche de preuve}
+
+Pour assurer la traçabilité de l'évaluation, chaque cellule de la
+matrice de couverture est associée à une fiche de preuve. Le
+Tableau~\ref{tab:fiche-preuve} présente un exemple.
+
+\begin{table*}[t]
+    \centering
+    \caption{Exemple de fiche de preuve associée à une fonctionnalité.}
+    \label{tab:fiche-preuve}
+    \begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Élément} & \textbf{Valeur} \\
+        \midrule
+        Fonctionnalité
+            & Exécution parallèle \\
+        Framework
+            & Google ADK \\
+        Preuve documentaire
+            & Documentation officielle de \texttt{ParallelAgent} \\
+        Mapping GEAR
+            & Module parallèle GEAR vers \texttt{ParallelAgent} \\
+        Exemple minimal
+            & \texttt{parallel-fan-in.gear.yml} \\
+        Test d'exécution
+            & \texttt{test\_adk\_parallel\_execution} \\
+        Trace attendue
+            & $A$ avant $B$ et $C$ ; $B$ et $C$ avant $D$ \\
+        Trace observée
+            & Conforme aux contraintes d'ordre attendues \\
+        Classification
+            & Native (N) \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Le résultat de cette étape est une matrice de couverture dont chaque
+classification repose sur des preuves reproductibles. L'étape 2
+détermine donc \emph{ce qui doit être évalué}, tandis que l'étape 4
+établit \emph{si et comment GEAR couvre effectivement chaque
+fonctionnalité}.
+\subsection{Étape 5 : calcul des mesures de couverture}
+\label{subsec:mesures-couverture}
+
+Soient $n_{N,j}$, $n_{S,j}$, $n_{A,j}$ et $n_{U,j}$ les nombres de
+fonctionnalités respectivement classifiées comme natives, synthétisées,
+adaptées et non supportées pour le framework $j$. Les fonctionnalités
+classifiées comme non applicables sont exclues du dénominateur.
+
+Soit $n_{\mathrm{app},j}$ le nombre de fonctionnalités de GEAR
+applicables au framework $j$ :
+
+\begin{equation}
+n_{\mathrm{app},j}
+=
+n_{N,j}
++
+n_{S,j}
++
+n_{A,j}
++
+n_{U,j}.
+\label{eq:fonctionnalites-applicables}
+\end{equation}
+
+
+\subsubsection{Couverture de préservation sémantique}
+
+La couverture de préservation sémantique mesure la proportion de
+fonctionnalités de GEAR qui sont soit implémentées nativement, soit
+fidèlement synthétisées :
+
+\begin{equation}
+C_{\mathrm{pres}}(j)
+=
+\frac{n_{N,j}+n_{S,j}}
+     {n_{\mathrm{app},j}}.
+\label{eq:couverture-preservation}
+\end{equation}
+
+Les fonctionnalités adaptées ne sont pas intégrées à cette mesure,
+car leur génération introduit une différence sémantique.
+
+
+\subsubsection{Couverture adaptée}
+
+La couverture adaptée mesure la proportion de fonctionnalités qui
+peuvent être générées, mais uniquement au moyen d'une adaptation
+sémantique :
+
+\begin{equation}
+C_{\mathrm{adapt}}(j)
+=
+\frac{n_{A,j}}
+     {n_{\mathrm{app},j}}.
+\label{eq:couverture-adaptee}
+\end{equation}
+
+
+\subsubsection{Fonctionnalités non supportées}
+
+La proportion de fonctionnalités non supportées correspond aux
+fonctionnalités applicables de GEAR qui ne peuvent pas être générées
+pour le framework $j$ :
+
+\begin{equation}
+C_{\mathrm{non\text{-}supp}}(j)
+=
+\frac{n_{U,j}}
+     {n_{\mathrm{app},j}}.
+\label{eq:couverture-non-supportee}
+\end{equation}
+
+Pour chaque framework, ces trois mesures vérifient :
+
+\begin{equation}
+C_{\mathrm{pres}}(j)
++
+C_{\mathrm{adapt}}(j)
++
+C_{\mathrm{non\text{-}supp}}(j)
+= 1.
+\label{eq:somme-couverture}
+\end{equation}
+
+
+\subsubsection{Couverture représentationnelle}
+
+Soit $\mathcal{F}^{*}_{j}$ l'ensemble des fonctionnalités proposées
+par le framework $j$ et retenues dans le périmètre de l'étude. Soit
+$\mathcal{R}_{G,j}$ le sous-ensemble de ces fonctionnalités qui peuvent
+être représentées par le métamodèle de GEAR.
+
+La couverture représentationnelle de GEAR pour le framework $j$ est
+définie par :
+
+\begin{equation}
+C_{\mathrm{repr}}(j)
+=
+\frac{
+    \left|\mathcal{R}_{G,j}\right|
+}{
+    \left|\mathcal{F}^{*}_{j}\right|
+}.
+\label{eq:couverture-representationnelle}
+\end{equation}
+
+Cette mesure représente la proportion des fonctionnalités pertinentes
+du framework que les utilisateurs peuvent exprimer à travers une
+spécification GEAR.
+
+
+\subsubsection{Couverture des diagnostics}
+
+GEAR doit signaler explicitement les fonctionnalités adaptées et non
+supportées, plutôt que de les ignorer silencieusement. Soit
+$n_{\mathrm{diag},j}$ le nombre d'adaptations et d'incompatibilités
+correctement détectées et signalées par GEAR.
+
+La couverture des diagnostics est définie par :
+
+\begin{equation}
+C_{\mathrm{diag}}(j)
+=
+\frac{
+    n_{\mathrm{diag},j}
+}{
+    n_{A,j}+n_{U,j}
+}.
+\label{eq:couverture-diagnostics}
+\end{equation}
+
+Lorsque $n_{A,j}+n_{U,j}=0$, cette mesure n'est pas applicable au
+framework considéré.
+
+
+\subsubsection{Couverture moyenne}
+
+Les résultats doivent être présentés séparément pour chaque framework.
+Une moyenne macro peut néanmoins être utilisée pour résumer la
+couverture globale de préservation sur les $m$ frameworks :
+
+\begin{equation}
+\overline{C}_{\mathrm{pres}}
+=
+\frac{1}{m}
+\sum_{j=1}^{m} C_{\mathrm{pres}}(j).
+\label{eq:couverture-preservation-moyenne}
+\end{equation}
+
+Les résultats propres à chaque framework et la répartition entre les
+fonctionnalités natives, synthétisées, adaptées et non supportées
+restent cependant les résultats principaux. Nous évitons ainsi de
+produire un score global pondéré qui masquerait les adaptations
+sémantiques ou les fonctionnalités non supportées.
+
+
+\section{Évaluation de la correction et de la fidélité des artefacts générés}
+\label{sec:correction-fidelite}
+
+L'analyse de la couverture fonctionnelle détermine quelles
+fonctionnalités de GEAR peuvent être représentées dans les frameworks
+cibles. Elle ne suffit cependant pas à démontrer que les artefacts
+générés sont valides et qu'ils préservent effectivement le comportement
+défini dans la spécification GEAR.
+
+Nous complétons donc cette analyse par une évaluation de la correction
+technique et de la fidélité sémantique des implémentations générées,
+conformément à RQ2, RQ2.1 et RQ2.2.
+
+
+\subsection{Corpus de workflows}
+\label{subsec:corpus-workflows}
+
+Nous construisons un corpus composé de quatre workflows représentatifs
+des principales structures d'orchestration actuellement prises en
+charge par GEAR :
+
+\begin{enumerate}
+    \item un workflow séquentiel ;
+    \item un workflow parallèle avec synchronisation fan-out/fan-in ;
+    \item un workflow comprenant une boucle bornée ;
+    \item un workflow hybride combinant séquence, parallélisme et
+    boucle.
+\end{enumerate}
+
+Les quatre structures utilisées dans le corpus sont résumées dans le
+Tableau~\ref{tab:workflows-evaluation}.
+
+\begin{table*}[t]
+    \centering
+    \caption{Workflows utilisés pour évaluer les artefacts générés.}
+    \label{tab:workflows-evaluation}
+    \begin{tabularx}{\textwidth}{@{}l l >{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{ID}
+        & \textbf{Structure}
+        & \textbf{Propriété principalement évaluée} \\
+        \midrule
+        W1
+            & $A \rightarrow B \rightarrow C$
+            & Respect de l'ordre séquentiel et transmission des
+              résultats \\
+        W2
+            & $A \rightarrow (B \parallel C) \rightarrow D$
+            & Parallélisme, fan-out et synchronisation fan-in \\
+        W3
+            & $A \rightarrow [B \rightarrow C]^{k} \rightarrow D$
+            & Respect du nombre maximal $k$ d'itérations \\
+        W4
+            & Workflow hybride
+            & Combinaison de séquence, branches parallèles,
+              synchronisation et boucle \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Chaque workflow est généré pour les dix frameworks étudiés. Le corpus
+comprend ainsi :
+
+\begin{equation}
+N_{\mathrm{artefacts}}
+=
+N_{\mathrm{workflows}}
+\times
+N_{\mathrm{frameworks}}
+=
+4 \times 10
+=
+40
+\end{equation}
+
+implémentations spécifiques aux frameworks.
+
+
+\subsection{Environnement d'exécution contrôlé}
+\label{subsec:environnement-controle}
+
+L'objectif de cette évaluation est de mesurer la correction du
+générateur et de l'orchestration produite, et non les performances du
+\gls{llm}. Nous utilisons donc des agents déterministes ou des
+substituts contrôlés qui produisent toujours les mêmes résultats.
+
+Chaque agent enregistre au minimum les événements suivants :
+
+\begin{itemize}
+    \item le début de son exécution ;
+    \item la fin de son exécution ;
+    \item les entrées reçues ;
+    \item les résultats produits ;
+    \item l'identifiant de l'itération, lorsqu'il appartient à une
+    boucle.
+\end{itemize}
+
+Cette instrumentation permet de comparer directement la structure du
+workflow spécifié avec le comportement de l'implémentation générée,
+sans introduire la variabilité liée aux réponses des \gls{llm}.
+
+
+\subsection{Niveaux de correction évalués}
+\label{subsec:niveaux-correction}
+
+Pour chaque artefact généré, nous évaluons quatre niveaux successifs de
+correction.
+
+
+\subsubsection{Génération}
+
+La génération est considérée comme réussie lorsque GEAR :
+
+\begin{itemize}
+    \item valide la spécification source ;
+    \item termine le processus de conversion sans erreur ;
+    \item produit tous les fichiers attendus ;
+    \item produit le rapport de conversion correspondant.
+\end{itemize}
+
+
+\subsubsection{Validité syntaxique et importation}
+
+Un artefact est considéré comme syntaxiquement valide et importable
+lorsque :
+
+\begin{itemize}
+    \item le code Python généré passe une vérification syntaxique ;
+    \item les modules générés peuvent être importés ;
+    \item les dépendances attendues sont correctement déclarées ;
+    \item aucune référence requise n'est absente de l'artefact.
+\end{itemize}
+
+
+\subsubsection{Exécution}
+
+L'exécution est considérée comme réussie lorsque :
+
+\begin{itemize}
+    \item le système généré démarre correctement ;
+    \item le workflow atteint son état final ;
+    \item aucune erreur non gérée n'interrompt l'exécution ;
+    \item les résultats produits par les agents sont transmis aux
+    étapes suivantes ;
+    \item un statut de succès est enregistré dans le journal
+    d'exécution.
+\end{itemize}
+
+
+\subsubsection{Fidélité de la trace}
+
+La fidélité de la trace mesure si le comportement observé respecte les
+contraintes définies dans la spécification GEAR. Ces contraintes
+concernent notamment :
+
+\begin{itemize}
+    \item l'ordre d'exécution des agents et des tâches ;
+    \item l'indépendance des branches parallèles ;
+    \item la synchronisation des branches avant une étape de fan-in ;
+    \item le nombre d'itérations des boucles ;
+    \item la transmission des résultats entre les étapes ;
+    \item l'atteinte de l'état final du workflow.
+\end{itemize}
+
+
+\subsection{Comparaison entre les traces attendues et observées}
+\label{subsec:comparaison-traces}
+
+Pour chaque workflow $W_i$, nous définissons un ensemble de contraintes
+attendues $\mathcal{C}_{i}$. Ces contraintes sont ensuite comparées à
+la trace observée $\tau_{i,j}$ pour le workflow $W_i$ généré vers le
+framework $j$.
+
+Pour le workflow parallèle :
+
+\begin{equation}
+A \rightarrow (B \parallel C) \rightarrow D,
+\end{equation}
+
+la trace observée doit respecter les contraintes suivantes :
+
+\begin{align}
+A_{\text{fin}} &< B_{\text{début}}, \\
+A_{\text{fin}} &< C_{\text{début}}, \\
+B_{\text{fin}} &< D_{\text{début}}, \\
+C_{\text{fin}} &< D_{\text{début}}.
+\end{align}
+
+Aucune relation d'ordre n'est imposée entre $B$ et $C$. En revanche,
+leurs intervalles d'exécution doivent pouvoir se chevaucher pour que
+l'exécution soit considérée comme effectivement parallèle :
+
+\begin{equation}
+t_{\text{début}}(B) < t_{\text{fin}}(C)
+\quad \land \quad
+t_{\text{début}}(C) < t_{\text{fin}}(B).
+\label{eq:chevauchement-parallele}
+\end{equation}
+
+Pour une boucle bornée comportant $k$ itérations, la trace doit
+également respecter :
+
+\begin{equation}
+N_{\text{itérations observées}} = k.
+\end{equation}
+
+Enfin, chaque étape consommatrice doit recevoir les résultats produits
+par les étapes dont elle dépend.
+
+
+\subsection{Mesures}
+\label{subsec:mesures-correction}
+
+Soit $n$ le nombre de workflows évalués pour chaque framework. Dans
+notre corpus, $n=4$.
+
+
+\subsubsection{Taux de génération réussie}
+
+Pour le framework $j$, le taux de génération réussie est défini par :
+
+\begin{equation}
+C_{\mathrm{gen}}(j)
+=
+\frac{
+    n_{\text{générations réussies},j}
+}{
+    n
+}.
+\label{eq:taux-generation}
+\end{equation}
+
+
+\subsubsection{Taux de validité syntaxique et d'importation}
+
+Le taux de validité syntaxique et d'importation est défini par :
+
+\begin{equation}
+C_{\mathrm{imp}}(j)
+=
+\frac{
+    n_{\mathrm{artefacts\ valides\ et\ importables},j}
+}{
+    n
+}.
+\label{eq:taux-importation}
+\end{equation}
+
+
+\subsubsection{Taux d'exécution réussie}
+
+Le taux d'exécution réussie est défini par :
+
+\begin{equation}
+C_{\mathrm{exec}}(j)
+=
+\frac{
+    n_{\text{exécutions réussies},j}
+}{
+    n
+}.
+\label{eq:taux-execution}
+\end{equation}
+
+
+\subsubsection{Fidélité sémantique}
+
+Soit $\mathcal{C}_{i}$ l'ensemble des contraintes attendues pour le
+workflow $W_i$, et soit
+$\mathcal{C}^{\mathrm{sat}}_{i,j}$ le sous-ensemble des contraintes
+satisfaites par la trace observée pour le framework $j$.
+
+La fidélité du workflow $W_i$ pour le framework $j$ est définie par :
+
+\begin{equation}
+F_{\mathrm{trace}}(i,j)
+=
+\frac{
+    \left|\mathcal{C}^{\mathrm{sat}}_{i,j}\right|
+}{
+    \left|\mathcal{C}_{i}\right|
+}.
+\label{eq:fidelite-trace}
+\end{equation}
+
+La fidélité moyenne des traces pour le framework $j$ est ensuite
+calculée par :
+
+\begin{equation}
+\overline{F}_{\mathrm{trace}}(j)
+=
+\frac{1}{n}
+\sum_{i=1}^{n}
+F_{\mathrm{trace}}(i,j).
+\label{eq:fidelite-trace-moyenne}
+\end{equation}
+
+Une fidélité égale à $1$ indique que toutes les contraintes attendues
+ont été respectées. Une valeur inférieure à $1$ signale qu'au moins une
+propriété du workflow n'a pas été correctement préservée.
+
+
+\subsubsection{Taux de correction de bout en bout}
+
+Un artefact est considéré comme entièrement correct uniquement lorsque
+les quatre conditions suivantes sont réunies :
+
+\begin{enumerate}
+    \item la génération réussit ;
+    \item le code est syntaxiquement valide et importable ;
+    \item l'exécution atteint son état final ;
+    \item toutes les contraintes de la trace sont satisfaites.
+\end{enumerate}
+
+Le taux de correction de bout en bout pour le framework $j$ est défini
+par :
+
+\begin{equation}
+C_{\mathrm{e2e}}(j)
+=
+\frac{
+    n_{\text{artefacts entièrement corrects},j}
+}{
+    n
+}.
+\label{eq:correction-bout-en-bout}
+\end{equation}
+
+
+\subsection{Présentation des résultats}
+\label{subsec:resultats-correction}
+
+Les résultats sont présentés séparément pour chaque framework afin de
+ne pas masquer les éventuelles différences entre les connecteurs.
+
+\begin{table*}[t]
+    \centering
+    \caption{Structure du tableau de résultats pour la correction et
+    la fidélité des artefacts générés.}
+    \label{tab:resultats-correction}
+    \begin{tabularx}{\textwidth}{@{}lccccc@{}}
+        \toprule
+        \textbf{Framework}
+        & $\boldsymbol{C_{\mathrm{gen}}}$
+        & $\boldsymbol{C_{\mathrm{imp}}}$
+        & $\boldsymbol{C_{\mathrm{exec}}}$
+        & $\boldsymbol{\overline{F}_{\mathrm{trace}}}$
+        & $\boldsymbol{C_{\mathrm{e2e}}}$ \\
+        \midrule
+        CrewAI                   & -- & -- & -- & -- & -- \\
+        Google ADK               & -- & -- & -- & -- & -- \\
+        LangGraph                & -- & -- & -- & -- & -- \\
+        OpenAI Agents SDK        & -- & -- & -- & -- & -- \\
+        Microsoft Agent Framework & -- & -- & -- & -- & -- \\
+        Strands Agents           & -- & -- & -- & -- & -- \\
+        PydanticAI               & -- & -- & -- & -- & -- \\
+        AutoGen                  & -- & -- & -- & -- & -- \\
+        Semantic Kernel          & -- & -- & -- & -- & -- \\
+        Haystack                 & -- & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Cette évaluation apporte une validation technique complémentaire à
+l'analyse de la couverture fonctionnelle. La couverture indique quelles
+fonctionnalités peuvent être représentées ou générées, tandis que
+l'évaluation présentée dans cette section vérifie que les artefacts
+produits sont effectivement valides, exécutables et conformes à la
+sémantique des workflows sources.

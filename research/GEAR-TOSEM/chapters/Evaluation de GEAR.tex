@@ -1,0 +1,630 @@
+\section{Evaluation Methodology}
+\label{sec:evaluation-methodology}
+
+\subsection{Evaluation Scope}
+\label{subsec:evaluation-scope}
+
+The evaluation of GEAR is organized around three complementary dimensions:
+representational coverage and transformation fidelity, execution correctness and
+behavioral fidelity, and usability and practical utility. The present evaluation
+focuses on the first two dimensions. The third dimension will be investigated
+separately through a participant-based study.
+
+The first dimension evaluates the ability of GEAR to represent and preserve the
+main design and orchestration capabilities of heterogeneous frameworks for
+\gls{llm}-based \gls{mas}s. This dimension is examined in two directions. The
+framework-to-GEAR direction determines whether the capabilities identified in the
+ten selected frameworks can be expressed through the common variability model,
+composed of \texttt{GearAgent}, \texttt{GearModule}, and
+\texttt{GearWorkflow}. Conversely, the GEAR-to-framework direction determines
+whether the properties expressed in a GEAR specification are preserved when they
+are transformed into framework-specific implementations. This analysis considers
+the mappings, transformations, and generated artefacts associated with each of the
+ten frameworks presented in Table~\ref{tab:framework-metadata}.
+
+The second dimension evaluates the generated artefacts at both the technical and
+behavioral levels. Technical correctness concerns whether the generated artefacts
+are syntactically valid, importable, and executable in their target frameworks.
+Behavioral fidelity concerns whether their execution respects the orchestration
+constraints expressed in the source GEAR specification, such as task ordering,
+dependencies, parallel branches, synchronization points, conditional transitions,
+and bounded loops. Controlled agent responses are used to isolate orchestration
+behavior from the non-determinism of the underlying \gls{llm}s.
+
+Cross-framework portability is examined across these two dimensions. The same
+GEAR specifications are used as inputs for the different framework targets without
+introducing framework-specific modifications into the source configurations. This
+makes it possible to determine which properties are preserved across frameworks,
+which require framework-specific adaptations, and which cannot be supported by a
+given target. Unsupported or inapplicable capabilities remain part of the
+evaluation and are reported explicitly rather than being excluded from the
+analysis.
+
+Table~\ref{tab:evaluation-scope} summarizes the dimensions considered, their
+evaluation subjects, and the main forms of evidence used.
+
+\begin{table*}[t]
+    \centering
+    \caption{Scope of the GEAR evaluation.}
+    \label{tab:evaluation-scope}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{
+        @{}
+        p{0.20\textwidth}
+        p{0.26\textwidth}
+        p{0.19\textwidth}
+        >{\raggedright\arraybackslash}X
+        @{}
+    }
+        \toprule
+        \textbf{Dimension}
+        & \textbf{Evaluated aspect}
+        & \textbf{Subjects}
+        & \textbf{Main evidence} \\
+        \midrule
+
+        Representational coverage
+        & Framework capabilities expressible through the common variability model
+        & Ten selected frameworks
+        & Framework documentation, normalized capabilities, and GEAR features \\
+
+        Transformation fidelity
+        & Preservation of GEAR properties in framework-specific artefacts
+        & Ten selected frameworks
+        & Mappings, transformation reports, and generated source code \\
+
+        Execution correctness
+        & Syntactic validity, importability, and executability of generated artefacts
+        & Generated implementations
+        & Validation, import, and execution results \\
+
+        Behavioral fidelity
+        & Conformance of runtime behavior to the source GEAR specification
+        & Generated workflow implementations
+        & Expected and observed execution traces \\
+
+        Usability and practical utility
+        & Effort, understanding, and perceived usefulness
+        & Future study participants
+        & Task measurements, observations, and participant feedback \\
+
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+The evaluation covers capabilities related to agent definition, configuration,
+composition, orchestration, transformation, generation, and execution. It does not
+assess the quality of the textual responses produced by the underlying
+\gls{llm}s, model accuracy, token consumption, execution performance, or graphical
+user interfaces. These aspects fall outside the current objectives, which concern
+the representation, transformation, and execution of multi-agent system
+configurations.
+
+Finally, the ten frameworks considered in the representational analysis also
+contributed to the construction of the common variability model. Consequently,
+this part of the evaluation measures the coverage of the construction corpus. It
+does not, by itself, demonstrate that GEAR generalizes to frameworks that were not
+considered during the model derivation.
+
+\subsection{Representational Coverage and Transformation Fidelity}
+\label{subsec:representation-transformation}
+
+This first evaluation axis examines two complementary properties of GEAR.
+First, it determines whether the common variability model can represent the
+design, configuration, and orchestration capabilities provided by the ten
+selected frameworks. Second, it determines whether the semantics expressed
+through GEAR are preserved when framework-specific artefacts are generated.
+
+These two directions are evaluated using two matrices: a feature-presence
+matrix for the analysis from the frameworks to GEAR, and a
+semantic-preservation matrix for the analysis from GEAR to the target
+frameworks. The normalized feature catalogue, the GEAR feature models, and
+the framework connectors are fixed before the assessment. Consequently, this
+evaluation does not modify the common model in response to the observed
+results.
+
+\paragraph{Feature-presence matrix.}
+
+The feature-presence matrix evaluates the representational coverage of GEAR.
+It answers the following question: \emph{to what extent can the capabilities
+provided by each framework be represented through the common variability
+model of GEAR?}
+
+Each row corresponds to a normalized capability from the feature catalogue.
+The capabilities cover agent definition, model and tool configuration, task
+composition, memory, data exchange, orchestration, and execution management.
+The columns correspond to GEAR and the ten selected frameworks.
+
+Each cell is assigned one of the following values:
+
+\begin{itemize}
+    \item \textbf{F} (\emph{fully present}) indicates that the technology
+    provides a construct that represents the complete semantics of the
+    capability;
+    
+    \item \textbf{P} (\emph{partially present}) indicates that only a
+    restricted form of the capability is available or that some of its
+    semantics cannot be expressed; and
+    
+    \item \textbf{--} (\emph{absent}) indicates that no corresponding
+    construct is available.
+\end{itemize}
+
+The classification of the framework cells is based on the official
+documentation, public APIs, and examples associated with the reference
+versions reported in Table~\ref{tab:framework-metadata}. For GEAR, the
+classification is based on the features and constraints defined in
+\texttt{GearAgent}, \texttt{GearModule}, and \texttt{GearWorkflow}. The
+presence of a similarly named class or function is not considered sufficient
+unless the expected semantics can also be represented.
+
+Table~\ref{tab:feature-presence-matrix} presents the compact
+feature-presence matrix used in the article. The detailed matrix, containing
+all the individual features and variants of the common model, is provided in
+the replication package.
+
+\begin{table*}[t]
+    \centering
+    \caption{Feature-presence matrix used to evaluate the representational
+    coverage of GEAR.}
+    \label{tab:feature-presence-matrix}
+    \scriptsize
+    \setlength{\tabcolsep}{2pt}
+    \renewcommand{\arraystretch}{1.08}
+    \begin{tabularx}{\textwidth}{
+        @{}
+        >{\raggedright\arraybackslash}X
+        ccccccccccc
+        @{}
+    }
+        \toprule
+        \textbf{Normalized capability}
+        & \textbf{GEAR}
+        & \textbf{CrewAI}
+        & \textbf{Google ADK}
+        & \textbf{LangGraph}
+        & \textbf{OpenAI SDK}
+        & \textbf{Microsoft AF}
+        & \textbf{Strands}
+        & \textbf{PydanticAI}
+        & \textbf{AutoGen}
+        & \textbf{Semantic K.}
+        & \textbf{Haystack} \\
+        \midrule
+        
+        Agent instructions
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Model configuration
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Task definition
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Task dependencies
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Tool association
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Individual memory
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Shared memory
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Structured outputs
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Agent delegation
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Sequential execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Parallel execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Fan-out/fan-in
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Conditional routing
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Bounded loops
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Asynchronous execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Execution tracing
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        \bottomrule
+    \end{tabularx}
+
+    \vspace{0.3em}
+        \begin{minipage}{0.98\textwidth}
+            \scriptsize
+            Cell values: F = fully present; P = partially present;
+            -- = absent. OpenAI SDK denotes the OpenAI Agents SDK,
+            and Microsoft AF denotes the Microsoft Agent Framework.
+        \end{minipage}
+\end{table*}
+
+For a framework \(j\), let \(F^{*}_{j}\) denote the set of capabilities
+provided by that framework and included in the functional scope of the
+evaluation. Let \(R_{G,j}\) denote the subset of these capabilities that can
+be represented, either fully or partially, by GEAR. The representational
+coverage of GEAR for framework \(j\) is defined as:
+
+\begin{equation}
+    C_{\mathrm{repr}}(j)
+    =
+    \frac{|R_{G,j}|}{|F^{*}_{j}|}.
+    \label{eq:representational-coverage}
+\end{equation}
+
+In addition to this overall value, the numbers of fully and partially
+represented capabilities are reported separately. This distinction prevents
+a partial representation from being interpreted as equivalent to a complete
+one. The measure is calculated for each of the ten frameworks and aggregated
+over the complete catalogue.
+
+\paragraph{Semantic-preservation matrix.}
+
+The semantic-preservation matrix evaluates the inverse direction, from GEAR
+to the target frameworks. It answers the following question: \emph{to what
+extent are the features and constraints expressed in a GEAR specification
+preserved in the generated framework-specific artefacts?}
+
+Each row corresponds to a configurable GEAR capability or constraint. When
+the same capability has variants with different semantics, such as sequential
+and parallel execution, these variants are represented by separate entries.
+Each column corresponds to one of the ten target frameworks.
+
+The same predefined GEAR specifications are transformed for the different
+targets. No framework-specific modification is introduced into the source
+configurations. This makes it possible to evaluate whether portability is
+provided by the GEAR connectors rather than by manually adapting the source
+specification for each framework.
+
+Each cell of the semantic-preservation matrix is assigned one of the
+following values:
+
+\begin{itemize}
+    \item \textbf{N} (\emph{native}) indicates that the target framework
+    directly provides a construct that preserves the complete semantics of
+    the GEAR capability;
+
+    \item \textbf{S} (\emph{synthesized}) indicates that the connector
+    generates additional code to reproduce the complete semantics of the
+    capability;
+
+    \item \textbf{A} (\emph{adapted}) indicates that the generated artefact
+    supports the capability with a documented restriction or semantic
+    difference;
+
+    \item \textbf{U} (\emph{unsupported}) indicates that the connector cannot
+    produce an implementation preserving the intended semantics; and
+
+    \item \textbf{NA} (\emph{not applicable}) indicates that the capability
+    is outside the execution model or functional scope of the target.
+\end{itemize}
+
+Native and synthesized transformations are both considered fully preserving.
+The distinction describes the implementation mechanism, not its fidelity.
+Conversely, an adapted transformation remains distinguishable because an
+observable restriction or semantic difference is introduced.
+
+Table~\ref{tab:semantic-preservation-matrix} presents the compact
+semantic-preservation matrix. The complete matrix in the replication package
+records the individual GEAR features, their variants, the corresponding
+target constructs, and the evidence supporting each classification.
+
+\begin{table*}[t]
+    \centering
+    \caption{Semantic-preservation matrix used to evaluate the transformation
+    of GEAR features into framework-specific artefacts.}
+    \label{tab:semantic-preservation-matrix}
+    \scriptsize
+    \setlength{\tabcolsep}{2pt}
+    \renewcommand{\arraystretch}{1.08}
+    \begin{tabularx}{\textwidth}{
+        @{}
+        >{\raggedright\arraybackslash}X
+        cccccccccc
+        @{}
+    }
+        \toprule
+        \textbf{GEAR capability}
+        & \textbf{CrewAI}
+        & \textbf{Google ADK}
+        & \textbf{LangGraph}
+        & \textbf{OpenAI SDK}
+        & \textbf{Microsoft AF}
+        & \textbf{Strands}
+        & \textbf{PydanticAI}
+        & \textbf{AutoGen}
+        & \textbf{Semantic Kernel}
+        & \textbf{Haystack} \\
+        \midrule
+
+        Agent instructions
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Model configuration
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Task definition
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Task dependencies
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Tool association
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Individual memory
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Shared memory
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Structured outputs
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Agent delegation
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Sequential execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Parallel execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Fan-out/fan-in
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Conditional routing
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Bounded loops
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Natural-language stop condition
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Asynchronous execution
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        Execution tracing
+        & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? \\
+
+        \bottomrule
+    \end{tabularx}
+
+    \vspace{0.3em}
+        \begin{minipage}{0.98\textwidth}
+            \scriptsize
+            Cell values: N = native; S = synthesized; A = adapted;
+            U = unsupported; NA = not applicable. OpenAI SDK denotes
+            the OpenAI Agents SDK, and Microsoft AF denotes the
+            Microsoft Agent Framework.
+        \end{minipage}
+\end{table*}
+
+For a target framework \(j\), let \(n_{N,j}\), \(n_{S,j}\),
+\(n_{A,j}\), and \(n_{U,j}\) denote the numbers of native, synthesized,
+adapted, and unsupported transformations, respectively. Entries classified
+as not applicable are excluded from the calculations. The number of
+applicable transformations is therefore:
+
+\begin{equation}
+    n_{\mathrm{app},j}
+    =
+    n_{N,j}
+    +
+    n_{S,j}
+    +
+    n_{A,j}
+    +
+    n_{U,j}.
+    \label{eq:applicable-transformations}
+\end{equation}
+
+The semantic-preservation coverage measures the proportion of GEAR
+capabilities whose complete semantics are preserved, either through a native
+construct or through synthesized code:
+
+\begin{equation}
+    C_{\mathrm{pres}}(j)
+    =
+    \frac{n_{N,j}+n_{S,j}}
+         {n_{\mathrm{app},j}}.
+    \label{eq:preservation-coverage}
+\end{equation}
+
+Adapted capabilities are not included in this measure because their
+transformation introduces a documented semantic difference. They are
+reported separately through the adapted coverage:
+
+\begin{equation}
+    C_{\mathrm{adapt}}(j)
+    =
+    \frac{n_{A,j}}
+         {n_{\mathrm{app},j}}.
+    \label{eq:adapted-coverage}
+\end{equation}
+
+The unsupported coverage measures the proportion of applicable GEAR
+capabilities for which no valid transformation is available:
+
+\begin{equation}
+    C_{\mathrm{unsupported}}(j)
+    =
+    \frac{n_{U,j}}
+         {n_{\mathrm{app},j}}.
+    \label{eq:unsupported-coverage}
+\end{equation}
+
+These three measures provide a complete decomposition of the applicable
+transformations:
+
+\begin{equation}
+    C_{\mathrm{pres}}(j)
+    +
+    C_{\mathrm{adapt}}(j)
+    +
+    C_{\mathrm{unsupported}}(j)
+    =
+    1.
+    \label{eq:transformation-decomposition}
+\end{equation}
+
+Because a transformation limitation must not remain silent, the assessment
+also examines whether GEAR reports an explicit diagnostic for adapted and
+unsupported capabilities. Let \(n_{\mathrm{diag},j}\) denote the number of
+adapted or unsupported transformations for which the connector produces an
+explicit diagnostic. Diagnostic coverage is defined as:
+
+\begin{equation}
+    C_{\mathrm{diag}}(j)
+    =
+    \frac{n_{\mathrm{diag},j}}
+         {n_{A,j}+n_{U,j}}.
+    \label{eq:diagnostic-coverage}
+\end{equation}
+
+When no adapted or unsupported capability is observed for a framework,
+diagnostic coverage is reported as not applicable. The measures are reported
+separately for each framework. Macro-aggregated results give the same weight
+to each framework, whereas micro-aggregated results are computed from all
+applicable matrix entries.
+
+\paragraph{Evidence and traceability.}
+
+Each classification is associated with evidence identifying the normalized
+capability or GEAR feature, the corresponding framework construct, the
+applicable documentation or API entry, the connector mapping, and the
+generated source-code fragment. This information is stored in the
+replication package together with the complete matrices and the scripts used
+to calculate the reported measures.
+
+The two matrices provide complementary evidence. The feature-presence matrix
+determines whether the abstraction offered by GEAR covers the capabilities
+available in the selected frameworks. The semantic-preservation matrix
+determines how these abstractions are translated back into concrete
+framework-specific implementations.
+
+This analysis remains static: it establishes whether the required
+information and semantics are represented in the common model and in the
+generated source code. The following subsection evaluates whether the
+generated artefacts are syntactically valid and executable, and whether
+transformations classified as native, synthesized, or adapted are confirmed
+by their observed runtime behavior.
+
+\subsection{Execution Correctness and Behavioral Fidelity}
+\label{subsec:execution-behavior}
+
+This evaluation axis determines whether the framework-specific artefacts generated
+by GEAR can be executed and whether their runtime behavior conforms to the source
+GEAR specifications. While the previous analysis examines mappings and generated
+code statically, this analysis provides dynamic evidence through validation,
+execution, and trace comparison.
+
+\paragraph{Execution correctness.}
+Each evaluation specification is transformed into an implementation for every
+applicable target framework. The generated artefacts are then assessed through
+four successive stages:
+
+\begin{enumerate}
+    \item \emph{syntactic validation}, which checks that the generated source files
+    can be parsed or compiled;
+    \item \emph{dependency and import validation}, which checks that the generated
+    project can load the required framework components;
+    \item \emph{initialization validation}, which checks that the agents, tasks,
+    modules, and workflows can be instantiated; and
+    \item \emph{execution validation}, which checks that the generated workflow can
+    run to completion without an error attributable to the transformation.
+\end{enumerate}
+
+A generated implementation is considered executable only if it passes all four
+stages. Failures are recorded with their stage, framework, specification, and
+error message. When a GEAR property is unsupported by a target framework, the
+expected behavior is an explicit diagnostic during validation or generation,
+rather than the production of a silently incomplete implementation.
+
+For a target framework \(t\), execution correctness is measured as:
+
+\begin{equation}
+    \mathrm{ExecRate}_t =
+    \frac{N^{\mathrm{executed}}_t}
+         {N^{\mathrm{applicable}}_t},
+\end{equation}
+
+where \(N^{\mathrm{applicable}}_t\) is the number of implementations expected to
+be generated and executed for framework \(t\), and
+\(N^{\mathrm{executed}}_t\) is the number that successfully pass all validation
+and execution stages. Stage-specific success rates are also reported to
+distinguish generation, import, initialization, and runtime failures.
+
+\paragraph{Behavioral fidelity.}
+Successful execution alone does not demonstrate that the generated implementation
+preserves the workflow semantics. Behavioral fidelity is therefore evaluated by
+comparing the observed execution trace with an expected trace derived from the
+source GEAR specification.
+
+The evaluation scenarios are constructed to exercise the orchestration constructs
+defined by \texttt{GearWorkflow}, including sequential execution, dependencies,
+parallel branches, synchronization points, conditional transitions, and bounded
+loops. Where applicable, scenarios also exercise agent delegation and the
+transmission of outputs between dependent tasks.
+
+For each scenario, the source specification is converted into a set of observable
+constraints. These constraints define, for example:
+
+\begin{itemize}
+    \item which tasks must be executed;
+    \item which task must precede another;
+    \item which tasks may execute concurrently;
+    \item which branches may be activated under a given condition;
+    \item where parallel branches must be synchronized;
+    \item how many times a bounded loop must be executed; and
+    \item which outputs must be made available to dependent tasks.
+\end{itemize}
+
+The generated implementations are instrumented using a common trace format. Each
+event records at least the target framework, scenario, agent, task, event type,
+and execution order. Framework-specific traces are normalized before comparison
+so that differences in logging formats do not affect the assessment.
+
+Controlled task outputs and deterministic conditions are used during execution.
+This isolates orchestration behavior from the variability of the underlying
+\gls{llm}s. Consequently, the evaluation concerns the behavior produced by the
+generated orchestration logic and not the quality of the textual responses
+generated by a model.
+
+Let \(K_s\) denote the set of behavioral constraints derived from specification
+\(s\), and let \(K^{\mathrm{sat}}_{s,t}\) denote the constraints satisfied by the
+trace observed for target framework \(t\). Behavioral fidelity is measured as:
+
+\begin{equation}
+    \mathrm{TraceConformance}_{s,t} =
+    \frac{|K^{\mathrm{sat}}_{s,t}|}{|K_s|}.
+\end{equation}
+
+A trace is considered fully conformant when all applicable constraints are
+satisfied. Violations are reported individually and classified according to the
+affected property, such as ordering, dependency, branching, synchronization,
+iteration, or data transmission.
+
+The same source specifications, controlled outputs, and trace constraints are
+used across the target frameworks. This enables a cross-framework comparison
+without introducing framework-specific changes into the GEAR configurations.
+The execution results are also compared with the semantic preservation matrix.
+A property classified as \emph{direct} or \emph{equivalent} is expected to
+produce a conformant trace, whereas a \emph{partial} classification must exhibit
+only the limitations declared during the static analysis. Any additional runtime
+deviation is recorded as a discrepancy between the static mapping and the
+observed behavior.

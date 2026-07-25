@@ -1,0 +1,192 @@
+\subsection{Selection of the Studied Frameworks}
+\label{subsec:framework-selection}
+
+After defining the functional scope, we selected the frameworks used to
+conduct the coverage evaluation. The objective was not to establish an
+exhaustive inventory or ranking of existing frameworks, but to construct a
+diverse and reproducible sample covering different approaches to the design
+and orchestration of \gls{llm}-based \gls{mas}s.
+
+A framework was eligible for inclusion when it satisfied the following
+criteria:
+
+\begin{itemize}
+    \item it was publicly accessible and sufficiently documented;
+    \item it provided a Python API;
+    \item it supported the definition of at least one \gls{llm}-based agent;
+    \item it supported the composition of multiple agents, tasks, or workflow
+    components;
+    \item it provided an identifiable and installable version; and
+    \item it was actively maintained at the time of selection.
+\end{itemize}
+
+Conversely, we excluded libraries limited to direct \gls{llm} calls, closed
+platforms without an accessible API, inactive projects, frameworks exclusively
+intended for reinforcement-learning agents, and observability tools that did
+not support the construction of \gls{mas}s. Frameworks exclusively
+targeting programming languages other than Python were also excluded.
+
+Among the eligible frameworks, we adopted a purposive sampling strategy to
+maximize the diversity of the sample. In particular, we sought complementary
+approaches to agent specification, task definition, tool use, memory
+management, orchestration, control flow, and execution. The selected
+frameworks consequently represent systems organized around roles and tasks,
+conversational teams, graph-based workflows, typed agent definitions,
+pipeline-based architectures, and agent SDKs maintained by different
+organizations. The frameworks were selected for this complementarity rather
+than for their ability to cover every characteristic retained in the
+functional scope; the absence of a characteristic from a framework is itself
+an outcome of the subsequent coverage analysis.
+
+The resulting sample comprises CrewAI, Google ADK, LangGraph, OpenAI Agents
+SDK, Microsoft Agent Framework, Strands Agents, PydanticAI, AutoGen, Semantic
+Kernel, and Haystack. Table~\ref{tab:selected-frameworks} presents the main
+paradigm for which each framework was included. This classification indicates
+the principal contribution of each framework to the diversity of the sample;
+it does not imply that a framework is limited to a single paradigm.
+
+\begin{table}[t]
+    \centering
+    \caption{Selected frameworks and their main represented paradigms.}
+    \label{tab:selected-frameworks}
+    \small
+    \begin{tabularx}{\columnwidth}{
+        @{}
+        p{0.28\columnwidth}
+        >{\raggedright\arraybackslash}X
+        @{}
+    }
+        \toprule
+        \textbf{Framework} & \textbf{Main represented paradigm} \\
+        \midrule
+        CrewAI
+            & Role- and task-based agent organization \\
+        Google ADK
+            & Hierarchical agents and workflow agents \\
+        LangGraph
+            & Graph-based orchestration with state management \\
+        OpenAI Agents SDK
+            & Agents, agent handoffs, and tracing \\
+        Microsoft Agent Framework
+            & Enterprise workflows and fan-out/fan-in orchestration \\
+        Strands Agents
+            & Lightweight agent composition and agent graphs \\
+        PydanticAI
+            & Typed agents and structured outputs \\
+        AutoGen
+            & Agent conversations and teams \\
+        Semantic Kernel
+            & Agents, services, and enterprise plugins \\
+        Haystack
+            & Component pipelines and agent workflows \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+To support traceability and reproducibility, we fixed one reference version
+for each framework. These versions correspond to the minimum versions
+explicitly targeted by the GEAR connectors at the time of the study. For each
+framework, we recorded the reference version, its release date, its official
+documentation, and the reason for its inclusion.
+Table~\ref{tab:framework-metadata} reports these metadata.
+
+\begin{table*}[t]
+    \centering
+    \caption{Metadata documenting the selection of the studied frameworks.
+    The versions correspond to the reference versions targeted by GEAR.}
+    \label{tab:framework-metadata}
+    \small
+    \begin{tabular}{
+        @{}
+        p{0.18\textwidth}
+        p{0.08\textwidth}
+        p{0.10\textwidth}
+        p{0.17\textwidth}
+        p{0.32\textwidth}
+        @{}
+    }
+        \toprule
+        \textbf{Framework}
+        & \textbf{Version}
+        & \textbf{Release date}
+        & \textbf{Official source}
+        & \textbf{Reason for inclusion} \\
+        \midrule
+
+        CrewAI
+        & 1.15.4
+        & 2026-07-17
+        & \href{https://docs.crewai.com/}{Documentation}
+        & Role- and task-based orchestration \\
+
+        Google ADK
+        & 2.5.0
+        & 2026-07-16
+        & \href{https://adk.dev/}{Documentation}
+        & Hierarchical agents and graph-based workflow agents \\
+
+        LangGraph
+        & 1.0.0
+        & 2025-10-17
+        & \href{https://docs.langchain.com/oss/python/langgraph/overview}
+        {Documentation}
+        & Stateful graph-based workflows with branching and joins \\
+
+        OpenAI Agents SDK
+        & 0.18.0
+        & 2026-07-07
+        & \href{https://openai.github.io/openai-agents-python/}
+        {Documentation}
+        & Agent handoffs and native tracing capabilities \\
+
+        Microsoft Agent Framework
+        & 1.11.0
+        & 2026-07-10
+        & \href{https://learn.microsoft.com/en-us/agent-framework/}
+        {Documentation}
+        & Enterprise agent workflows with fan-out and synchronized fan-in
+        orchestration \\
+
+        Strands Agents
+        & 1.48.0
+        & 2026-07-17
+        & \href{https://strandsagents.com/docs/}
+        {Documentation}
+        & Lightweight composition of deterministic multi-agent graphs \\
+
+        PydanticAI
+        & 2.13.0
+        & 2026-07-18
+        & \href{https://pydantic.dev/docs/ai/overview/}
+        {Documentation}
+        & Type-safe agents and structured outputs \\
+
+        AutoGen
+        & 0.7.5
+        & 2025-09-30
+        & \href{https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/index.html}
+        {Documentation}
+        & Conversational agents and bounded agent teams \\
+
+        Semantic Kernel
+        & 1.44.0
+        & 2026-07-07
+        & \href{https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/}
+        {Documentation}
+        & Service- and plugin-oriented agent architecture \\
+
+        Haystack
+        & 2.31.0
+        & 2026-07-08
+        & \href{https://docs.haystack.deepset.ai/docs/intro}
+        {Documentation}
+        & Pipeline-oriented agent and component composition \\
+
+        \bottomrule
+    \end{tabular}
+\end{table*}
+
+The functional scope defines the characteristics examined in the study,
+whereas the selected frameworks define the systems against which GEAR is
+evaluated. Together, these two elements provide the basis for the
+bidirectional functional coverage analysis.

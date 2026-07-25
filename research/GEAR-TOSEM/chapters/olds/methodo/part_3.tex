@@ -1,0 +1,234 @@
+\subsection{Construction of the Feature Catalogue}
+\label{subsec:feature-catalogue}
+
+The functional scope defined in
+Section~\ref{subsec:functional-scope} identifies the categories considered in
+the evaluation. However, these categories remain too broad to support a
+feature-level comparison between GEAR and the selected frameworks. We
+therefore constructed a normalized feature catalogue that decomposes each
+retained category into concrete and independently assessable features. This
+catalogue constitutes the common reference used to build the coverage
+matrices.
+
+\subsubsection{Feature Identification}
+
+Features were identified from two complementary sources. For GEAR, we examined
+the metamodel, the feature models, the connector implementations, and the
+generated code. For each studied framework, we examined the versioned official
+documentation, API references, and implementation examples associated with
+the version reported in Section~\ref{subsec:framework-selection}. When the
+documentation was insufficient to determine the semantics of a construct, its
+implementation or an executable example was additionally inspected.
+
+Let $\mathcal{F}_{G}$ denote the set of features identified in GEAR and
+$\mathcal{F}_{j}$ the set identified in framework $j$. Before filtering and
+normalization, the initial set of candidate features is defined as:
+
+\begin{equation}
+    \mathcal{F}_{\mathrm{raw}}
+    =
+    \mathcal{F}_{G}
+    \cup
+    \bigcup_{j=1}^{m}\mathcal{F}_{j},
+    \qquad m = 10.
+    \label{eq:raw-feature-catalogue}
+\end{equation}
+
+This union ensures that the catalogue is not restricted to the features
+currently represented by GEAR. A feature exposed by only one framework is
+therefore retained as a candidate when it belongs to the functional scope of
+the study.
+
+The extraction focused on explicit constructs that allow developers to
+configure the agents, models, tasks, tools, memory, data, orchestration,
+control flow, or execution properties of a multi-agent system. Each candidate
+was recorded together with its original terminology and the documentation,
+API element, source file, or executable example from which it was identified.
+
+\subsubsection{Scope-Based Filtering}
+
+The candidate features were subsequently filtered according to the functional
+scope established independently in
+Section~\ref{subsec:functional-scope}. Let $\mathcal{C}^{*}$ denote the set of
+functional categories included in the study and
+$\operatorname{cat}(f)$ the category assigned to a candidate feature $f$. The
+scope-filtered set is defined as:
+
+\begin{equation}
+    \mathcal{F}_{\mathrm{scope}}
+    =
+    \left\{
+        f \in \mathcal{F}_{\mathrm{raw}}
+        \;\middle|\;
+        \operatorname{cat}(f) \in \mathcal{C}^{*}
+    \right\}.
+    \label{eq:scope-filtered-features}
+\end{equation}
+
+Consequently, the catalogue excludes constructs that do not concern the
+functional configuration, orchestration, or execution of the studied
+multi-agent systems. These include:
+
+\begin{itemize}
+    \item provider-specific deployment services and proprietary cloud
+    capabilities;
+    \item billing, account-management, and authentication mechanisms;
+    \item framework-specific graphical interfaces;
+    \item observability, monitoring, and execution-analytics services;
+    \item security and governance mechanisms; and
+    \item general-purpose data-processing capabilities that are not directly
+    involved in the design or orchestration of agents.
+\end{itemize}
+
+These exclusions do not imply that the corresponding capabilities are
+unimportant. They indicate that they belong to dimensions that require
+different evaluation objectives and protocols. In particular, observability
+is addressed separately in the operational evaluation and is therefore not
+included in the functional coverage catalogue.
+
+\subsubsection{Semantic Normalization}
+
+The terminology used by the frameworks cannot be compared directly. Different
+terms may refer to equivalent capabilities, while similar terms may conceal
+different execution semantics. We therefore normalized the extracted features
+according to their meaning rather than their names.
+
+Two candidate features were merged when they represented the same
+configuration decision and produced equivalent observable effects on the
+structure or execution of the multi-agent system. Conversely, they were kept
+separate when their differences affected at least one of the following
+properties:
+
+\begin{itemize}
+    \item the entities involved, such as agents, tasks, tools, or workflow
+    nodes;
+    \item the direction and propagation of data;
+    \item the ordering or concurrency of execution;
+    \item the conditions governing branching, routing, or termination;
+    \item the creation, persistence, or sharing of state;
+    \item the aggregation of intermediate results; or
+    \item execution constraints such as iteration limits, timeouts, retries,
+    or human intervention.
+\end{itemize}
+
+For example, sequential execution and task dependency were retained as
+distinct features. Sequential execution specifies an execution order, whereas
+a dependency additionally expresses that one component relies on the
+completion or result of another. Similarly, individual memory, shared memory,
+and workflow state were not merged because they differ in ownership,
+visibility, and lifetime.
+
+Let $\sim_{\mathrm{sem}}$ denote the semantic equivalence relation established
+through these criteria. The final normalized catalogue is the quotient set:
+
+\begin{equation}
+    \mathcal{F}^{*}
+    =
+    \mathcal{F}_{\mathrm{scope}}
+    \big/
+    {\sim_{\mathrm{sem}}}.
+    \label{eq:normalized-feature-catalogue}
+\end{equation}
+
+Each equivalence class in $\mathcal{F}^{*}$ represents one normalized feature,
+independently of the terminology used by GEAR or the individual frameworks.
+This normalization avoids counting lexical variants as separate features
+while preserving distinctions that may affect coverage or semantic fidelity.
+
+\subsubsection{Catalogue Structure and Traceability}
+
+Each normalized feature is documented through:
+
+\begin{itemize}
+    \item a unique identifier;
+    \item its functional category;
+    \item a framework-independent name and definition;
+    \item the semantic criteria that must be satisfied for the feature to be
+    considered covered;
+    \item the technologies in which the feature was identified; and
+    \item the corresponding evidence, including documentation references, API
+    elements, source files, examples, or executable tests.
+\end{itemize}
+
+Table~\ref{tab:functional-catalogue-example} provides an illustrative excerpt
+from this structure. The complete catalogue, including the provenance and
+evidence associated with every feature, is provided in the replication
+package.
+
+\begin{table*}[t]
+    \centering
+    \caption{Illustrative structure of the normalized feature catalogue.}
+    \label{tab:functional-catalogue-example}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{
+        @{}
+        l
+        p{0.15\textwidth}
+        p{0.16\textwidth}
+        >{\raggedright\arraybackslash}X
+        p{0.27\textwidth}
+        @{}
+    }
+        \toprule
+        \textbf{ID}
+        & \textbf{Category}
+        & \textbf{Feature}
+        & \textbf{Definition}
+        & \textbf{Semantic criteria} \\
+        \midrule
+
+        AG1
+        & Agent specification
+        & Agent instructions
+        & Definition of the behaviour expected from an agent
+        & Instructions are explicitly associated with a specific agent and
+        influence its behaviour. \\
+
+        TK1
+        & Tasks and planning
+        & Task dependency
+        & Requirement that one task be completed before another task can
+        proceed
+        & The dependency constrains execution and, when required, propagates
+        the result of the preceding task. \\
+
+        OR1
+        & Orchestration and topology
+        & Sequential execution
+        & Execution of agents, tasks, or nodes according to a defined order
+        & The order is preserved and a component starts only after its
+        predecessor has completed. \\
+
+        OR2
+        & Orchestration and topology
+        & Parallel execution
+        & Concurrent execution of independent agents, tasks, or branches
+        & Independent components may execute concurrently without an imposed
+        sequential order. \\
+
+        OR3
+        & Orchestration and topology
+        & Fan-in
+        & Synchronization of results produced by multiple execution branches
+        & Downstream execution waits for and combines the required upstream
+        results. \\
+
+        CT1
+        & Control flow
+        & Bounded loop
+        & Repetition of an execution block subject to a maximum number of
+        iterations
+        & The loop may repeat a component while enforcing an explicit upper
+        bound. \\
+
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+The resulting catalogue defines the unit of analysis used throughout the
+functional coverage evaluation. It supports the construction of two
+complementary matrices: one determining which GEAR features can be generated
+for each target framework, and another determining which framework features
+can be represented by the GEAR metamodel. The construction and interpretation
+of these matrices are presented in the following subsection.
+

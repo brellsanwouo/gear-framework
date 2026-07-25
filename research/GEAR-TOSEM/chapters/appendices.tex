@@ -1,0 +1,290 @@
+\section*{appendix}
+
+%\appendix
+
+\section{Candidate Framework Identification and Screening}
+\label{appendix:candidate-frameworks}
+
+Table~\ref{tab:candidate-framework-screening} reports the frameworks identified
+during the construction of the candidate pool. For each framework, it indicates
+the source through which it was identified, the screening decision, and the
+reason for its inclusion or exclusion, and its documentation. The initial
+catalogue comprises the 22 entries supplied during framework identification.
+The supplementary search added ten projects found through official
+documentation and public repositories. Names were normalized when the
+catalogue contained a typographical variant (e.g., ``Voltage'' for VoltAgent).
+The screening information and documentation links were last verified in July
+2026. A repository or package page is reported when a project does not provide
+a separate documentation site.
+
+\footnotesize
+\setlength{\LTpre}{0.5\baselineskip}
+\setlength{\LTpost}{0pt}
+\begin{longtable}{
+    @{}
+    p{0.14\textwidth}
+    p{0.13\textwidth}
+    >{\centering\arraybackslash}p{0.10\textwidth}
+    p{0.31\textwidth}
+    p{0.18\textwidth}
+    @{}
+}
+    \caption{Candidate frameworks, screening decisions, and documentation.}
+    \label{tab:candidate-framework-screening} \\
+    \toprule
+    \textbf{Framework}
+    & \textbf{Identification source}
+    & \textbf{Decision}
+    & \textbf{Reason}
+    & \textbf{Documentation} \\
+    \midrule
+    \endfirsthead
+
+    \multicolumn{5}{l}{\footnotesize
+        \tablename~\thetable\ (continued)} \\
+    \toprule
+    \textbf{Framework}
+    & \textbf{Identification source}
+    & \textbf{Decision}
+    & \textbf{Reason}
+    & \textbf{Documentation} \\
+    \midrule
+    \endhead
+
+    \midrule
+    \multicolumn{5}{r}{\footnotesize Continued on next page} \\
+    \endfoot
+
+    \bottomrule
+    \endlastfoot
+
+    CrewAI
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents role- and task-based multi-agent
+    orchestration.
+    & \href{https://docs.crewai.com/}{Official docs} \\
+
+    Google ADK
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; provides hierarchical agents and graph-based workflow
+    agents.
+    & \href{https://adk.dev/}{Official docs} \\
+
+    Agno
+    & Initial catalogue
+    & Not selected
+    & Eligible, but its team and workflow abstractions overlapped with the
+    selected portfolio.
+    & \href{https://docs.agno.com/}{Official docs} \\
+
+    OpenAI Agents SDK
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; contributes handoffs, guardrails, sessions, and
+    native tracing.
+    & \href{https://openai.github.io/openai-agents-python/}{Official docs} \\
+
+    Portia SDK
+    & Initial catalogue
+    & Not selected
+    & Eligible Python SDK, but not retained after diversity-based selection.
+    & \href{https://github.com/portiaAI/portia-sdk-python\#readme}
+    {Repository docs} \\
+
+    AutoGen
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents conversational agents and bounded agent
+    teams.
+    & \href{https://microsoft.github.io/autogen/stable/}{Official docs} \\
+
+    LangGraph
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents stateful graph workflows with branches
+    and joins.
+    & \href{https://docs.langchain.com/oss/python/langgraph/overview}
+    {Official docs} \\
+
+    BeeAI Framework
+    & Initial catalogue
+    & Not selected
+    & Eligible Python framework, but its orchestration capabilities overlapped
+    with retained candidates.
+    & \href{https://framework.beeai.dev/}{Official docs} \\
+
+    VoltAgent
+    & Initial catalogue
+    & Excluded
+    & The documented framework API targeted TypeScript rather than the required
+    Python API.
+    & \href{https://voltagent.dev/docs/}{Official docs} \\
+
+    AutoGPT
+    & Initial catalogue
+    & Excluded
+    & Primarily an agent application and builder platform rather than a
+    reusable general-purpose multi-agent Python framework.
+    & \href{https://docs.agpt.co/platform/}{Official docs} \\
+
+    CAMEL-AI
+    & Initial catalogue
+    & Not selected
+    & Eligible, but role-playing and conversational coordination were already
+    represented in the selected portfolio.
+    & \href{https://docs.camel-ai.org/}{Official docs} \\
+
+    LlamaIndex
+    & Initial catalogue
+    & Not selected
+    & Eligible, but its data-centric agent workflows overlapped with selected
+    agent and pipeline abstractions.
+    & \href{https://docs.llamaindex.ai/en/stable/}{Official docs} \\
+
+    smolagents
+    & Initial catalogue
+    & Not selected
+    & Eligible, but its lightweight managed-agent pattern did not add a
+    distinct orchestration family to the final set.
+    & \href{https://huggingface.co/docs/smolagents/}{Official docs} \\
+
+    AG2
+    & Initial catalogue
+    & Not selected
+    & Eligible AutoGen-derived project; excluded from the final set to avoid
+    over-representing the same conversational-agent lineage.
+    & \href{https://docs.ag2.ai/}{Official docs} \\
+
+    PydanticAI
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents type-safe agents, dependency injection,
+    and structured outputs.
+    & \href{https://pydantic.dev/docs/ai/}{Official docs} \\
+
+    OpenHands Software Agent SDK
+    & Initial catalogue
+    & Not selected
+    & Public and installable, but specialized primarily for software
+    engineering agents.
+    & \href{https://docs.openhands.dev/sdk/}{Official docs} \\
+
+    Claude Agent SDK
+    & Initial catalogue
+    & Not selected
+    & Public Python SDK, but tied to the Claude Code agent runtime and its
+    domain-specific tool environment.
+    & \href{https://code.claude.com/docs/en/agent-sdk/overview}
+    {Official docs} \\
+
+    MetaGPT
+    & Initial catalogue
+    & Not selected
+    & Eligible, but its software-company abstraction is a high-level,
+    domain-specific orchestration pattern.
+    & \href{https://docs.deepwisdom.ai/main/en/}{Official docs} \\
+
+    Semantic Kernel
+    & Initial catalogue
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents service-, plugin-, and process-oriented
+    agent composition.
+    & \href{https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/}
+    {Official docs} \\
+
+    MegaAgent
+    & Initial catalogue
+    & Excluded
+    & No sufficiently mature, documented, and installable reference release
+    was available at screening time.
+    & \href{https://github.com/Xtra-Computing/MegaAgent}{Repository docs} \\
+
+    Nexus (PrimisAI)
+    & Initial catalogue
+    & Not selected
+    & Installable Python package, but with limited independent documentation
+    and overlapping hierarchical-agent abstractions.
+    & \href{https://pypi.org/project/primisai/}{Package docs} \\
+
+    AgentVerse (OpenBMB)
+    & Initial catalogue
+    & Excluded
+    & The research prototype lacked an actively maintained, identifiable
+    reference release at screening time.
+    & \href{https://github.com/OpenBMB/AgentVerse\#readme}{Repository docs} \\
+
+    Microsoft Agent Framework
+    & Supplementary search
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents enterprise workflows with fan-out and
+    synchronized fan-in.
+    & \href{https://learn.microsoft.com/en-us/agent-framework/}{Official docs} \\
+
+    Strands Agents
+    & Supplementary search
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents lightweight deterministic multi-agent
+    graphs.
+    & \href{https://strandsagents.com/docs/}{Official docs} \\
+
+    Haystack
+    & Supplementary search
+    & \cellcolor{green!25}Included
+    & Meets all criteria; represents pipeline-oriented agent and component
+    composition.
+    & \href{https://docs.haystack.deepset.ai/docs/agent}{Official docs} \\
+
+    LangChain
+    & Supplementary search
+    & Not selected
+    & Eligible, but LangGraph supplied the more explicit workflow and
+    multi-agent control-flow abstraction required by the study.
+    & \href{https://docs.langchain.com/oss/python/langchain/overview}
+    {Official docs} \\
+
+    AgentScope
+    & Supplementary search
+    & Not selected
+    & Eligible, but its message-driven multi-agent abstractions overlapped with
+    the selected conversational frameworks.
+    & \href{https://doc.agentscope.io/}{Official docs} \\
+
+    Langroid
+    & Supplementary search
+    & Not selected
+    & Eligible, but its task and chat-agent coordination did not add a distinct
+    orchestration family to the final set.
+    & \href{https://langroid.github.io/langroid/}{Official docs} \\
+
+    Letta
+    & Supplementary search
+    & Not selected
+    & Eligible, but primarily differentiated by stateful memory rather than a
+    distinct multi-agent workflow model.
+    & \href{https://docs.letta.com/}{Official docs} \\
+
+    Mastra
+    & Supplementary search
+    & Excluded
+    & Provides agent workflows but not the Python API required by the
+    eligibility criteria.
+    & \href{https://mastra.ai/docs}{Official docs} \\
+
+    PraisonAI
+    & Supplementary search
+    & Not selected
+    & Eligible, but its role- and task-based orchestration overlapped with
+    CrewAI and other retained frameworks.
+    & \href{https://docs.praison.ai/}{Official docs} \\
+
+    BESSER Agentic Framework
+    & Supplementary search
+    & Not selected
+    & Eligible, but its state-machine and A2A abstractions were not retained
+    after diversity-based selection.
+    & \href{https://besser-agentic-framework.readthedocs.io/latest/index.html}
+    {Official docs} \\
+\end{longtable}
+\normalsize

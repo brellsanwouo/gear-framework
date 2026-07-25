@@ -1,0 +1,200 @@
+\subsection{Definition of the Functional Scope}
+\label{subsec:functional-scope}
+
+Before evaluating GEAR and the studied frameworks, we define the functional
+scope of the study independently of the current capabilities of GEAR. This
+separation prevents the evaluation scope from being restricted to features
+already supported by the tool and, consequently, avoids artificially
+increasing its measured coverage.
+
+The candidate functional categories were identified through an analysis of
+the scientific literature on \gls{llm}-based agents and \gls{mas}s.
+Existing studies describe these systems through dimensions such as agent
+profiles, goals, reasoning, planning, memory, action, tool use, perception,
+environment interaction, communication, coordination, and capability
+acquisition \cite{xi2025rise,guo2024large}. \etal{Wu}~\cite{wu2024autogen}
+additionally emphasize configurable agents, human involvement, tool use, and
+programmable interaction patterns. At the system level, topology,
+orchestration logic, memory management, communication protocols, and
+error-handling strategies can significantly influence the behaviour and
+performance of a \gls{mas} \cite{emde2026maseval}. Finally,
+\etal{Dong}~\cite{dong2024agentops} identify traces, logs, metrics, and runtime
+artefacts as important elements for observing agentic systems.
+
+These dimensions constitute the initial set of candidate characteristics. We
+then selected those that correspond to the objective of this study: evaluating
+the configuration, orchestration, and execution capabilities of
+general-purpose frameworks for \gls{llm}-based \gls{mas}s. A
+characteristic is included when it:
+
+\begin{itemize}
+    \item represents an explicit design or configuration decision;
+    \item affects the structure, behaviour, or execution of the resulting
+    \gls{mas};
+    \item can be identified across multiple general-purpose frameworks; and
+    \item can be evaluated independently of a particular application domain,
+    model-training process, or deployment infrastructure.
+\end{itemize}
+
+Table~\ref{tab:functional-scope} reports the resulting functional scope. A
+check mark indicates that a category is included in the study, whereas a cross
+indicates that the category is scientifically relevant but outside the scope
+of the present evaluation.
+
+\begin{table}[t]
+    \centering
+    \caption{Functional categories identified from the literature and their
+    inclusion in the scope of the study.}
+    \label{tab:functional-scope}
+    \footnotesize
+    \begin{tabularx}{\textwidth}{
+        @{}
+        p{0.17\textwidth}
+        >{\raggedright\arraybackslash}X
+        >{\centering\arraybackslash}p{0.09\textwidth}
+        p{0.29\textwidth}
+        @{}
+    }
+        \toprule
+        \textbf{Category}
+        & \textbf{Considered characteristics}
+        & \textbf{Included}
+        & \textbf{Scope rationale} \\
+        \midrule
+
+        Agent specification
+        & Identity, role, goals, instructions, capabilities, and contextual
+        description
+        & \included
+        & These elements define the responsibilities and expected behaviour
+        of each agent. \\
+
+        Model configuration
+        & Model, provider, endpoint, generation parameters, timeout, and retry
+        parameters
+        & \included
+        & These configuration decisions can affect agent behaviour and
+        execution across frameworks. \\
+
+        Tasks and planning
+        & Task descriptions, objectives, inputs, expected outputs,
+        decomposition, and dependencies
+        & \included
+        & Tasks constitute configurable units of work and define how system
+        objectives are operationalized. \\
+
+        Tools
+        & Tool declarations, tool schemas, association with agents, and tool
+        invocation
+        & \included
+        & Tools determine how agents act on external resources and extend
+        their capabilities. \\
+
+        Memory and state
+        & Individual memory, shared memory, workflow state, and propagation of
+        intermediate results
+        & \included
+        & Memory and state determine how information is retained and shared
+        during execution. \\
+
+        Data and outputs
+        & Textual outputs, JSON outputs, typed models, schemas, and output
+        validation
+        & \included
+        & Output contracts determine how information is exchanged among
+        tasks, agents, and external components. \\
+
+        Orchestration and topology
+        & Sequential and parallel execution, delegation, handoffs,
+        fan-out/fan-in, aggregation, nodes, edges, and dependencies
+        & \included
+        & These characteristics define the structural organization and
+        coordination of the system. \\
+
+        Control flow
+        & Conditions, branches, loops, routing decisions, and termination
+        conditions
+        & \included
+        & Control-flow mechanisms determine which components are executed and
+        under which conditions. \\
+
+        Execution properties
+        & Synchronous and asynchronous execution, execution limits, retries,
+        error handling, caching, and human intervention
+        & \included
+        & These properties influence the runtime semantics and robustness of
+        the resulting system. \\
+
+        \midrule
+
+        Communication protocols
+        & Explicit messages, message types, communication channels,
+        conversation protocols, and negotiation mechanisms
+        & \excluded
+        & Communication is a central multi-agent dimension, but comparing
+        protocol semantics requires a separate interaction-level analysis. \\
+
+        Perception and environment
+        & Sensor modalities, perception pipelines, environment models, and
+        environment-specific actions
+        & \excluded
+        & The study focuses on orchestrated software agents rather than
+        embodied agents or domain-specific perception mechanisms. \\
+
+        Learning and evolution
+        & Online learning, self-improvement, capability acquisition, and
+        runtime evolution
+        & \excluded
+        & The study evaluates system configuration and execution, not model
+        training or agent-learning processes. \\
+
+        Observability
+        & Traces, logs, metrics, monitoring, runtime events, and execution
+        analytics
+        & \excluded
+        & Observability concerns the operational analysis of executions and
+        is assessed separately from functional coverage. \\
+
+        Security and governance
+        & Identities, permissions, access control, isolation, policy
+        enforcement, and audit mechanisms
+        & \excluded
+        & These mechanisms require a dedicated security model, threat
+        analysis, and evaluation protocol. \\
+
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+The retained scope therefore covers the declarative and executable
+characteristics required to configure agents, assign tasks and tools, manage
+memory and data, organize the system, control its execution flow, and define
+its runtime properties. These characteristics are sufficiently general to be
+examined across the studied frameworks while remaining directly related to
+the configuration and execution concerns addressed by this study.
+
+Some important dimensions identified in the literature are deliberately
+excluded. In particular, communication is widely recognized as a central
+property of \gls{mas}s
+\cite{guo2024large,wu2024autogen,emde2026maseval}. However, the present study
+does not compare message formats, communication languages, channels,
+conversation protocols, or negotiation strategies. Handoffs, task
+dependencies, shared state, and fan-out/fan-in structures remain included, but
+they are examined as orchestration mechanisms rather than as communication
+protocols.
+
+Perception and environment modelling are excluded because the study focuses
+on software agents operating through tasks, tools, and workflows rather than
+on embodied agents or domain-specific sensing mechanisms. Learning and runtime
+evolution are also excluded because the evaluation does not concern model
+training, online learning, or agent self-improvement. Security and governance
+would require a dedicated threat model and evaluation protocol and are
+therefore left for future work.
+
+Observability is handled separately. Although traces, logs, metrics, and
+runtime artefacts are important for analysing agentic systems
+\cite{dong2024agentops}, they describe how executions are monitored rather
+than the functional configuration of a \gls{mas}. They are therefore
+assessed in the operational evaluation rather than in the functional coverage
+analysis.
+
