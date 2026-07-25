@@ -1,0 +1,789 @@
+% Ce fichier est prévu pour être inclus dans un document LaTeX à deux colonnes.
+% Packages requis dans le préambule :
+% \usepackage{amsmath,amssymb,array,booktabs,tabularx}
+
+\section{Évaluation de GEAR avec des participants}
+\label{sec:evaluation-participants}
+
+L'évaluation technique présentée dans le tool track vérifie que GEAR
+couvre les fonctionnalités des frameworks étudiés et génère des
+implémentations exécutables qui préservent la sémantique des workflows.
+Cette évaluation ne permet cependant pas de déterminer si GEAR aide
+effectivement les développeurs à concevoir, modifier et porter des
+systèmes multi-agents.
+
+Nous conduisons donc une étude contrôlée avec des participants afin de
+comparer deux approches de développement :
+
+\begin{itemize}
+    \item \textbf{Condition GEAR :} le participant spécifie le système
+    dans GEAR, valide sa configuration, puis génère les implémentations
+    correspondant aux frameworks cibles ;
+
+    \item \textbf{Condition native :} le participant développe
+    directement le système en utilisant les abstractions, l'API et les
+    mécanismes d'orchestration du framework cible.
+\end{itemize}
+
+L'étude examine quatre dimensions complémentaires : l'efficacité,
+l'efficience, la maintenance et la portabilité, ainsi que l'expérience
+utilisateur.
+
+
+\subsection{Questions de recherche}
+\label{subsec:questions-recherche-participants}
+
+L'étude est guidée par les questions de recherche suivantes.
+
+\begin{quote}
+\textbf{RQ1 :} Dans quelle mesure GEAR aide-t-il les développeurs à
+produire des systèmes multi-agents corrects ?
+\end{quote}
+
+Cette question porte sur l'efficacité de GEAR. Elle étudie la capacité
+des participants à produire des systèmes qui respectent les exigences
+et réussissent les tests fonctionnels.
+
+\begin{quote}
+\textbf{RQ2 :} Dans quelle mesure GEAR réduit-il l'effort nécessaire
+pour développer un système multi-agent ?
+\end{quote}
+
+Cette question porte sur l'efficience du processus de développement.
+Elle prend notamment en compte le temps, le nombre de modifications et
+les tentatives nécessaires pour obtenir une solution correcte.
+
+\begin{quote}
+\textbf{RQ3 :} Dans quelle mesure GEAR facilite-t-il la modification et
+la migration des systèmes multi-agents entre différents frameworks ?
+\end{quote}
+
+Cette question évalue le principal objectif de portabilité de GEAR. Elle
+mesure l'effort nécessaire pour faire évoluer un système existant et
+pour le migrer vers un autre framework.
+
+\begin{quote}
+\textbf{RQ4 :} Comment les développeurs perçoivent-ils l'utilisabilité,
+la charge de travail et l'utilité de GEAR ?
+\end{quote}
+
+Cette question étudie l'expérience des participants, leur confiance
+dans les artefacts générés, ainsi que les avantages et limites perçus
+de GEAR.
+
+
+\subsection{Hypothèses}
+\label{subsec:hypotheses-participants}
+
+À partir des objectifs de GEAR, nous formulons les hypothèses suivantes :
+
+\begin{description}
+    \item[\textbf{H1 :}]
+    les participants utilisant GEAR produisent davantage de systèmes
+    corrects que ceux utilisant directement les frameworks natifs ;
+
+    \item[\textbf{H2 :}]
+    les participants utilisant GEAR terminent les tâches de
+    développement plus rapidement ;
+
+    \item[\textbf{H3 :}]
+    GEAR réduit le nombre d'erreurs et de tentatives nécessaires pour
+    obtenir une solution correcte ;
+
+    \item[\textbf{H4 :}]
+    GEAR réduit l'effort nécessaire pour modifier un système
+    multi-agent existant ;
+
+    \item[\textbf{H5 :}]
+    GEAR réduit l'effort nécessaire pour migrer un système multi-agent
+    vers un autre framework ;
+
+    \item[\textbf{H6 :}]
+    les participants utilisant GEAR rapportent une utilisabilité plus
+    élevée et une charge de travail plus faible.
+\end{description}
+
+
+\subsection{Plan expérimental}
+\label{subsec:plan-experimental}
+
+Nous adoptons un plan expérimental intra-sujets. Chaque participant
+réalise une série de tâches avec GEAR et une autre série de tâches avec
+les frameworks natifs. Cette approche permet de comparer les deux
+conditions chez un même participant et de limiter l'influence des
+différences individuelles.
+
+L'ordre des conditions est contrebalancé afin de limiter les effets
+d'apprentissage et de fatigue. Deux ensembles de tâches, notés $A$ et
+$B$, sont utilisés. Ils portent sur des domaines différents, mais
+présentent une complexité équivalente en matière de nombre d'agents,
+de dépendances et de structures d'orchestration.
+
+Une répartition simplifiée des participants est présentée dans le
+Tableau~\ref{tab:contrebalancement}.
+
+\begin{table}[t]
+    \centering
+    \caption{Contrebalancement des conditions expérimentales.}
+    \label{tab:contrebalancement}
+    \small
+    \begin{tabularx}{\columnwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Groupe}
+        & \textbf{Première condition}
+        & \textbf{Deuxième condition} \\
+        \midrule
+        Groupe 1
+            & GEAR, tâche A
+            & Native, tâche B \\
+        Groupe 2
+            & Native, tâche A
+            & GEAR, tâche B \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+L'affectation des participants aux groupes est réalisée aléatoirement
+tout en maintenant des groupes de tailles comparables. La direction de
+migration entre les frameworks est également équilibrée entre les
+participants.
+
+
+\subsection{Frameworks utilisés}
+\label{subsec:frameworks-experience}
+
+Il n'est pas réaliste de demander aux participants de manipuler les dix
+frameworks pris en charge par GEAR. Nous sélectionnons donc deux
+frameworks représentant des paradigmes suffisamment différents :
+
+\begin{itemize}
+    \item \textbf{CrewAI}, qui organise principalement les systèmes
+    autour des rôles, des agents et des tâches ;
+
+    \item \textbf{LangGraph}, qui représente les workflows sous la
+    forme de graphes avec gestion d'un état.
+\end{itemize}
+
+Ces deux frameworks permettent d'évaluer la capacité de GEAR à masquer
+les différences entre une approche orientée rôles et tâches et une
+approche orientée graphes.
+
+Le choix de deux frameworks ne vise pas à réévaluer la couverture
+technique de GEAR, celle-ci étant étudiée séparément sur les dix
+connecteurs. Il vise à mesurer le bénéfice humain apporté par
+l'abstraction indépendante des frameworks.
+
+
+\subsection{Tâches expérimentales}
+\label{subsec:taches-experimentales}
+
+Chaque condition comporte trois types de tâches : construction,
+modification et migration.
+
+
+\subsubsection{Tâche de construction}
+
+Le participant doit construire un système multi-agent séquentiel
+comportant plusieurs agents :
+
+\begin{equation}
+A \rightarrow B \rightarrow C.
+\end{equation}
+
+Cette tâche nécessite notamment de :
+
+\begin{itemize}
+    \item définir les agents et leurs responsabilités ;
+    \item définir les tâches associées ;
+    \item configurer les modèles et les paramètres nécessaires ;
+    \item définir les dépendances ;
+    \item produire une implémentation exécutable.
+\end{itemize}
+
+Cette tâche mesure la facilité de prise en main, la compréhension des
+concepts et la capacité à construire un premier système fonctionnel.
+
+
+\subsubsection{Tâche de modification}
+
+Le participant reçoit ensuite une nouvelle exigence. Le système initial
+doit évoluer vers une architecture comprenant une exécution parallèle
+et une synchronisation :
+
+\begin{equation}
+A \rightarrow (B \parallel C) \rightarrow D.
+\end{equation}
+
+Le participant doit :
+
+\begin{itemize}
+    \item ajouter un nouvel agent ;
+    \item introduire une exécution parallèle ;
+    \item configurer une synchronisation fan-in ;
+    \item préserver la transmission des résultats ;
+    \item maintenir le comportement déjà validé.
+\end{itemize}
+
+Cette tâche mesure l'effort de maintenance et la capacité à faire
+évoluer un système existant.
+
+
+\subsubsection{Tâche de migration}
+
+Enfin, le participant doit migrer le système obtenu vers un second
+framework.
+
+Dans la condition native, il doit adapter ou réécrire l'implémentation
+en utilisant les abstractions du nouveau framework. Dans la condition
+GEAR, il conserve la spécification indépendante du framework et
+sélectionne une nouvelle cible de génération.
+
+Cette tâche mesure directement la portabilité offerte par GEAR. Elle
+constitue la tâche principale pour répondre à RQ3.
+
+
+\subsection{Équivalence des tâches}
+\label{subsec:equivalence-taches}
+
+Les ensembles de tâches $A$ et $B$ utilisent des scénarios fonctionnels
+différents afin d'éviter que les participants reproduisent directement
+une solution déjà construite. Ils conservent cependant :
+
+\begin{itemize}
+    \item le même nombre d'agents ;
+    \item le même nombre de tâches ;
+    \item le même nombre de dépendances ;
+    \item les mêmes structures séquentielles et parallèles ;
+    \item le même nombre de modifications ;
+    \item des critères de réussite comparables.
+\end{itemize}
+
+L'équivalence des tâches est vérifiée au cours d'une étude pilote.
+
+
+\subsection{Participants}
+\label{subsec:participants}
+
+L'étude cible des participants possédant des connaissances de base en
+programmation Python et une compréhension générale des \gls{llm} et des
+agents logiciels. Les participants peuvent être :
+
+\begin{itemize}
+    \item des doctorants ;
+    \item des chercheurs ;
+    \item des ingénieurs de recherche ;
+    \item des développeurs ;
+    \item des praticiens travaillant sur des systèmes agentiques.
+\end{itemize}
+
+Avant l'expérience, nous collectons les informations suivantes :
+
+\begin{itemize}
+    \item expérience générale en programmation ;
+    \item expérience en Python ;
+    \item connaissance des \gls{llm} ;
+    \item expérience avec les systèmes multi-agents ;
+    \item expérience avec CrewAI ;
+    \item expérience avec LangGraph ;
+    \item expérience avec les outils de modélisation ;
+    \item expérience avec les lignes de produits logiciels.
+\end{itemize}
+
+Ces informations sont utilisées pour décrire l'échantillon et contrôler
+l'influence de l'expérience préalable sur les résultats.
+
+
+\subsubsection{Nombre de participants}
+
+Le nombre définitif de participants est déterminé au moyen d'une
+analyse de puissance statistique réalisée à partir des résultats de
+l'étude pilote.
+
+À titre indicatif, pour détecter un effet moyen dans une comparaison
+intra-sujets avec une puissance de $0{,}80$ et un seuil
+$\alpha=0{,}05$, nous visons environ 34 participants disposant de
+données exploitables. Nous pouvons ainsi recruter entre 38 et 40
+participants afin d'anticiper les abandons, les problèmes techniques et
+les données incomplètes.
+
+Si ce nombre ne peut pas être atteint, les résultats devront être
+présentés comme exploratoires et accompagnés d'intervalles de confiance
+et de tailles d'effet.
+
+
+\subsection{Déroulement de l'expérience}
+\label{subsec:deroulement-experience}
+
+Une session expérimentale dure approximativement entre 90 et
+120 minutes. Son déroulement est présenté dans le
+Tableau~\ref{tab:deroulement-session}.
+
+\begin{table}[t]
+    \centering
+    \caption{Déroulement indicatif d'une session expérimentale.}
+    \label{tab:deroulement-session}
+    \begin{tabular}{@{}lr@{}}
+        \toprule
+        \textbf{Phase} & \textbf{Durée} \\
+        \midrule
+        Information et consentement
+            & 5 min \\
+        Questionnaire démographique
+            & 5 min \\
+        Tutoriel GEAR
+            & 15 min \\
+        Présentation de l'environnement
+            & 10 min \\
+        Première condition
+            & 20--25 min \\
+        Questionnaire intermédiaire
+            & 5 min \\
+        Pause
+            & 5 min \\
+        Deuxième condition
+            & 20--25 min \\
+        Questionnaire final
+            & 10 min \\
+        Entretien semi-directif
+            & 10--15 min \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Le temps consacré au tutoriel n'est pas inclus dans le temps de
+réalisation des tâches expérimentales. Chaque participant reçoit les
+mêmes explications, exemples et ressources.
+
+
+\subsection{Variables et mesures}
+\label{subsec:variables-mesures}
+
+La variable indépendante principale est la méthode de développement :
+
+\begin{equation}
+\text{Condition}
+\in
+\{\text{GEAR},\text{Native}\}.
+\end{equation}
+
+Les principales variables dépendantes sont présentées dans le
+Tableau~\ref{tab:mesures-participants}.
+
+\begin{table*}[t]
+    \centering
+    \caption{Mesures utilisées dans l'étude avec participants.}
+    \label{tab:mesures-participants}
+    \begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Dimension}
+        & \textbf{Mesures objectives}
+        & \textbf{Mesures subjectives} \\
+        \midrule
+        Efficacité
+            & Tâches terminées, tests réussis, erreurs fonctionnelles,
+              conformité du workflow
+            & Confiance dans la solution produite \\
+        Efficience
+            & Temps, nombre de tentatives, nombre de modifications,
+              consultations de la documentation
+            & Effort perçu \\
+        Maintenance
+            & Temps de modification, fichiers modifiés, régressions,
+              erreurs introduites
+            & Facilité de modification perçue \\
+        Portabilité
+            & Temps de migration, quantité de code modifié, erreurs de
+              migration, tests réussis après migration
+            & Facilité de migration perçue \\
+        Expérience utilisateur
+            & --- 
+            & SUS, NASA-TLX, utilité perçue et intention de
+              réutilisation \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+
+\subsubsection{Taux de réussite}
+
+Le taux de réussite pour la condition $c$ est défini par :
+
+\begin{equation}
+R_{\text{succès}}(c)
+=
+\frac{
+    n_{\text{tâches terminées},c}
+}{
+    n_{\text{tâches assignées},c}
+}.
+\end{equation}
+
+
+\subsubsection{Correction fonctionnelle}
+
+Soit $n_{\mathrm{tests}}$ le nombre total de tests associés à une tâche
+et $n_{\text{tests réussis}}$ le nombre de tests réussis par la
+solution du participant. La correction fonctionnelle est définie par :
+
+\begin{equation}
+C_{\mathrm{fonctionnelle}}
+=
+\frac{
+    n_{\text{tests réussis}}
+}{
+    n_{\mathrm{tests}}
+}.
+\end{equation}
+
+
+\subsubsection{Temps de réalisation}
+
+Le temps de réalisation correspond au temps écoulé entre le début de la
+tâche et :
+
+\begin{itemize}
+    \item la validation complète de la solution ;
+    \item l'abandon de la tâche ;
+    \item l'expiration du temps maximal autorisé.
+\end{itemize}
+
+Les tâches non terminées sont conservées dans l'analyse et identifiées
+comme des observations censurées ou des échecs, selon l'analyse
+statistique retenue.
+
+
+\subsubsection{Effort de modification}
+
+L'effort de modification est caractérisé par :
+
+\begin{itemize}
+    \item le temps nécessaire pour satisfaire la nouvelle exigence ;
+    \item le nombre de fichiers modifiés ;
+    \item le nombre de lignes ajoutées, supprimées ou modifiées ;
+    \item le nombre de tentatives avant la réussite ;
+    \item le nombre de tests précédemment valides qui échouent après
+    la modification.
+\end{itemize}
+
+
+\subsubsection{Effort de migration}
+
+L'effort de migration est caractérisé par :
+
+\begin{itemize}
+    \item le temps nécessaire pour obtenir une implémentation
+    fonctionnelle dans le second framework ;
+    \item le nombre de fichiers et de lignes modifiés ;
+    \item le nombre d'erreurs rencontrées ;
+    \item le nombre de consultations de la documentation ;
+    \item la proportion de tests réussis après la migration.
+\end{itemize}
+
+
+\subsection{Questionnaires}
+\label{subsec:questionnaires}
+
+L'utilisabilité de GEAR est évaluée avec le \emph{System Usability
+Scale} (SUS)~\cite{brooke1996sus}. La charge de travail perçue après
+chaque condition est évaluée avec le questionnaire
+NASA-TLX~\cite{hart1988nasa}.
+
+Afin de limiter la durée de l'expérience, ces questionnaires sont
+complétés par un nombre restreint de questions portant spécifiquement
+sur GEAR :
+
+\begin{itemize}
+    \item GEAR a-t-il facilité la compréhension de la structure du
+    système ?
+    \item Les diagnostics ont-ils aidé à identifier et corriger les
+    erreurs ?
+    \item La génération de code a-t-elle semblé prévisible ?
+    \item Le participant ferait-il confiance au code généré ?
+    \item GEAR a-t-il facilité la modification du système ?
+    \item GEAR a-t-il facilité la migration vers un autre framework ?
+    \item Le participant envisagerait-il d'utiliser GEAR dans un projet
+    réel ?
+\end{itemize}
+
+
+\subsection{Entretien semi-directif}
+\label{subsec:entretien-participants}
+
+À la fin de la session, un entretien semi-directif est réalisé afin de
+mieux comprendre les résultats quantitatifs. Les questions portent
+notamment sur :
+
+\begin{itemize}
+    \item les difficultés rencontrées dans chaque condition ;
+    \item les fonctionnalités de GEAR les plus utiles ;
+    \item les fonctionnalités manquantes ;
+    \item la compréhension du lien entre la spécification et le code
+    généré ;
+    \item la confiance dans les artefacts générés ;
+    \item les contextes dans lesquels le participant utiliserait GEAR ;
+    \item les limites perçues de l'approche.
+\end{itemize}
+
+
+\subsection{Environnement expérimental}
+\label{subsec:environnement-experimental}
+
+Tous les participants utilisent un environnement standardisé contenant :
+
+\begin{itemize}
+    \item les mêmes versions de Python et des frameworks ;
+    \item les mêmes versions de GEAR ;
+    \item les mêmes dépendances ;
+    \item les mêmes modèles de départ ;
+    \item les mêmes ressources documentaires ;
+    \item les mêmes tests automatiques ;
+    \item les mêmes limites de temps.
+\end{itemize}
+
+L'environnement peut être distribué sous la forme d'un conteneur afin
+de réduire les différences de configuration entre les participants.
+
+La correction des solutions est évaluée automatiquement à l'aide des
+mêmes tests pour l'ensemble des participants. Les identifiants des
+participants sont anonymisés avant l'analyse.
+
+
+\subsection{Utilisation des outils externes}
+\label{subsec:outils-externes}
+
+L'utilisation d'outils externes doit être identique dans les deux
+conditions. Deux stratégies sont possibles :
+
+\begin{enumerate}
+    \item fournir une documentation locale commune et interdire les
+    assistants de programmation afin de maximiser le contrôle
+    expérimental ;
+
+    \item autoriser la documentation en ligne et les assistants de
+    programmation afin de se rapprocher des pratiques réelles, tout en
+    enregistrant précisément leur utilisation.
+\end{enumerate}
+
+Pour une première étude contrôlée, nous privilégions la première
+stratégie. Les participants disposent d'une documentation équivalente
+pour GEAR, CrewAI et LangGraph, mais ne peuvent pas utiliser
+d'assistant génératif pendant les tâches.
+
+
+\subsection{Contrôle des biais}
+\label{subsec:controle-biais}
+
+Plusieurs mécanismes sont utilisés pour limiter les biais.
+
+
+\subsubsection{Expérience préalable}
+
+L'expérience des participants avec Python, GEAR, CrewAI et LangGraph est
+mesurée avant l'étude et intégrée comme variable de contrôle dans les
+analyses.
+
+
+\subsubsection{Effet d'apprentissage}
+
+L'ordre des conditions est contrebalancé et les participants utilisent
+des tâches différentes mais équivalentes dans les deux conditions.
+
+
+\subsubsection{Effet de fatigue}
+
+Une pause est proposée entre les deux conditions et l'ordre des
+conditions est réparti entre les participants.
+
+
+\subsubsection{Biais d'évaluation}
+
+La correction des solutions est principalement évaluée par des tests
+automatiques. Les évaluateurs ne connaissent pas l'identité des
+participants lors de l'analyse des solutions.
+
+
+\subsubsection{Biais lié aux tâches}
+
+L'équivalence des tâches est vérifiée au cours du pilote à partir du
+temps de réalisation, du nombre d'erreurs et des retours des
+participants.
+
+
+\subsection{Étude pilote}
+\label{subsec:etude-pilote}
+
+Avant l'étude principale, nous réalisons une étude pilote avec quatre à
+six participants. Le pilote vise à vérifier :
+
+\begin{itemize}
+    \item la clarté des consignes ;
+    \item la durée des différentes phases ;
+    \item l'équivalence des ensembles de tâches ;
+    \item le fonctionnement des environnements ;
+    \item la fiabilité des tests automatiques ;
+    \item la collecte des temps, événements et erreurs ;
+    \item la compréhension de GEAR par les participants ;
+    \item la pertinence des questionnaires.
+\end{itemize}
+
+Si les tâches ou le protocole sont modifiés de manière substantielle
+après le pilote, les données des participants du pilote ne sont pas
+intégrées à l'analyse principale.
+
+
+\subsection{Analyse quantitative}
+\label{subsec:analyse-quantitative}
+
+Nous rapportons, pour chaque mesure, les statistiques descriptives, les
+tailles d'effet et les intervalles de confiance à 95\,\%.
+
+Dans la mesure où chaque participant réalise plusieurs tâches, nous
+privilégions des modèles à effets mixtes. Pour une mesure continue telle
+que le temps, le modèle peut être formulé de la manière suivante :
+
+\begin{equation}
+\begin{aligned}
+Y \sim {} & \text{Condition} + \text{Ordre} + \text{Expérience} \\
+           & + (1 \mid \text{Participant})
+             + (1 \mid \text{Tâche}).
+\end{aligned}
+\end{equation}
+
+La condition expérimentale est considérée comme un effet fixe, tandis
+que le participant et la tâche sont considérés comme des effets
+aléatoires.
+
+Pour les résultats binaires, tels que la réussite ou l'échec d'une
+tâche, nous utilisons un modèle linéaire généralisé à effets mixtes avec
+une fonction de lien logistique.
+
+Pour les variables de comptage, telles que le nombre d'erreurs, nous
+utilisons un modèle de Poisson ou un modèle binomial négatif selon la
+dispersion observée.
+
+Lorsque des analyses appariées plus simples sont appropriées, nous
+utilisons :
+
+\begin{itemize}
+    \item un test de Student apparié si les hypothèses paramétriques
+    sont satisfaites ;
+    \item un test de Wilcoxon apparié dans le cas contraire.
+\end{itemize}
+
+Les comparaisons multiples sont corrigées, par exemple avec la méthode
+de Holm. Les résultats ne sont pas interprétés uniquement à partir des
+valeurs $p$ : les tailles d'effet et leurs intervalles de confiance sont
+également rapportés.
+
+
+\subsection{Analyse qualitative}
+\label{subsec:analyse-qualitative}
+
+Les entretiens sont analysés au moyen d'une analyse thématique. Le
+processus comprend :
+
+\begin{enumerate}
+    \item la transcription et l'anonymisation des entretiens ;
+    \item une première lecture des données ;
+    \item l'identification de codes initiaux ;
+    \item le regroupement des codes en thèmes ;
+    \item la comparaison des thèmes avec les résultats quantitatifs ;
+    \item la sélection de verbatims représentatifs.
+\end{enumerate}
+
+Afin de renforcer la fiabilité de l'analyse, une partie des entretiens
+est codée indépendamment par au moins deux chercheurs. Les divergences
+sont ensuite discutées afin d'aboutir à une interprétation commune.
+
+
+\subsection{Considérations éthiques et protection des données}
+\label{subsec:ethique-participants}
+
+Avant la collecte des données, le protocole est soumis à la procédure
+éthique applicable dans l'établissement des chercheurs. Chaque
+participant reçoit une fiche d'information précisant :
+
+\begin{itemize}
+    \item les objectifs de l'étude ;
+    \item le déroulement et la durée de la session ;
+    \item les données collectées ;
+    \item les éventuels enregistrements d'écran ou audio ;
+    \item la méthode d'anonymisation ;
+    \item la durée de conservation des données ;
+    \item les conditions de retrait de l'étude.
+\end{itemize}
+
+Le consentement libre et éclairé des participants est recueilli avant
+le début de l'expérience. Les données sont anonymisées et traitées
+conformément aux exigences applicables en matière de protection des
+données, notamment le RGPD.
+
+
+\subsection{Prérégistration et matériel de réplication}
+\label{subsec:preregistration-replication}
+
+Avant l'étude principale, nous préenregistrons, lorsque cela est
+possible :
+
+\begin{itemize}
+    \item les questions de recherche ;
+    \item les hypothèses ;
+    \item le plan expérimental ;
+    \item les variables étudiées ;
+    \item les critères d'exclusion ;
+    \item le nombre de participants visé ;
+    \item les méthodes d'analyse statistique.
+\end{itemize}
+
+Le matériel de réplication comprend :
+
+\begin{itemize}
+    \item les consignes fournies aux participants ;
+    \item les tâches expérimentales ;
+    \item les tutoriels ;
+    \item les questionnaires ;
+    \item les environnements d'exécution ;
+    \item les tests automatiques ;
+    \item les scripts d'analyse ;
+    \item les données anonymisées pouvant être rendues publiques.
+\end{itemize}
+
+
+\subsection{Complémentarité avec l'évaluation technique}
+\label{subsec:complementarite-evaluations}
+
+L'évaluation technique et l'étude avec participants examinent des
+aspects différents de GEAR. Leur complémentarité est présentée dans le
+Tableau~\ref{tab:complementarite-publications}.
+
+\begin{table*}[t]
+    \centering
+    \caption{Complémentarité entre le tool track et l'étude destinée à
+    l'article de journal.}
+    \label{tab:complementarite-publications}
+    \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        \textbf{Évaluation technique du tool track}
+        & \textbf{Étude avec participants du journal} \\
+        \midrule
+        Couverture des fonctionnalités
+            & Capacité des utilisateurs à construire les systèmes \\
+        Validité du code généré
+            & Temps et effort de développement \\
+        Fidélité des traces d'exécution
+            & Compréhension et confiance des utilisateurs \\
+        Validation des dix connecteurs
+            & Modification et maintenance des systèmes \\
+        Tests techniques reproductibles
+            & Migration entre frameworks \\
+        Évaluation automatisée
+            & Évaluation contrôlée et entretiens \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+Ainsi, le tool track démontre que GEAR est techniquement capable de
+générer des systèmes corrects pour plusieurs frameworks, tandis que
+l'étude avec participants détermine si cette capacité apporte un
+bénéfice concret aux développeurs en matière de productivité, de
+maintenance, de portabilité et d'expérience utilisateur.

@@ -1,0 +1,9 @@
+base,diagnostic_match,duration_ms,errors,expected_fragment,fault_class,mutation,operator,rejected
+sequential,True,1.332,"[""Duplicate agent name: Researcher."", ""workflow node write references unknown agent 'Writer'.""]",Duplicate agent name,uniqueness,duplicate-agent-name,duplicate_agent_name,True
+minimal,True,0.495,"[""agents[0].LLMConfiguration: 'Model' is a required property""]",Model,schema-required-property,missing-model,remove_model,True
+parallel,True,1.04,"[""Module 'ResearchTeam' references unknown agent 'MissingAgent'.""]",references unknown agent,referential-integrity,unknown-module-agent,unknown_module_agent,True
+loop,True,1.079,"[""modules[0].Strategy.Loop.TurnCount: 0 is less than the minimum of 1""]",minimum of 1,schema-boundary,invalid-loop-count,invalid_loop_count,True
+sequential,True,1.12,"[""Duplicate workflow node id: research."", ""workflow.edges[0].to references unknown node 'write'."", ""workflow.edges[1].from references unknown node 'write'.""]",Duplicate workflow node id,uniqueness,duplicate-workflow-node,duplicate_workflow_node,True
+minimal,True,0.448,"[""workflow node example references unknown agent 'MissingAgent'.""]",references unknown agent,referential-integrity,unknown-workflow-reference,unknown_workflow_reference,True
+sequential,True,1.11,"[""workflow.edges[0].to references unknown node 'missing-node'.""]",references unknown node,referential-integrity,unknown-edge-target,unknown_edge_target,True
+sequential,True,1.166,"[""workflow contains a cycle; use an explicit Loop module for repetition.""]",workflow contains a cycle,graph-cycle,workflow-cycle,workflow_cycle,True
