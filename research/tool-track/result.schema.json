@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gear-framework.dev/research/tool-track/result.schema.json",
+  "title": "GEAR tool-track raw benchmark result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_version",
+    "protocol_version",
+    "profile",
+    "environment",
+    "configuration",
+    "coverage",
+    "robustness",
+    "scalability"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "benchmark_version": {"type": "string"},
+    "protocol_version": {"type": "string"},
+    "seed": {"type": "integer"},
+    "profile": {"enum": ["quick", "full"]},
+    "environment": {"type": "object"},
+    "configuration": {"type": "object"},
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario",
+          "target",
+          "oracle_match",
+          "conversion_success",
+          "python_parse_success",
+          "mapping_counts",
+          "diagnostics"
+        ]
+      }
+    },
+    "robustness": {
+      "type": "object",
+      "required": ["clean", "mutations"],
+      "properties": {
+        "clean": {"type": "array"},
+        "mutations": {"type": "array"}
+      }
+    },
+    "scalability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["operation", "size", "repetition", "success", "duration_ms"]
+      }
+    }
+  }
+}

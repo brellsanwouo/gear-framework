@@ -1,0 +1,88 @@
+features
+	GearMultiAgent {abstract}
+		mandatory
+			WorkflowName {abstract}
+			Items {abstract}
+				alternative
+					GearAgent {abstract}
+							mandatory
+								AgentIdentity {abstract}
+									mandatory
+										Name {abstract}
+										Purpose {abstract}
+										ContextDescription {abstract}					
+								LLMConfiguration {abstract}
+									mandatory
+										Provider {abstract}
+											alternative
+												openai
+												ollama
+												OtherProvider {abstract}
+										Model {abstract}
+											alternative
+												gpt_5_1_codex_mini
+												OtherModel {abstract}
+									optional
+										APIKey {abstract}
+										BaseURL {abstract}
+										Timeout {abstract}
+										MaxRetries {abstract}
+										ModelParameters {abstract}
+											optional
+												Temperature {abstract}
+												MaxTokens {abstract}
+												TopP {abstract}
+												StopSequences {abstract}
+												AdditionalParams {abstract}
+												TopK {abstract}
+												FrequencyPenalty {abstract}
+												PresencePenalty {abstract}
+												Seed {abstract}
+								TaskSpecification {abstract}
+									mandatory
+										TaskName {abstract}
+										TaskDescription {abstract}
+										ExpectedOutput {abstract}
+							optional
+								Tools {abstract}
+								Agent_Memory {abstract}
+								Reasoning {abstract}
+								ExecutionControl {abstract}
+										optional
+											DelegationControl {abstract}
+											CodeExecutionControl {abstract}
+											AsyncExecutionControl {abstract}
+											HumanInteractionControl {abstract}
+											VerbosityControl {abstract}
+											CachingControl {abstract}
+					GearModule {abstract}
+							mandatory
+								ModuleName {abstract}
+								Strategy {abstract}
+									alternative
+										Parallel {abstract}
+											mandatory
+												ParallelAgents {abstract}
+											optional
+												Aggregator {abstract}
+										Loop {abstract}
+											mandatory
+												TurnCount {abstract}
+												LoopAgents {abstract}
+											optional
+												StopCondition {abstract}
+		optional
+			Workflow_Memory {abstract}
+
+
+
+constraints
+	openai => gpt_5_1_codex_mini
+	openai => APIKey
+	ollama => BaseURL
+	ollama => OtherModel
+	ollama => !APIKey
+	APIKey => openai | OtherProvider
+	BaseURL => ollama | OtherProvider
+	ModelParameters => (Temperature | MaxTokens | TopP | StopSequences | AdditionalParams | TopK | FrequencyPenalty | PresencePenalty | Seed)
+	ExecutionControl => (DelegationControl | CodeExecutionControl | AsyncExecutionControl | HumanInteractionControl | VerbosityControl | CachingControl)

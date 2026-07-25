@@ -1,0 +1,388 @@
+blueprint_version: "1.0.0"
+blueprints:
+  pair-review:
+    name: Pair review workflow
+    agents: [Analyst, Reviewer]
+    modules: []
+    workflow:
+      name: PairReviewWorkflow
+      memory: false
+      nodes:
+        - {id: analysis, ref: Analyst, type: agent}
+        - {id: review, ref: Reviewer, type: agent}
+      edges:
+        - {from: analysis, to: review}
+
+  triage-four:
+    name: Four-stage request triage
+    agents: [Intake, Classifier, Resolver, QualityReviewer]
+    modules: []
+    workflow:
+      name: TriageWorkflow
+      memory: false
+      nodes:
+        - {id: intake, ref: Intake, type: agent}
+        - {id: classify, ref: Classifier, type: agent}
+        - {id: resolve, ref: Resolver, type: agent}
+        - {id: review, ref: QualityReviewer, type: agent}
+      edges:
+        - {from: intake, to: classify}
+        - {from: classify, to: resolve}
+        - {from: resolve, to: review}
+
+  editorial-five:
+    name: Five-stage editorial pipeline
+    agents: [Planner, Researcher, Analyst, Writer, Reviewer]
+    modules: []
+    workflow:
+      name: EditorialWorkflow
+      memory: false
+      nodes:
+        - {id: plan, ref: Planner, type: agent}
+        - {id: research, ref: Researcher, type: agent}
+        - {id: analyze, ref: Analyst, type: agent}
+        - {id: write, ref: Writer, type: agent}
+        - {id: review, ref: Reviewer, type: agent}
+      edges:
+        - {from: plan, to: research}
+        - {from: research, to: analyze}
+        - {from: analyze, to: write}
+        - {from: write, to: review}
+
+  delivery-six:
+    name: Six-stage delivery pipeline
+    agents: [Intake, Planner, Researcher, Analyst, Writer, Reviewer]
+    modules: []
+    workflow:
+      name: DeliveryWorkflow
+      memory: false
+      nodes:
+        - {id: intake, ref: Intake, type: agent}
+        - {id: plan, ref: Planner, type: agent}
+        - {id: research, ref: Researcher, type: agent}
+        - {id: analyze, ref: Analyst, type: agent}
+        - {id: write, ref: Writer, type: agent}
+        - {id: review, ref: Reviewer, type: agent}
+      edges:
+        - {from: intake, to: plan}
+        - {from: plan, to: research}
+        - {from: research, to: analyze}
+        - {from: analyze, to: write}
+        - {from: write, to: review}
+
+  two-stage-assessment:
+    name: Two-stage parallel assessment
+    agents:
+      [Planner, MarketResearcher, TechnicalResearcher, ResearchSynthesizer,
+       RiskAnalyst, FeasibilityAnalyst, DecisionEditor, Publisher]
+    modules:
+      - ModuleName: ResearchCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [MarketResearcher, TechnicalResearcher]
+            Aggregator: ResearchSynthesizer
+      - ModuleName: AssessmentCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [RiskAnalyst, FeasibilityAnalyst]
+            Aggregator: DecisionEditor
+    workflow:
+      name: AssessmentWorkflow
+      memory: false
+      nodes:
+        - {id: plan, ref: Planner, type: agent}
+        - {id: research, ref: ResearchCell, type: module}
+        - {id: assess, ref: AssessmentCell, type: module}
+        - {id: publish, ref: Publisher, type: agent}
+      edges:
+        - {from: plan, to: research}
+        - {from: research, to: assess}
+        - {from: assess, to: publish}
+
+  loop-parallel-review:
+    name: Iterative drafting and parallel review
+    agents:
+      [Intake, Drafter, Critic, FactChecker, SecurityReviewer, SynthesisEditor,
+       Approver, Formatter, Publisher]
+    modules:
+      - ModuleName: DraftLoop
+        Strategy:
+          Loop:
+            LoopAgents: [Drafter, Critic]
+            TurnCount: 2
+            StopCondition: The draft is approved for independent review.
+      - ModuleName: ReviewCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [FactChecker, SecurityReviewer]
+            Aggregator: SynthesisEditor
+    workflow:
+      name: LoopParallelReviewWorkflow
+      memory: true
+      nodes:
+        - {id: intake, ref: Intake, type: agent}
+        - {id: draft, ref: DraftLoop, type: module}
+        - {id: review, ref: ReviewCell, type: module}
+        - {id: approve, ref: Approver, type: agent}
+        - {id: format, ref: Formatter, type: agent}
+        - {id: publish, ref: Publisher, type: agent}
+      edges:
+        - {from: intake, to: draft}
+        - {from: draft, to: review}
+        - {from: review, to: approve}
+        - {from: approve, to: format}
+        - {from: format, to: publish}
+
+  incident-response-10:
+    name: Ten-agent incident response
+    agents:
+      [Intake, LogCollector, MetricCollector, TopologyMapper, EvidenceSynthesizer,
+       RootCauseAnalyst, ImpactAnalyst, IncidentCommander, MitigationPlanner, Reporter]
+    modules:
+      - ModuleName: EvidenceCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [LogCollector, MetricCollector, TopologyMapper]
+            Aggregator: EvidenceSynthesizer
+      - ModuleName: AnalysisCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [RootCauseAnalyst, ImpactAnalyst]
+            Aggregator: IncidentCommander
+    workflow:
+      name: IncidentResponseWorkflow
+      memory: true
+      nodes:
+        - {id: intake, ref: Intake, type: agent}
+        - {id: evidence, ref: EvidenceCell, type: module}
+        - {id: analysis, ref: AnalysisCell, type: module}
+        - {id: mitigate, ref: MitigationPlanner, type: agent}
+        - {id: report, ref: Reporter, type: agent}
+      edges:
+        - {from: intake, to: evidence}
+        - {from: evidence, to: analysis}
+        - {from: analysis, to: mitigate}
+        - {from: mitigate, to: report}
+
+  compliance-audit-12:
+    name: Twelve-agent compliance audit
+    agents:
+      [ScopeLead, PolicyReader, ControlMapper, EvidenceCollector, AccessAuditor,
+       DataAuditor, VendorAuditor, FindingsSynthesizer, RiskScorer,
+       RemediationPlanner, LegalReviewer, ReportPublisher]
+    modules:
+      - ModuleName: AuditCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [AccessAuditor, DataAuditor, VendorAuditor]
+            Aggregator: FindingsSynthesizer
+      - ModuleName: RemediationLoop
+        Strategy:
+          Loop:
+            LoopAgents: [RiskScorer, RemediationPlanner]
+            TurnCount: 2
+            StopCondition: The remediation plan covers all material findings.
+    workflow:
+      name: ComplianceAuditWorkflow
+      memory: true
+      nodes:
+        - {id: scope, ref: ScopeLead, type: agent}
+        - {id: policy, ref: PolicyReader, type: agent}
+        - {id: controls, ref: ControlMapper, type: agent}
+        - {id: evidence, ref: EvidenceCollector, type: agent}
+        - {id: audit, ref: AuditCell, type: module}
+        - {id: remediate, ref: RemediationLoop, type: module}
+        - {id: legal, ref: LegalReviewer, type: agent}
+        - {id: publish, ref: ReportPublisher, type: agent}
+      edges:
+        - {from: scope, to: policy}
+        - {from: policy, to: controls}
+        - {from: controls, to: evidence}
+        - {from: evidence, to: audit}
+        - {from: audit, to: remediate}
+        - {from: remediate, to: legal}
+        - {from: legal, to: publish}
+
+  product-launch-14:
+    name: Fourteen-agent product launch
+    agents:
+      [BriefOwner, MarketResearcher, CustomerResearcher, CompetitorAnalyst,
+       InsightLead, ProductPlanner, EngineeringReviewer, SecurityReviewer,
+       OperationsReviewer, ReadinessLead, PricingAnalyst, CampaignWriter,
+       ExecutiveReviewer, LaunchCoordinator]
+    modules:
+      - ModuleName: ResearchCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [MarketResearcher, CustomerResearcher, CompetitorAnalyst]
+            Aggregator: InsightLead
+      - ModuleName: ReadinessCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [EngineeringReviewer, SecurityReviewer, OperationsReviewer]
+            Aggregator: ReadinessLead
+    workflow:
+      name: ProductLaunchWorkflow
+      memory: false
+      nodes:
+        - {id: brief, ref: BriefOwner, type: agent}
+        - {id: research, ref: ResearchCell, type: module}
+        - {id: product, ref: ProductPlanner, type: agent}
+        - {id: readiness, ref: ReadinessCell, type: module}
+        - {id: pricing, ref: PricingAnalyst, type: agent}
+        - {id: campaign, ref: CampaignWriter, type: agent}
+        - {id: executive, ref: ExecutiveReviewer, type: agent}
+        - {id: launch, ref: LaunchCoordinator, type: agent}
+      edges:
+        - {from: brief, to: research}
+        - {from: research, to: product}
+        - {from: product, to: readiness}
+        - {from: readiness, to: pricing}
+        - {from: pricing, to: campaign}
+        - {from: campaign, to: executive}
+        - {from: executive, to: launch}
+
+  scientific-review-16:
+    name: Sixteen-agent scientific review
+    agents:
+      [QuestionFormulator, LiteratureSearcher, DatasetSearcher, MethodReviewer,
+       EvidenceSynthesizer, Statistician, ReproducibilityReviewer, EthicsReviewer,
+       AnalysisLead, ArgumentWriter, CitationChecker, FactChecker, ReviewEditor,
+       AdversarialReviewer, PrincipalInvestigator, Publisher]
+    modules:
+      - ModuleName: DiscoveryCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [LiteratureSearcher, DatasetSearcher, MethodReviewer]
+            Aggregator: EvidenceSynthesizer
+      - ModuleName: AnalysisCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [Statistician, ReproducibilityReviewer, EthicsReviewer]
+            Aggregator: AnalysisLead
+      - ModuleName: DraftLoop
+        Strategy:
+          Loop:
+            LoopAgents: [ArgumentWriter, AdversarialReviewer]
+            TurnCount: 2
+            StopCondition: The central argument survives adversarial review.
+      - ModuleName: QualityCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [CitationChecker, FactChecker]
+            Aggregator: ReviewEditor
+    workflow:
+      name: ScientificReviewWorkflow
+      memory: true
+      nodes:
+        - {id: question, ref: QuestionFormulator, type: agent}
+        - {id: discovery, ref: DiscoveryCell, type: module}
+        - {id: analysis, ref: AnalysisCell, type: module}
+        - {id: drafting, ref: DraftLoop, type: module}
+        - {id: quality, ref: QualityCell, type: module}
+        - {id: principal, ref: PrincipalInvestigator, type: agent}
+        - {id: publish, ref: Publisher, type: agent}
+      edges:
+        - {from: question, to: discovery}
+        - {from: discovery, to: analysis}
+        - {from: analysis, to: drafting}
+        - {from: drafting, to: quality}
+        - {from: quality, to: principal}
+        - {from: principal, to: publish}
+
+  software-delivery-18:
+    name: Eighteen-agent software delivery
+    agents:
+      [RequirementAnalyst, Architect, APIEngineer, DataEngineer, FrontendEngineer,
+       TestEngineer, SecurityEngineer, PerformanceEngineer, BuildEngineer,
+       IntegrationLead, CodeReviewer, QAReviewer, ReleasePlanner, OpsEngineer,
+       ObservabilityEngineer, DocumentationWriter, ProductOwner, ReleaseManager]
+    modules:
+      - ModuleName: ImplementationCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [APIEngineer, DataEngineer, FrontendEngineer]
+            Aggregator: IntegrationLead
+      - ModuleName: AssuranceCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [TestEngineer, SecurityEngineer, PerformanceEngineer]
+            Aggregator: QAReviewer
+      - ModuleName: ReleaseCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [OpsEngineer, ObservabilityEngineer, DocumentationWriter]
+            Aggregator: ReleaseManager
+    workflow:
+      name: SoftwareDeliveryWorkflow
+      memory: true
+      nodes:
+        - {id: requirements, ref: RequirementAnalyst, type: agent}
+        - {id: architecture, ref: Architect, type: agent}
+        - {id: implementation, ref: ImplementationCell, type: module}
+        - {id: code-review, ref: CodeReviewer, type: agent}
+        - {id: assurance, ref: AssuranceCell, type: module}
+        - {id: build, ref: BuildEngineer, type: agent}
+        - {id: release-plan, ref: ReleasePlanner, type: agent}
+        - {id: release, ref: ReleaseCell, type: module}
+        - {id: product, ref: ProductOwner, type: agent}
+      edges:
+        - {from: requirements, to: architecture}
+        - {from: architecture, to: implementation}
+        - {from: implementation, to: code-review}
+        - {from: code-review, to: assurance}
+        - {from: assurance, to: build}
+        - {from: build, to: release-plan}
+        - {from: release-plan, to: release}
+        - {from: release, to: product}
+
+  enterprise-analysis-20:
+    name: Twenty-agent enterprise analysis
+    agents:
+      [Intake, DomainResearcher, MarketResearcher, FinanceResearcher,
+       TechnicalResearcher, ResearchLead, ProcessAnalyst, DataAnalyst,
+       RiskAnalyst, SecurityAnalyst, AnalysisLead, SolutionArchitect,
+       CostPlanner, ChangePlanner, ImplementationPlanner, ProposalWriter,
+       LegalReviewer, QualityReviewer, ExecutiveSponsor, Publisher]
+    modules:
+      - ModuleName: ResearchCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [DomainResearcher, MarketResearcher, FinanceResearcher, TechnicalResearcher]
+            Aggregator: ResearchLead
+      - ModuleName: AnalysisCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [ProcessAnalyst, DataAnalyst, RiskAnalyst, SecurityAnalyst]
+            Aggregator: AnalysisLead
+      - ModuleName: PlanningCell
+        Strategy:
+          Parallel:
+            ParallelAgents: [SolutionArchitect, CostPlanner, ChangePlanner]
+            Aggregator: ImplementationPlanner
+      - ModuleName: ReviewLoop
+        Strategy:
+          Loop:
+            LoopAgents: [ProposalWriter, QualityReviewer]
+            TurnCount: 2
+            StopCondition: The proposal meets the enterprise quality threshold.
+    workflow:
+      name: EnterpriseAnalysisWorkflow
+      memory: true
+      nodes:
+        - {id: intake, ref: Intake, type: agent}
+        - {id: research, ref: ResearchCell, type: module}
+        - {id: analysis, ref: AnalysisCell, type: module}
+        - {id: planning, ref: PlanningCell, type: module}
+        - {id: review, ref: ReviewLoop, type: module}
+        - {id: legal, ref: LegalReviewer, type: agent}
+        - {id: executive, ref: ExecutiveSponsor, type: agent}
+        - {id: publish, ref: Publisher, type: agent}
+      edges:
+        - {from: intake, to: research}
+        - {from: research, to: analysis}
+        - {from: analysis, to: planning}
+        - {from: planning, to: review}
+        - {from: review, to: legal}
+        - {from: legal, to: executive}
+        - {from: executive, to: publish}

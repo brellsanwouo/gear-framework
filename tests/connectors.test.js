@@ -125,6 +125,7 @@ test("Microsoft Agent Framework compiles native fan-in workflow edges", () => {
   const result = window.GearAssemblyPlugins["microsoft-agent-framework"].assemble(input);
   assert.equal(result.error, undefined);
   assert.match(result.outputs.orchestration, /WorkflowBuilder/);
+  assert.match(result.outputs.orchestration, /OpenAIChatClient\(model=/);
   assert.match(result.outputs.orchestration, /add_fan_in_edges/);
   assert.equal(result.outputs.report.valid, true);
 });
@@ -138,6 +139,8 @@ test("Strands compiles graph joins with explicit dependency barriers", () => {
   assert.equal(result.error, undefined);
   assert.match(result.outputs.orchestration, /GraphBuilder/);
   assert.match(result.outputs.orchestration, /all_dependencies_complete\(\["a", "b"\]\)/);
+  assert.match(result.outputs.orchestration, /yield \{"result": await self\.invoke_async/);
+  assert.match(result.outputs.orchestration, /print\(terminal_output\(result\)\)/);
   assert.equal(result.outputs.report.valid, true);
 });
 

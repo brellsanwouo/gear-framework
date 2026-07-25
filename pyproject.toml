@@ -51,6 +51,7 @@ execution-semantic-kernel = ["semantic-kernel>=1.44,<2"]
 execution-haystack = ["haystack-ai>=2.31,<3"]
 dev = [
   "build>=1.2,<2",
+  "psutil>=5.9,<8",
   "pytest>=8,<10",
 ]
 

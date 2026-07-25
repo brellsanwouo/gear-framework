@@ -1,0 +1,322 @@
+oracle_version: "1.0.0"
+scenarios:
+  minimal:
+    nodes:
+      - {id: example, ref: ExampleAgent, type: agent}
+    edges: []
+    modules: []
+  sequential:
+    nodes:
+      - {id: research, ref: Researcher, type: agent}
+      - {id: write, ref: Writer, type: agent}
+      - {id: review, ref: Reviewer, type: agent}
+    edges:
+      - {from: research, to: write}
+      - {from: write, to: review}
+    modules: []
+  parallel:
+    nodes:
+      - {id: research, ref: ResearchTeam, type: module}
+      - {id: review, ref: Reviewer, type: agent}
+    edges:
+      - {from: research, to: review}
+    modules:
+      - name: ResearchTeam
+        strategy: parallel
+        agents: [WebResearcher, DocumentResearcher]
+  parallel-aggregator:
+    nodes:
+      - {id: research, ref: ResearchTeam, type: module}
+    edges: []
+    modules:
+      - name: ResearchTeam
+        strategy: parallel
+        agents: [WebResearcher, DocumentResearcher]
+        aggregator: Reviewer
+  loop:
+    nodes:
+      - {id: drafting, ref: DraftReviewLoop, type: module}
+      - {id: publishing, ref: Publisher, type: agent}
+    edges:
+      - {from: drafting, to: publishing}
+    modules:
+      - name: DraftReviewLoop
+        strategy: loop
+        agents: [Writer, Reviewer]
+        turn_count: 3
+  mixed:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: analysis, ref: AnalysisTeam, type: module}
+      - {id: edit, ref: Editor, type: agent}
+    edges:
+      - {from: intake, to: analysis}
+      - {from: analysis, to: edit}
+    modules:
+      - name: AnalysisTeam
+        strategy: parallel
+        agents: [EvidenceResearcher, RiskAnalyst]
+  pair-review:
+    nodes:
+      - {id: analysis, ref: Analyst, type: agent}
+      - {id: review, ref: Reviewer, type: agent}
+    edges:
+      - {from: analysis, to: review}
+    modules: []
+  triage-four:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: classify, ref: Classifier, type: agent}
+      - {id: resolve, ref: Resolver, type: agent}
+      - {id: review, ref: QualityReviewer, type: agent}
+    edges:
+      - {from: intake, to: classify}
+      - {from: classify, to: resolve}
+      - {from: resolve, to: review}
+    modules: []
+  editorial-five:
+    nodes:
+      - {id: plan, ref: Planner, type: agent}
+      - {id: research, ref: Researcher, type: agent}
+      - {id: analyze, ref: Analyst, type: agent}
+      - {id: write, ref: Writer, type: agent}
+      - {id: review, ref: Reviewer, type: agent}
+    edges:
+      - {from: plan, to: research}
+      - {from: research, to: analyze}
+      - {from: analyze, to: write}
+      - {from: write, to: review}
+    modules: []
+  delivery-six:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: plan, ref: Planner, type: agent}
+      - {id: research, ref: Researcher, type: agent}
+      - {id: analyze, ref: Analyst, type: agent}
+      - {id: write, ref: Writer, type: agent}
+      - {id: review, ref: Reviewer, type: agent}
+    edges:
+      - {from: intake, to: plan}
+      - {from: plan, to: research}
+      - {from: research, to: analyze}
+      - {from: analyze, to: write}
+      - {from: write, to: review}
+    modules: []
+  two-stage-assessment:
+    nodes:
+      - {id: plan, ref: Planner, type: agent}
+      - {id: research, ref: ResearchCell, type: module}
+      - {id: assess, ref: AssessmentCell, type: module}
+      - {id: publish, ref: Publisher, type: agent}
+    edges:
+      - {from: plan, to: research}
+      - {from: research, to: assess}
+      - {from: assess, to: publish}
+    modules:
+      - name: ResearchCell
+        strategy: parallel
+        agents: [MarketResearcher, TechnicalResearcher]
+        aggregator: ResearchSynthesizer
+      - name: AssessmentCell
+        strategy: parallel
+        agents: [RiskAnalyst, FeasibilityAnalyst]
+        aggregator: DecisionEditor
+  loop-parallel-review:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: draft, ref: DraftLoop, type: module}
+      - {id: review, ref: ReviewCell, type: module}
+      - {id: approve, ref: Approver, type: agent}
+      - {id: format, ref: Formatter, type: agent}
+      - {id: publish, ref: Publisher, type: agent}
+    edges:
+      - {from: intake, to: draft}
+      - {from: draft, to: review}
+      - {from: review, to: approve}
+      - {from: approve, to: format}
+      - {from: format, to: publish}
+    modules:
+      - name: DraftLoop
+        strategy: loop
+        agents: [Drafter, Critic]
+        turn_count: 2
+      - name: ReviewCell
+        strategy: parallel
+        agents: [FactChecker, SecurityReviewer]
+        aggregator: SynthesisEditor
+  incident-response-10:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: evidence, ref: EvidenceCell, type: module}
+      - {id: analysis, ref: AnalysisCell, type: module}
+      - {id: mitigate, ref: MitigationPlanner, type: agent}
+      - {id: report, ref: Reporter, type: agent}
+    edges:
+      - {from: intake, to: evidence}
+      - {from: evidence, to: analysis}
+      - {from: analysis, to: mitigate}
+      - {from: mitigate, to: report}
+    modules:
+      - name: EvidenceCell
+        strategy: parallel
+        agents: [LogCollector, MetricCollector, TopologyMapper]
+        aggregator: EvidenceSynthesizer
+      - name: AnalysisCell
+        strategy: parallel
+        agents: [RootCauseAnalyst, ImpactAnalyst]
+        aggregator: IncidentCommander
+  compliance-audit-12:
+    nodes:
+      - {id: scope, ref: ScopeLead, type: agent}
+      - {id: policy, ref: PolicyReader, type: agent}
+      - {id: controls, ref: ControlMapper, type: agent}
+      - {id: evidence, ref: EvidenceCollector, type: agent}
+      - {id: audit, ref: AuditCell, type: module}
+      - {id: remediate, ref: RemediationLoop, type: module}
+      - {id: legal, ref: LegalReviewer, type: agent}
+      - {id: publish, ref: ReportPublisher, type: agent}
+    edges:
+      - {from: scope, to: policy}
+      - {from: policy, to: controls}
+      - {from: controls, to: evidence}
+      - {from: evidence, to: audit}
+      - {from: audit, to: remediate}
+      - {from: remediate, to: legal}
+      - {from: legal, to: publish}
+    modules:
+      - name: AuditCell
+        strategy: parallel
+        agents: [AccessAuditor, DataAuditor, VendorAuditor]
+        aggregator: FindingsSynthesizer
+      - name: RemediationLoop
+        strategy: loop
+        agents: [RiskScorer, RemediationPlanner]
+        turn_count: 2
+  product-launch-14:
+    nodes:
+      - {id: brief, ref: BriefOwner, type: agent}
+      - {id: research, ref: ResearchCell, type: module}
+      - {id: product, ref: ProductPlanner, type: agent}
+      - {id: readiness, ref: ReadinessCell, type: module}
+      - {id: pricing, ref: PricingAnalyst, type: agent}
+      - {id: campaign, ref: CampaignWriter, type: agent}
+      - {id: executive, ref: ExecutiveReviewer, type: agent}
+      - {id: launch, ref: LaunchCoordinator, type: agent}
+    edges:
+      - {from: brief, to: research}
+      - {from: research, to: product}
+      - {from: product, to: readiness}
+      - {from: readiness, to: pricing}
+      - {from: pricing, to: campaign}
+      - {from: campaign, to: executive}
+      - {from: executive, to: launch}
+    modules:
+      - name: ResearchCell
+        strategy: parallel
+        agents: [MarketResearcher, CustomerResearcher, CompetitorAnalyst]
+        aggregator: InsightLead
+      - name: ReadinessCell
+        strategy: parallel
+        agents: [EngineeringReviewer, SecurityReviewer, OperationsReviewer]
+        aggregator: ReadinessLead
+  scientific-review-16:
+    nodes:
+      - {id: question, ref: QuestionFormulator, type: agent}
+      - {id: discovery, ref: DiscoveryCell, type: module}
+      - {id: analysis, ref: AnalysisCell, type: module}
+      - {id: drafting, ref: DraftLoop, type: module}
+      - {id: quality, ref: QualityCell, type: module}
+      - {id: principal, ref: PrincipalInvestigator, type: agent}
+      - {id: publish, ref: Publisher, type: agent}
+    edges:
+      - {from: question, to: discovery}
+      - {from: discovery, to: analysis}
+      - {from: analysis, to: drafting}
+      - {from: drafting, to: quality}
+      - {from: quality, to: principal}
+      - {from: principal, to: publish}
+    modules:
+      - name: DiscoveryCell
+        strategy: parallel
+        agents: [LiteratureSearcher, DatasetSearcher, MethodReviewer]
+        aggregator: EvidenceSynthesizer
+      - name: AnalysisCell
+        strategy: parallel
+        agents: [Statistician, ReproducibilityReviewer, EthicsReviewer]
+        aggregator: AnalysisLead
+      - name: DraftLoop
+        strategy: loop
+        agents: [ArgumentWriter, AdversarialReviewer]
+        turn_count: 2
+      - name: QualityCell
+        strategy: parallel
+        agents: [CitationChecker, FactChecker]
+        aggregator: ReviewEditor
+  software-delivery-18:
+    nodes:
+      - {id: requirements, ref: RequirementAnalyst, type: agent}
+      - {id: architecture, ref: Architect, type: agent}
+      - {id: implementation, ref: ImplementationCell, type: module}
+      - {id: code-review, ref: CodeReviewer, type: agent}
+      - {id: assurance, ref: AssuranceCell, type: module}
+      - {id: build, ref: BuildEngineer, type: agent}
+      - {id: release-plan, ref: ReleasePlanner, type: agent}
+      - {id: release, ref: ReleaseCell, type: module}
+      - {id: product, ref: ProductOwner, type: agent}
+    edges:
+      - {from: requirements, to: architecture}
+      - {from: architecture, to: implementation}
+      - {from: implementation, to: code-review}
+      - {from: code-review, to: assurance}
+      - {from: assurance, to: build}
+      - {from: build, to: release-plan}
+      - {from: release-plan, to: release}
+      - {from: release, to: product}
+    modules:
+      - name: ImplementationCell
+        strategy: parallel
+        agents: [APIEngineer, DataEngineer, FrontendEngineer]
+        aggregator: IntegrationLead
+      - name: AssuranceCell
+        strategy: parallel
+        agents: [TestEngineer, SecurityEngineer, PerformanceEngineer]
+        aggregator: QAReviewer
+      - name: ReleaseCell
+        strategy: parallel
+        agents: [OpsEngineer, ObservabilityEngineer, DocumentationWriter]
+        aggregator: ReleaseManager
+  enterprise-analysis-20:
+    nodes:
+      - {id: intake, ref: Intake, type: agent}
+      - {id: research, ref: ResearchCell, type: module}
+      - {id: analysis, ref: AnalysisCell, type: module}
+      - {id: planning, ref: PlanningCell, type: module}
+      - {id: review, ref: ReviewLoop, type: module}
+      - {id: legal, ref: LegalReviewer, type: agent}
+      - {id: executive, ref: ExecutiveSponsor, type: agent}
+      - {id: publish, ref: Publisher, type: agent}
+    edges:
+      - {from: intake, to: research}
+      - {from: research, to: analysis}
+      - {from: analysis, to: planning}
+      - {from: planning, to: review}
+      - {from: review, to: legal}
+      - {from: legal, to: executive}
+      - {from: executive, to: publish}
+    modules:
+      - name: ResearchCell
+        strategy: parallel
+        agents: [DomainResearcher, MarketResearcher, FinanceResearcher, TechnicalResearcher]
+        aggregator: ResearchLead
+      - name: AnalysisCell
+        strategy: parallel
+        agents: [ProcessAnalyst, DataAnalyst, RiskAnalyst, SecurityAnalyst]
+        aggregator: AnalysisLead
+      - name: PlanningCell
+        strategy: parallel
+        agents: [SolutionArchitect, CostPlanner, ChangePlanner]
+        aggregator: ImplementationPlanner
+      - name: ReviewLoop
+        strategy: loop
+        agents: [ProposalWriter, QualityReviewer]
+        turn_count: 2

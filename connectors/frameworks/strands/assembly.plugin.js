@@ -28,7 +28,7 @@
         const clientArgs = [["api_key", "os.environ.get(\"OPENAI_API_KEY\")", true], ["base_url", llm.BaseURL], ["timeout", llm.Timeout], ["max_retries", llm.MaxRetries]].filter(([, v]) => v !== undefined && v !== null && v !== "");
         const clientText = `{${clientArgs.map(([k, v, raw]) => `${lit(k)}: ${raw ? v : lit(v)}`).join(", ")}}`;
         const paramsText = `{${modelParams.map(([k, v]) => `${lit(k)}: ${lit(v)}`).join(", ")}}`;
-        agentLines.push(`${variable}_model = OpenAIModel(client_args=${clientText}, model_id=${lit(llm.Model || "gpt-4.1-mini")}, params=${paramsText})`, `${variable} = Agent(name=${lit(item.name)}, description=${lit(item.source?.TaskSpecification?.TaskName || item.name)}, system_prompt=${lit(systemPrompt(item.source))}, model=${variable}_model)`, "");
+        agentLines.push(`${variable}_model = OpenAIModel(client_args=${clientText}, model_id=${lit(llm.Model || "gpt-4.1-mini")}, params=${paramsText})`, `${variable} = Agent(name=${lit(item.name)}, description=${lit(item.source?.TaskSpecification?.TaskName || item.name)}, system_prompt=${lit(systemPrompt(item.source))}, model=${variable}_model, callback_handler=None)`, "");
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini" };
       });
 
@@ -50,7 +50,7 @@
         "        return asyncio.run(self.invoke_async(prompt, **kwargs))",
         "",
         "    async def stream_async(self, prompt=None, **kwargs):",
-        "        yield await self.invoke_async(prompt, **kwargs)",
+        "        yield {\"result\": await self.invoke_async(prompt, **kwargs)}",
       ];
       const nodeEntries = new Map();
       const nodeExits = new Map();
@@ -97,7 +97,7 @@
       const graphLines = ["builder = GraphBuilder()", `builder.set_graph_id(${lit(ir.workflow.name)})`];
       graphNodes.forEach(([variable, id]) => graphLines.push(`builder.add_node(${variable}, ${lit(id)})`));
       expandedEdges.forEach(([source, target, required]) => graphLines.push(required.length > 1 ? `builder.add_edge(${lit(source)}, ${lit(target)}, condition=all_dependencies_complete(${lit(required)}))` : `builder.add_edge(${lit(source)}, ${lit(target)})`));
-      graphLines.push("builder.set_execution_timeout(600)", "graph = builder.build()", "", "if __name__ == \"__main__\":", "    task = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    result = graph(task)", "    print(result)");
+      graphLines.push("builder.set_execution_timeout(600)", "graph = builder.build()", "", "def terminal_output(result) -> str:", "    source_nodes = {source.node_id for source, _ in result.edges}", "    sink_ids = [node_id for node_id in result.results if node_id not in source_nodes]", "    return \"\\n\\n\".join(str(result.results[node_id].result).rstrip(\"\\n\") for node_id in sink_ids)", "", "if __name__ == \"__main__\":", "    task = os.environ.get(\"GEAR_INPUT\", \"Run the configured Gear workflow.\")", "    result = graph(task)", "    print(terminal_output(result))");
       const imports = ["import asyncio", "import os", "from strands import Agent", "from strands.models.openai import OpenAIModel", "from strands.multiagent import GraphBuilder", "from strands.multiagent.base import Status", "from strands.multiagent.graph import GraphState", "from dotenv import load_dotenv", "", "load_dotenv()", "", "def all_dependencies_complete(required_nodes: list[str]):", "    def check(state: GraphState) -> bool:", "        return all(node_id in state.results and state.results[node_id].status == Status.COMPLETED for node_id in required_nodes)", "    return check"];
       const orchestration = renderTemplate(getTemplate("strands") || "{{imports}}\n\n{{agents_code}}\n\n{{modules_code}}\n\n{{graph_code}}", { imports: imports.join("\n"), agents_code: agentLines.join("\n").trim(), modules_code: moduleLines.join("\n"), graph_code: graphLines.join("\n") });
       const entries = [...(mappings.strandsAgent || []), ...(mappings.strandsModule || []), ...(mappings.strandsMulti || [])];

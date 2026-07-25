@@ -1,0 +1,80 @@
+schema_version: "1.0"
+project:
+  id: mixed-workflow
+  name: Mixed agent and module workflow
+  description: Route an intake agent through a parallel research module to a final editor.
+agents:
+  - AgentIdentity:
+      Name: Intake
+      Purpose: Clarify and structure the incoming request.
+      ContextDescription: A requirements analyst who makes assumptions explicit.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: PrepareBrief
+      TaskDescription: Convert the request into a concise research brief.
+      ExpectedOutput: A structured brief with questions and constraints.
+  - AgentIdentity:
+      Name: EvidenceResearcher
+      Purpose: Collect evidence relevant to the brief.
+      ContextDescription: A careful researcher who records provenance.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: CollectEvidence
+      TaskDescription: Find evidence that addresses every question in the brief.
+      ExpectedOutput: Evidence notes with provenance.
+  - AgentIdentity:
+      Name: RiskAnalyst
+      Purpose: Identify risks, assumptions, and contradictory evidence.
+      ContextDescription: A skeptical analyst focused on uncertainty.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: AnalyzeRisks
+      TaskDescription: Challenge the brief and document material risks.
+      ExpectedOutput: A prioritized risk and assumption register.
+  - AgentIdentity:
+      Name: Editor
+      Purpose: Produce the final evidence-based response.
+      ContextDescription: A technical editor who reconciles findings without hiding uncertainty.
+    LLMConfiguration:
+      Provider: openai
+      Model: gpt-5.1-codex-mini
+    TaskSpecification:
+      TaskName: EditResponse
+      TaskDescription: Combine the research and risk analysis into the final response.
+      ExpectedOutput: A structured final response with evidence and limitations.
+modules:
+  - ModuleName: AnalysisTeam
+    Strategy:
+      Parallel:
+        ParallelAgents:
+          - EvidenceResearcher
+          - RiskAnalyst
+workflow:
+  name: MixedWorkflow
+  memory: false
+  nodes:
+    - id: intake
+      ref: Intake
+      type: agent
+    - id: analysis
+      ref: AnalysisTeam
+      type: module
+    - id: edit
+      ref: Editor
+      type: agent
+  edges:
+    - from: intake
+      to: analysis
+    - from: analysis
+      to: edit
+targets:
+  - crewai
+  - adk
+  - langgraph
+

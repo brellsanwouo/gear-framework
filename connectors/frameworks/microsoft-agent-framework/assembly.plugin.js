@@ -25,7 +25,7 @@
         if (provider !== "openai") diagnostics.push({ code: "MAF-PROVIDER-ADAPTER", severity: "error", message: `Agent ${item.name} requires a ${provider} client adapter.`, path: item.name });
         const params = llm.ModelParameters || {};
         const options = [["temperature", params.Temperature], ["max_tokens", params.MaxTokens], ["top_p", params.TopP], ["frequency_penalty", params.FrequencyPenalty], ["presence_penalty", params.PresencePenalty], ["seed", params.Seed], ["stop", params.StopSequences]].filter(([, v]) => v !== undefined && v !== null && v !== "");
-        const clientArgs = [`model_id=${lit(llm.Model || "gpt-4.1-mini")}`];
+        const clientArgs = [`model=${lit(llm.Model || "gpt-4.1-mini")}`];
         if (llm.BaseURL) clientArgs.push(`base_url=${lit(llm.BaseURL)}`);
         agentLines.push(`${variable} = Agent(`, `    client=OpenAIChatClient(${clientArgs.join(", ")}),`, `    name=${lit(item.name)},`, `    instructions=${lit(prompt(item.source))},`, ...(options.length ? [`    default_options={${options.map(([k, v]) => `${lit(k)}: ${lit(v)}`).join(", ")}},`] : []), ")", "");
         manifest[item.id] = { variable, model: llm.Model || "gpt-4.1-mini" };
@@ -45,7 +45,7 @@
         "        self.output = output",
         "",
         "    @handler",
-        "    async def invoke(self, message: str | list[str], ctx: WorkflowContext) -> None:",
+        "    async def invoke(self, message: str | list[str], ctx: WorkflowContext[str]) -> None:",
         "        value = \"\\n\\n\".join(map(str, message)) if isinstance(message, list) else str(message)",
         "        result = str(await self.agent.run(value))",
         "        if self.output:",
@@ -60,7 +60,7 @@
         "        self.aggregator, self.output, self.stop_condition = aggregator, output, stop_condition",
         "",
         "    @handler",
-        "    async def invoke(self, message: str | list[str], ctx: WorkflowContext) -> None:",
+        "    async def invoke(self, message: str | list[str], ctx: WorkflowContext[str]) -> None:",
         "        current = \"\\n\\n\".join(map(str, message)) if isinstance(message, list) else str(message)",
         "        if self.strategy == \"parallel\":",
         "            values = [str(value) for value in await asyncio.gather(*(agent.run(current) for agent in self.agents))]",

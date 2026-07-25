@@ -1,0 +1,68 @@
+oracle_version: "1.0.0"
+event_schema_version: "1.0.0"
+scenarios:
+  sequential:
+    agent_counts:
+      Researcher: 1
+      Writer: 1
+      Reviewer: 1
+    precedence:
+      - [Researcher#1, Writer#1]
+      - [Writer#1, Reviewer#1]
+    required_input_sources:
+      Writer#1: [Researcher#1]
+      Reviewer#1: [Writer#1]
+    parallel_groups: []
+    terminal: Reviewer#1
+  parallel:
+    agent_counts:
+      WebResearcher: 1
+      DocumentResearcher: 1
+      Reviewer: 1
+    precedence:
+      - [WebResearcher#1, Reviewer#1]
+      - [DocumentResearcher#1, Reviewer#1]
+    required_input_sources:
+      Reviewer#1: [WebResearcher#1, DocumentResearcher#1]
+    parallel_groups:
+      - [WebResearcher#1, DocumentResearcher#1]
+    terminal: Reviewer#1
+  loop:
+    agent_counts:
+      Writer: 3
+      Reviewer: 3
+      Publisher: 1
+    precedence:
+      - [Writer#1, Reviewer#1]
+      - [Reviewer#1, Writer#2]
+      - [Writer#2, Reviewer#2]
+      - [Reviewer#2, Writer#3]
+      - [Writer#3, Reviewer#3]
+      - [Reviewer#3, Publisher#1]
+    required_input_sources:
+      Reviewer#1: [Writer#1]
+      Writer#2: [Reviewer#1]
+      Reviewer#2: [Writer#2]
+      Writer#3: [Reviewer#2]
+      Reviewer#3: [Writer#3]
+      Publisher#1: [Reviewer#3]
+    parallel_groups: []
+    terminal: Publisher#1
+  mixed:
+    agent_counts:
+      Intake: 1
+      EvidenceResearcher: 1
+      RiskAnalyst: 1
+      Editor: 1
+    precedence:
+      - [Intake#1, EvidenceResearcher#1]
+      - [Intake#1, RiskAnalyst#1]
+      - [EvidenceResearcher#1, Editor#1]
+      - [RiskAnalyst#1, Editor#1]
+    required_input_sources:
+      EvidenceResearcher#1: [Intake#1]
+      RiskAnalyst#1: [Intake#1]
+      Editor#1: [EvidenceResearcher#1, RiskAnalyst#1]
+    parallel_groups:
+      - [EvidenceResearcher#1, RiskAnalyst#1]
+    terminal: Editor#1

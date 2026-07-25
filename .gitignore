@@ -17,3 +17,4 @@ node_modules/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/.vitepress/.temp/
+research/tool-track/results/*/

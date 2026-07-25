@@ -2,7 +2,7 @@
 - {from: AgentIdentity.Purpose, to: Agent.instructions, kind: partial}
 - {from: AgentIdentity.ContextDescription, to: Agent.instructions, kind: partial}
 - {from: LLMConfiguration.Provider, to: ChatClient.provider, kind: partial}
-- {from: LLMConfiguration.Model, to: OpenAIChatClient.model_id, kind: direct}
+- {from: LLMConfiguration.Model, to: OpenAIChatClient.model, kind: direct}
 - {from: LLMConfiguration.APIKey, to: null, kind: not_mapped, notes: "Read from the environment."}
 - {from: LLMConfiguration.BaseURL, to: OpenAIChatClient.base_url, kind: direct}
 - {from: LLMConfiguration.Timeout, to: null, kind: not_mapped}

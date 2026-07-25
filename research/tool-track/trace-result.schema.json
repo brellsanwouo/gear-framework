@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gear-framework.dev/research/tool-track/trace-result.schema.json",
+  "title": "GEAR deterministic trace benchmark result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_version",
+    "oracle_version",
+    "mode",
+    "environment",
+    "configuration",
+    "records"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "benchmark_version": {"type": "string"},
+    "oracle_version": {"type": "string"},
+    "mode": {"enum": ["contract-double", "real-runtime-deterministic-model"]},
+    "environment": {"type": "object"},
+    "configuration": {"type": "object"},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario",
+          "target",
+          "implementation",
+          "repetition",
+          "passed",
+          "violations",
+          "events"
+        ],
+        "properties": {
+          "scenario": {"type": "string"},
+          "target": {"type": ["string", "null"]},
+          "implementation": {"enum": ["generated", "native-baseline"]},
+          "repetition": {"type": "integer", "minimum": 1},
+          "passed": {"type": "boolean"},
+          "violations": {"type": "array"},
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "type"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

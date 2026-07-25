@@ -1,0 +1,125 @@
+benchmark_version: "1.0.0"
+protocol_version: "1.0.0"
+seed: 20260719
+corpus_blueprints: research/tool-track/scenarios/corpus-blueprints.yml
+
+scenarios:
+  - id: minimal
+    path: examples/minimal.gear.yml
+    tier: simple
+    patterns: [single-agent, sequential]
+  - id: pair-review
+    blueprint: pair-review
+    tier: simple
+    patterns: [two-agent, sequential]
+  - id: sequential
+    path: examples/sequential-three-agents.gear.yml
+    tier: simple
+    patterns: [multi-agent, sequential]
+  - id: triage-four
+    blueprint: triage-four
+    tier: simple
+    patterns: [multi-agent, sequential, triage]
+  - id: editorial-five
+    blueprint: editorial-five
+    tier: simple
+    patterns: [multi-agent, sequential, editorial]
+  - id: delivery-six
+    blueprint: delivery-six
+    tier: simple
+    patterns: [multi-agent, sequential, delivery]
+  - id: parallel
+    path: examples/parallel-module.gear.yml
+    tier: intermediate
+    patterns: [module, parallel, module-to-agent]
+  - id: parallel-aggregator
+    path: examples/parallel-aggregator.gear.yml
+    tier: intermediate
+    patterns: [module, parallel, aggregation]
+  - id: loop
+    path: examples/loop-module.gear.yml
+    tier: intermediate
+    patterns: [module, bounded-loop, module-to-agent, memory]
+  - id: mixed
+    path: research/tool-track/scenarios/mixed-workflow.gear.yml
+    tier: intermediate
+    patterns: [multi-agent, parallel, agent-to-module-to-agent]
+  - id: two-stage-assessment
+    blueprint: two-stage-assessment
+    tier: intermediate
+    patterns: [multi-agent, two-modules, parallel, aggregation]
+  - id: loop-parallel-review
+    blueprint: loop-parallel-review
+    tier: intermediate
+    patterns: [multi-agent, bounded-loop, parallel, aggregation]
+  - id: incident-response-10
+    blueprint: incident-response-10
+    tier: complex
+    patterns: [multi-agent, two-modules, parallel, aggregation, incident-response]
+  - id: compliance-audit-12
+    blueprint: compliance-audit-12
+    tier: complex
+    patterns: [multi-agent, parallel, bounded-loop, compliance]
+  - id: product-launch-14
+    blueprint: product-launch-14
+    tier: complex
+    patterns: [multi-agent, two-modules, parallel, aggregation, product]
+  - id: scientific-review-16
+    blueprint: scientific-review-16
+    tier: complex
+    patterns: [multi-agent, parallel, bounded-loop, scientific-review]
+  - id: software-delivery-18
+    blueprint: software-delivery-18
+    tier: complex
+    patterns: [multi-agent, three-modules, parallel, aggregation, delivery]
+  - id: enterprise-analysis-20
+    blueprint: enterprise-analysis-20
+    tier: complex
+    patterns: [multi-agent, three-modules, parallel, bounded-loop, enterprise]
+
+targets:
+  - crewai
+  - adk
+  - langgraph
+  - openai-agents
+  - microsoft-agent-framework
+  - strands
+  - pydantic-ai
+  - autogen
+  - semantic-kernel
+  - haystack
+
+mutations:
+  catalog: research/tool-track/mutations/catalog.yml
+
+oracles:
+  topology: research/tool-track/expected-traces/topology.yml
+
+output_schema: research/tool-track/result.schema.json
+
+scalability:
+  sizes: [1, 2, 4, 8, 16, 32, 64, 100, 128, 256]
+  repetitions: 30
+  conversion_targets: [crewai, adk, langgraph, openai-agents, microsoft-agent-framework, strands, pydantic-ai, autogen, semantic-kernel, haystack]
+  timeout_seconds: 30
+
+quick_profile:
+  sizes: [1, 2, 8, 32, 128]
+  repetitions: 1
+  conversion_targets: [crewai, adk, langgraph, openai-agents, microsoft-agent-framework, strands, pydantic-ai, autogen, semantic-kernel, haystack]
+
+runtime_fidelity:
+  oracle: research/tool-track/expected-traces/runtime.yml
+  result_schema: research/tool-track/trace-result.schema.json
+  scenarios: [sequential, parallel, loop, mixed]
+  targets: [crewai, adk, langgraph]
+  repetitions: 3
+  input: "GEAR deterministic trace input"
+
+real_runtime_fidelity:
+  environments: research/tool-track/runtime-environments.yml
+  result_schema: research/tool-track/trace-result.schema.json
+  scenarios: [sequential, parallel, loop, mixed]
+  targets: [crewai, adk, langgraph, openai-agents, microsoft-agent-framework, strands, pydantic-ai, autogen, semantic-kernel, haystack]
+  repetitions: 3
+  input: "GEAR deterministic trace input"

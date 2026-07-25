@@ -1,0 +1,42 @@
+catalog_version: "1.0.0"
+mutations:
+  - id: duplicate-agent-name
+    base: sequential
+    operator: duplicate_agent_name
+    fault_class: uniqueness
+    expected_fragment: Duplicate agent name
+  - id: missing-model
+    base: minimal
+    operator: remove_model
+    fault_class: schema-required-property
+    expected_fragment: Model
+  - id: unknown-module-agent
+    base: parallel
+    operator: unknown_module_agent
+    fault_class: referential-integrity
+    expected_fragment: references unknown agent
+  - id: invalid-loop-count
+    base: loop
+    operator: invalid_loop_count
+    fault_class: schema-boundary
+    expected_fragment: minimum of 1
+  - id: duplicate-workflow-node
+    base: sequential
+    operator: duplicate_workflow_node
+    fault_class: uniqueness
+    expected_fragment: Duplicate workflow node id
+  - id: unknown-workflow-reference
+    base: minimal
+    operator: unknown_workflow_reference
+    fault_class: referential-integrity
+    expected_fragment: references unknown agent
+  - id: unknown-edge-target
+    base: sequential
+    operator: unknown_edge_target
+    fault_class: referential-integrity
+    expected_fragment: references unknown node
+  - id: workflow-cycle
+    base: sequential
+    operator: workflow_cycle
+    fault_class: graph-cycle
+    expected_fragment: workflow contains a cycle
