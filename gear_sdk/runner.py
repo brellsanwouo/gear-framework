@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import os
 import resource
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
 
 
 ALLOWED_ENVIRONMENT = {
@@ -43,6 +46,15 @@ class RunResult:
     returncode: int
 
 
+class RunCancelled(RuntimeError):
+    """Raised when an asynchronous Python execution is cancelled by the user."""
+
+    def __init__(self, stdout: str = "", stderr: str = "") -> None:
+        super().__init__("Execution cancelled.")
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 def _limits() -> None:
     cpu_seconds = int(os.environ.get("GEAR_RUNNER_CPU_SECONDS", "60"))
     memory_mb = int(os.environ.get("GEAR_RUNNER_MEMORY_MB", "2048"))
@@ -51,6 +63,27 @@ def _limits() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (memory_mb * 1024 * 1024, memory_mb * 1024 * 1024))
     resource.setrlimit(resource.RLIMIT_FSIZE, (output_mb * 1024 * 1024, output_mb * 1024 * 1024))
     resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+
+
+def _terminate_process(process: subprocess.Popen[str]) -> tuple[str, str]:
+    if process.poll() is None:
+        try:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGTERM)
+            else:
+                process.terminate()
+            process.wait(timeout=2)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            try:
+                if os.name == "posix":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+            except ProcessLookupError:
+                pass
+
+    stdout, stderr = process.communicate()
+    return stdout or "", stderr or ""
 
 
 def run_python(
@@ -62,11 +95,14 @@ def run_python(
     session_id: str | None = None,
     project_id: str | None = None,
     build_id: str | None = None,
+    cancel_event: Event | None = None,
 ) -> RunResult:
-    """Run trusted local generated code with a minimal environment and hard limits.
+    """Run Python code in an isolated temporary directory with hard resource limits.
 
-    This is defense in depth, not a multi-tenant sandbox. The web endpoint remains
-    disabled unless GEAR_ENABLE_LOCAL_RUNNER is explicitly enabled.
+    The process receives only a small allowlist of environment variables and cannot
+    access the parent process environment through normal means. This remains
+    defense in depth rather than a secure multi-tenant sandbox; manual execution
+    must therefore stay disabled unless the experiment participants are trusted.
     """
     environment = {key: value for key, value in os.environ.items() if key in ALLOWED_ENVIRONMENT}
     with tempfile.TemporaryDirectory(prefix="gear-run-") as temporary:
@@ -87,14 +123,10 @@ def run_python(
             "PYTHONUNBUFFERED": "1",
             "PYTHONNOUSERSITE": "1",
             "PATH": os.defpath,
-            # GEAR records observability in MLflow. Keep CrewAI's separate
-            # hosted tracing and anonymous telemetry disabled in online runs.
             "CREWAI_TRACING_ENABLED": "false",
             "CREWAI_DISABLE_TELEMETRY": "true",
         })
         if managed_mlflow:
-            # The web backend records the complete execution after the child
-            # exits. Tell generated code not to create a second, empty run.
             environment["GEAR_MLFLOW_MANAGED"] = "true"
         for key, value in {
             "GEAR_PARTICIPANT_ID": participant_id,
@@ -104,17 +136,38 @@ def run_python(
         }.items():
             if value:
                 environment[key] = value
+
         script = Path(temporary) / "orchestration.py"
         script.write_text(code, encoding="utf-8")
-        completed = subprocess.run(
+        process = subprocess.Popen(
             [sys.executable, "-I", str(script)],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             env=environment,
             cwd=temporary,
-            timeout=timeout,
-            check=False,
             start_new_session=True,
             preexec_fn=_limits if os.name == "posix" else None,
         )
-    return RunResult(completed.stdout or "", completed.stderr or "", completed.returncode)
+
+        deadline = time.monotonic() + timeout
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                stdout, stderr = _terminate_process(process)
+                raise RunCancelled(stdout, stderr)
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                stdout, stderr = _terminate_process(process)
+                raise subprocess.TimeoutExpired(
+                    cmd=[sys.executable, "-I", str(script)],
+                    timeout=timeout,
+                    output=stdout,
+                    stderr=stderr,
+                )
+
+            try:
+                stdout, stderr = process.communicate(timeout=min(0.25, remaining))
+                return RunResult(stdout or "", stderr or "", int(process.returncode or 0))
+            except subprocess.TimeoutExpired:
+                continue

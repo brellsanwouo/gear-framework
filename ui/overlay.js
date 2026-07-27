@@ -2,11 +2,17 @@
   const params = new URLSearchParams(window.location.search);
   const userId = params.get("uid");
   const taskId = params.get("tid");
-  const mode = params.get("mode");
+  const mode = String(params.get("mode") || "").toUpperCase();
+  const framework = String(params.get("framework") || "crewai").toLowerCase();
+  const sequenceIndex = Number.parseInt(params.get("idx") || "0", 10);
+  const studyPhase = String(params.get("phase") || "measured").toLowerCase();
 
-  if (!userId || !taskId) return;
+  if (!userId || !taskId || !["GEAR", "MANUAL"].includes(mode)) return;
 
-  document.body.classList.add("experiment-active", mode === "MANUAL" ? "experiment-manual" : "experiment-gear");
+  document.body.classList.add(
+    "experiment-active",
+    mode === "MANUAL" ? "experiment-manual" : "experiment-gear"
+  );
 
   let taskConfig = {};
   try {
@@ -18,11 +24,19 @@
   }
 
   const modeLabel = mode === "GEAR" ? "Gear" : "Manual";
+  const frameworkLabel = framework === "adk" ? "Google ADK" : "CrewAI";
+  const phaseLabels = {
+    training: "Training",
+    familiarization: "Familiarization",
+    first_implementation: "Measured task",
+    translation: "Framework translation"
+  };
+  const phaseLabel = phaseLabels[studyPhase] || "Experiment";
   const overlayHTML = `
     <div id="expBar" role="region" aria-label="Experiment controls">
       <div class="exp-info">
-        <span class="exp-label">Experiment</span>
-        <span class="exp-mode">${modeLabel}</span>
+        <span class="exp-label">${phaseLabel}</span>
+        <span class="exp-mode">${modeLabel} · ${frameworkLabel}</span>
       </div>
       <div class="exp-timer" id="expTimer" aria-live="polite">Loading...</div>
       <div class="exp-actions">
@@ -37,7 +51,6 @@
   const timerEl = document.getElementById("expTimer");
   const btnValidate = document.getElementById("btnValidate");
 
-  // 0 means unlimited. Missing values use the ten-minute default.
   const durationSeconds = Number(taskConfig.time_limit_seconds ?? 600);
   let timerInterval = null;
   let endTime = null;
@@ -91,7 +104,7 @@
     }
 
     updateTimerDisplay();
-    timerInterval = setInterval(updateTimerDisplay, 1000);
+    timerInterval = window.setInterval(updateTimerDisplay, 1000);
   }
 
   startTimerIfNeeded();
@@ -99,11 +112,18 @@
   const logStartPromise = fetch("/api/experiment/log_start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, task_id: taskId, mode }),
+    body: JSON.stringify({
+      user_id: userId,
+      task_id: taskId,
+      mode,
+      framework,
+      sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null
+    }),
   })
-    .then((response) => {
-      if (!response.ok) throw new Error("Unable to start the experiment log");
-      return response.json();
+    .then(async (response) => {
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Unable to start the experiment log");
+      return result;
     })
     .then((data) => {
       logId = data.log_id;
@@ -111,8 +131,15 @@
     })
     .catch((error) => console.error("Error starting experiment log", error));
 
+
   btnValidate.addEventListener("click", async () => {
     if (finishing) return;
+
+    if (mode === "MANUAL" && typeof window.isManualExecutionRunning === "function"
+      && window.isManualExecutionRunning()) {
+      showToast("Wait for the execution to finish or stop it before confirming the task.", "warning");
+      return;
+    }
 
     const userCode = getUserCode();
     btnValidate.disabled = true;
@@ -123,12 +150,12 @@
       const response = await fetch("/api/experiment/validate_task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_id: taskId, code: userCode, mode }),
+        body: JSON.stringify({ task_id: taskId, code: userCode, mode, framework }),
       });
       const result = await response.json();
 
       if (result.valid) {
-        await finishTask(userCode);
+        await finishTask(userCode, "confirmed");
       } else {
         showToast(result.message || "Invalid configuration.", "error");
         btnValidate.disabled = false;
@@ -142,7 +169,7 @@
     }
   });
 
-  async function finishTask(code = "") {
+  async function finishTask(code = "", completionReason = "confirmed") {
     if (finishing) return;
     finishing = true;
 
@@ -151,7 +178,12 @@
       timerInterval = null;
     }
 
-    showToast("Task successfully completed!", "success");
+    showToast(
+      completionReason === "timeout"
+        ? "Time is up. Your current work is being saved."
+        : "Task successfully completed!",
+      completionReason === "timeout" ? "warning" : "success"
+    );
 
     try {
       await logStartPromise;
@@ -163,7 +195,11 @@
         const response = await fetch("/api/experiment/log_end", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ log_id: logId, code }),
+          body: JSON.stringify({
+            log_id: logId,
+            code,
+            completion_reason: completionReason
+          }),
         });
         if (!response.ok) {
           const result = await response.json().catch(() => ({}));
@@ -174,8 +210,9 @@
       }
     }
 
-    const index = Number.parseInt(localStorage.getItem("gear_index") || "0", 10);
-    localStorage.setItem("gear_index", String(index + 1));
+    const storage = window.sessionStorage;
+    const index = Number.parseInt(storage.getItem("gear_index") || "0", 10);
+    storage.setItem("gear_index", String(index + 1));
 
     window.setTimeout(() => {
       window.location.href = "/experiment";
@@ -185,13 +222,22 @@
   async function forceEndTask() {
     if (finishing) return;
 
-    showToast("Time is up. Saving this task...", "warning");
+    if (mode === "MANUAL" && typeof window.stopManualExecution === "function"
+      && typeof window.isManualExecutionRunning === "function"
+      && window.isManualExecutionRunning()) {
+      try {
+        await window.stopManualExecution();
+      } catch (error) {
+        console.warn("Unable to stop the manual execution at timeout", error);
+      }
+    }
+
     const manualInput = document.getElementById("manualInput");
     if (manualInput) manualInput.disabled = true;
 
     btnValidate.disabled = true;
     btnValidate.textContent = "Time is up";
-    await finishTask(getUserCode());
+    await finishTask(getUserCode(), "timeout");
   }
 
   function showToast(message, type = "info") {

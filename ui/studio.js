@@ -1,8 +1,15 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "gear-project-autosave-v1";
-  const META_KEY = "gear-studio-meta-v1";
+  const experimentParams = new URLSearchParams(window.location.search);
+  const experimentUserId = experimentParams.get("uid");
+  const experimentTaskId = experimentParams.get("tid");
+  const requestedExperimentFramework = String(experimentParams.get("framework") || "").toLowerCase();
+  const experimentSequenceIndex = Number.parseInt(experimentParams.get("idx") || "0", 10);
+  const experimentFramework = ["crewai", "adk"].includes(requestedExperimentFramework)
+    ? requestedExperimentFramework
+    : null;
+  const experimentActive = Boolean(experimentUserId && experimentTaskId && experimentFramework);
   const steps = ["agents", "modules", "workflow", "validation", "build"];
   let currentStep = "agents";
   let selectedAgent = 0;
@@ -31,13 +38,12 @@
   const defaultModule = (index) => `GearModule:\n  ModuleName: Module ${index}\n  Strategy:\n    Parallel:\n      ParallelAgents: []\n`;
   const defaultWorkflow = `GearMultiAgent:\n  WorkflowName: MainWorkflow\n  Items:\n    Agents: []\n    Modules: []\n  Edges: []\n`;
 
-  const loadProject = () => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (stored && Array.isArray(stored.agents)) return { schema_version: "1.0", agents: stored.agents, modules: stored.modules || [], workflows: stored.workflows || [] };
-    } catch (error) { console.warn(error); }
-    return { schema_version: "1.0", agents: [], modules: [], workflows: [defaultWorkflow] };
-  };
+  const loadProject = () => ({
+    schema_version: "1.0",
+    agents: [],
+    modules: [],
+    workflows: [defaultWorkflow]
+  });
   let project = loadProject();
 
   const parse = (text) => {
@@ -113,9 +119,9 @@
   };
 
   const save = () => {
+    // Experiment projects remain in memory only. They are persisted in task_logs
+    // when the participant confirms the task, never in browser localStorage.
     invalidateBuild();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
-    localStorage.setItem(META_KEY, JSON.stringify({ name: document.getElementById("projectName").value }));
   };
   const invalidateBuild = () => {if(!Object.values(buildsByTarget).some(Boolean)||buildBusy)return;Object.keys(buildsByTarget).forEach((target)=>{buildsByTarget[target]=null;setFrameworkStatus(target,"","Project changed · regenerate code");});lastBuild=null;document.getElementById("buildOutputCard").hidden=true;refreshFrameworkControls();};
   const scheduleSave = () => { invalidateBuild();clearTimeout(saveTimer); saveTimer = setTimeout(save, 180); };
@@ -148,8 +154,8 @@
     const value=lastBuild?.outputs?.orchestration;const available=typeof value==="string"&&Boolean(value.trim());document.getElementById("copyArtifact").disabled=!available;document.querySelector("#artifactPreview code").textContent=available?value:"Generate framework code to preview it.";document.getElementById("pythonArtifactMeta").textContent=available?`${frameworkLabel(lastBuild.target)} · gear-${lastBuild.target}.py · build ${lastBuild.build_id.slice(0,8)}`:"The generated script will appear here.";
   };
   const setFrameworkStatus = (target,state,text) => {const status=document.querySelector(`[data-framework-status="${target}"]`);status.className=`framework-status${state?` is-${state}`:""}`;status.lastChild.textContent=text;};
-  const refreshFrameworkControls = () => {const blocked=validation().some((issue)=>issue.severity==="error");document.querySelectorAll("[data-framework-action]").forEach((button)=>{button.disabled=buildBusy||runBusy||blocked||(button.dataset.frameworkAction==="run"&&!runnerEnabled);});const runExecution=document.getElementById("runExecution");if(runExecution)runExecution.disabled=buildBusy||runBusy||blocked||!runnerEnabled;};
-  const selectFramework = (target) => {buildTarget=target;document.querySelectorAll("[data-framework]").forEach((card)=>{const selected=card.dataset.framework===target;card.classList.toggle("is-selected",selected);card.setAttribute("aria-selected",String(selected));const choice=card.querySelector(".framework-choice");choice.querySelector("span").textContent=selected?"✓":"";choice.querySelector("b").textContent=selected?"Selected":"Select";});};
+  const refreshFrameworkControls = () => {const blocked=validation().some((issue)=>issue.severity==="error");document.querySelectorAll("[data-framework-action]").forEach((button)=>{const card=button.closest("[data-framework]");const wrongExperimentTarget=Boolean(experimentFramework&&card?.dataset.framework!==experimentFramework);button.disabled=wrongExperimentTarget||buildBusy||runBusy||blocked||(button.dataset.frameworkAction==="run"&&!runnerEnabled);});const runExecution=document.getElementById("runExecution");if(runExecution)runExecution.disabled=buildBusy||runBusy||blocked||!runnerEnabled;};
+  const selectFramework = (target) => {if(experimentFramework&&target!==experimentFramework)return;buildTarget=target;document.querySelectorAll("[data-framework]").forEach((card)=>{const selected=card.dataset.framework===target;card.classList.toggle("is-selected",selected);card.setAttribute("aria-selected",String(selected));const choice=card.querySelector(".framework-choice");choice.querySelector("span").textContent=selected?"✓":"";choice.querySelector("b").textContent=selected?"Selected":"Select";});};
   const openBuildOutput = (target,view="code") => {selectFramework(target);lastBuild=buildsByTarget[target];document.getElementById("buildOutputCard").hidden=false;document.getElementById("buildOutputTitle").textContent=frameworkLabel(target);document.getElementById("buildOutputSubtitle").textContent=lastBuild?`Build ${lastBuild.build_id.slice(0,8)}`:"Output";renderBuildArtifacts();setBuildOutput(view);document.getElementById("buildOutputCard").scrollIntoView({behavior:"smooth",block:"nearest"});};
   const loadRunnerStatus = async () => {
     const notice=document.getElementById("runnerNotice");try{const response=await fetch("/api/run/status");const status=await readApiResponse(response);runnerEnabled=Boolean(status.enabled);runnerTimeoutSeconds=Number(status.timeout_seconds)||180;notice.classList.toggle("is-enabled",runnerEnabled);notice.classList.toggle("is-disabled",!runnerEnabled);notice.querySelector("p").textContent=runnerEnabled?`Local execution available · ${status.timeout_seconds}s timeout`:"Local execution disabled. Set GEAR_ENABLE_LOCAL_RUNNER=true and restart the server.";}catch(error){runnerEnabled=false;notice.classList.add("is-disabled");notice.querySelector("p").textContent="Local execution status unavailable.";}refreshFrameworkControls();
@@ -169,7 +175,7 @@
       modelPolicy={...DEFAULT_MODEL_POLICY};modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};console.warn("Studio model policy unavailable; model fields remain editable.",error);
     }
   };
-  const hasLocalProject = () => Boolean(localStorage.getItem(STORAGE_KEY));
+  const hasProjectContent = () => Boolean(project.agents.length || project.modules.length || orderedWorkflowItems().length);
   const projectSlug = (value) => String(value||"project").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"project";
   const stableProjectToStudio = (source) => {
     if(!source||!Array.isArray(source.agents)||!source.workflow||!Array.isArray(source.workflow.nodes))throw new Error("Invalid GEAR project format");
@@ -189,19 +195,44 @@
     try{const response=await fetch("/api/studio/templates");if(!response.ok)throw new Error("Starter projects unavailable");starterTemplates=(await response.json()).templates||[];}catch(error){starterTemplates=[{id:"minimal",name:"Minimal",description:"One general-purpose agent.",agents:1,modules:0}];console.warn(error);}renderStarterTemplates();
   };
   const openProjectLauncher = () => {
-    const launcher=document.getElementById("projectLauncher");const resumable=hasLocalProject();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=document.getElementById("starterProvider");const model=document.getElementById("starterModel");provider.value=modelPolicy.locked?modelPolicy.provider:modelDefaults.provider;model.value=modelPolicy.locked?modelPolicy.model:modelDefaults.model;provider.disabled=modelPolicy.locked;model.disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`Locked by .env · ${modelPolicy.provider}/${modelPolicy.model}`:"Editable for this project";document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
+    const launcher=document.getElementById("projectLauncher");const resumable=hasProjectContent();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=document.getElementById("starterProvider");const model=document.getElementById("starterModel");provider.value=modelPolicy.locked?modelPolicy.provider:modelDefaults.provider;model.value=modelPolicy.locked?modelPolicy.model:modelDefaults.model;provider.disabled=modelPolicy.locked;model.disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`Locked by .env · ${modelPolicy.provider}/${modelPolicy.model}`:"Editable for this project";document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
   };
   const createStarterProject = async () => {
-    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}if(hasLocalProject()&&!confirm("Replace the current locally saved project? Export it first if you want to keep a copy."))return;const provider=modelPolicy.locked?modelPolicy.provider:document.getElementById("starterProvider").value;const model=modelPolicy.locked?modelPolicy.model:document.getElementById("starterModel").value.trim();if(!provider||!model){toast("Select a provider and model.");return;}try{if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),provider,model});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}modelDefaults={provider,model};selectedAgent=0;selectedModule=0;currentStep="agents";document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(`${name} created.`);}catch(error){toast(error.message);}
+    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}if(hasProjectContent()&&!confirm("Replace the current in-memory project? Export it first if you want to keep a copy."))return;const provider=modelPolicy.locked?modelPolicy.provider:document.getElementById("starterProvider").value;const model=modelPolicy.locked?modelPolicy.model:document.getElementById("starterModel").value.trim();if(!provider||!model){toast("Select a provider and model.");return;}try{if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),provider,model});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}modelDefaults={provider,model};selectedAgent=0;selectedModule=0;currentStep="agents";document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(`${name} created.`);}catch(error){toast(error.message);}
+  };
+  const loadExperimentContext = async () => {
+    if(!experimentActive)return;
+    buildTarget=experimentFramework;
+    validationTarget=experimentFramework;
+    selectFramework(experimentFramework);
+    const validationSelect=document.getElementById("validationTarget");
+    if(validationSelect){validationSelect.value=experimentFramework;validationSelect.disabled=true;validationSelect.title="The target framework is assigned by the experiment.";}
+    document.querySelectorAll("[data-framework]").forEach((card)=>{card.hidden=card.dataset.framework!==experimentFramework;});
+    document.getElementById("projectName").value=`${experimentTaskId}-${experimentFramework}`;
+    const query=new URLSearchParams({user_id:experimentUserId,task_id:experimentTaskId,framework:experimentFramework,sequence_index:Number.isFinite(experimentSequenceIndex)?String(experimentSequenceIndex):""});
+    try{
+      const response=await fetch(`/api/experiment/task_seed?${query.toString()}`,{headers:{Accept:"application/json"}});
+      const payload=await response.json();
+      if(!response.ok)throw new Error(payload.error||"Unable to load the previous solution.");
+      if(payload.submission){
+        const imported=JSON.parse(payload.submission);
+        if(!imported||!Array.isArray(imported.agents))throw new Error("The saved Gear project is invalid.");
+        project={schema_version:imported.schema_version||"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]};
+        selectedAgent=0;selectedModule=0;currentStep="agents";
+        toast(`Previous ${frameworkLabel(payload.source_framework)} solution loaded for translation.`);
+      }
+    }catch(error){console.warn("Unable to preload the previous Gear task submission",error);toast("The previous solution could not be loaded; starting from an empty project.");}
   };
   const studioBuildPayload = (target) => ({project_id:(document.getElementById("projectName").value||"studio-project").trim(),project_name:document.getElementById("projectName").value,target,agents:project.agents,modules:project.modules,workflows:project.workflows,workflow_sequence:orderedWorkflowItems().map(({kind,name})=>({kind,name}))});
   window.getExperimentSubmission = () => JSON.stringify({ schema_version: project.schema_version || "1.0", agents: project.agents, modules: project.modules, workflows: project.workflows });
   const createStudioBuild = async (target=buildTarget,show=true) => {
+    if(experimentFramework)target=experimentFramework;
     if(buildBusy)return null;const errors=validation().filter((issue)=>issue.severity==="error");if(errors.length){currentStep="validation";render();toast("Fix blocking errors before generating code.");return null;}
     buildBusy=true;setFrameworkStatus(target,"building","Generating…");refreshFrameworkControls();
     try{const response=await fetch("/api/studio/builds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(studioBuildPayload(target))});const result=await response.json();if(!response.ok)throw new Error([result.error,...(result.details||[])].filter(Boolean).join("\n"));buildsByTarget[target]=result;lastBuild=result;setFrameworkStatus(target,"ready",`Code ready · ${result.duration_ms} ms`);if(show)openBuildOutput(target,"code");toast(`${frameworkLabel(target)} code generated.`);await renderHistory();return result;}catch(error){setFrameworkStatus(target,"failed","Generation failed");toast(error.message);return null;}finally{buildBusy=false;refreshFrameworkControls();}
   };
   const runStudioBuild = async (target=buildTarget) => {
+    if(experimentFramework)target=experimentFramework;
     if(runBusy)return;if(!runnerEnabled){toast("Local execution is disabled.");return;}const build=buildsByTarget[target]||await createStudioBuild(target,false);if(!build)return;const code=build.outputs?.orchestration;if(typeof code!=="string"||!code.trim()){toast("This build contains no executable workflow.");return;}
     lastBuild=build;openBuildOutput(target,"console");runBusy=true;refreshFrameworkControls();setFrameworkStatus(target,"building","Running…");const consoleElement=document.getElementById("executionConsole");consoleElement.classList.remove("has-error");consoleElement.querySelector("code").textContent="Workflow execution in progress…";document.getElementById("executionMeta").textContent=`Build ${build.build_id.slice(0,8)} · ${target}`;
     try{const response=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,build_id:build.build_id,async:true})});let result=await readApiResponse(response);if(response.status===202)result=await waitForRun(result.job_id);else if(!response.ok)throw new Error(result.error||"Execution failed.");const succeeded=result.returncode===0;const sections=[];if(result.stdout)sections.push(`OUTPUT\n${result.stdout.trimEnd()}`);if(result.stderr)sections.push(`ERRORS\n${result.stderr.trimEnd()}`);if(!sections.length)sections.push("Execution completed without output.");consoleElement.querySelector("code").textContent=sections.join("\n\n");consoleElement.classList.toggle("has-error",!succeeded);document.getElementById("executionMeta").textContent=`${succeeded?"Completed":"Failed"} · code ${result.returncode}${result.trace_id?` · trace ${result.trace_id}`:""}`;setFrameworkStatus(target,succeeded?"ready":"failed",succeeded?"Last execution succeeded":"Last execution failed");toast(succeeded?"Execution completed.":"The workflow returned an error.");await renderHistory();}catch(error){consoleElement.querySelector("code").textContent=error.message;consoleElement.classList.add("has-error");document.getElementById("executionMeta").textContent="Execution failed";setFrameworkStatus(target,"failed","Last execution failed");toast("Execution failed.");}finally{runBusy=false;refreshFrameworkControls();}
@@ -361,7 +392,7 @@
   const render = () => {
     document.querySelectorAll("[data-step-panel]").forEach((panel)=>panel.classList.toggle("is-active",panel.dataset.stepPanel===currentStep));document.querySelectorAll("[data-step-link]").forEach((link)=>link.classList.toggle("is-active",link.dataset.stepLink===currentStep));
     renderEntities("agent");renderEntities("module");renderWorkflow();const issues=renderValidation();renderHealth(issues);if(currentStep==="build")renderHistory();
-    const index=steps.indexOf(currentStep);const blocked=issues.some((issue)=>issue.severity==="error");const next=document.getElementById("nextStep");next.textContent=index===steps.length-1?"View CrewAI code":"Next step →";next.disabled=index===steps.length-1&&blocked;next.title=next.disabled?"Fix blocking errors before building.":"";const conversion=document.getElementById("buildConversion");conversion.classList.toggle("is-disabled",blocked);conversion.setAttribute("aria-disabled",String(blocked));conversion.title=blocked?"Fix blocking errors before conversion.":"";refreshFrameworkControls();
+    const index=steps.indexOf(currentStep);const blocked=issues.some((issue)=>issue.severity==="error");const next=document.getElementById("nextStep");next.textContent=index===steps.length-1?`View ${frameworkLabel(buildTarget)} code`:"Next step →";next.disabled=index===steps.length-1&&blocked;next.title=next.disabled?"Fix blocking errors before building.":"";const conversion=document.getElementById("buildConversion");conversion.classList.toggle("is-disabled",blocked);conversion.setAttribute("aria-disabled",String(blocked));conversion.title=blocked?"Fix blocking errors before conversion.":"";refreshFrameworkControls();
   };
 
   document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{currentStep=button.dataset.stepLink;render();window.scrollTo({top:0,behavior:"smooth"});}));
@@ -381,10 +412,9 @@
   document.getElementById("buildConversion").addEventListener("click",(event)=>{if(validation().some((issue)=>issue.severity==="error")){event.preventDefault();toast("Fix blocking errors before conversion.");}});
   document.getElementById("projectName").addEventListener("input",scheduleSave);
   document.getElementById("exportButton").addEventListener("click",()=>{save();const payload={...project,project:{name:document.getElementById("projectName").value}};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="gear-studio-project.gear.json";link.click();URL.revokeObjectURL(url);toast("Project exported.");});
-  document.getElementById("importButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("importProject").addEventListener("change",async(event)=>{const file=event.target.files?.[0];if(!file)return;if(hasLocalProject()&&!confirm("Replace the current locally saved project with this import?")){event.target.value="";return;}try{const text=await file.text();let imported;try{imported=JSON.parse(text);}catch(error){imported=window.jsyaml.load(text);}if(!imported||!Array.isArray(imported.agents))throw new Error("Invalid project format");project=imported.agents.every((agent)=>typeof agent==="string")?{schema_version:"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]}:stableProjectToStudio(imported);document.getElementById("projectName").value=imported.project?.name||file.name.replace(/\.gear\.(yml|yaml|json)$/i,"");selectedAgent=0;selectedModule=0;currentStep="agents";updateModelDefaultsFromProject();save();render();if(document.getElementById("projectLauncher").open)document.getElementById("projectLauncher").close();toast("Project imported.");}catch(error){toast(error.message);}finally{event.target.value="";}});
+  document.getElementById("importButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("importProject").addEventListener("change",async(event)=>{const file=event.target.files?.[0];if(!file)return;if(hasProjectContent()&&!confirm("Replace the current in-memory project with this import?")){event.target.value="";return;}try{const text=await file.text();let imported;try{imported=JSON.parse(text);}catch(error){imported=window.jsyaml.load(text);}if(!imported||!Array.isArray(imported.agents))throw new Error("Invalid project format");project=imported.agents.every((agent)=>typeof agent==="string")?{schema_version:"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]}:stableProjectToStudio(imported);document.getElementById("projectName").value=imported.project?.name||file.name.replace(/\.gear\.(yml|yaml|json)$/i,"");selectedAgent=0;selectedModule=0;currentStep="agents";updateModelDefaultsFromProject();save();render();if(document.getElementById("projectLauncher").open)document.getElementById("projectLauncher").close();toast("Project imported.");}catch(error){toast(error.message);}finally{event.target.value="";}});
   document.getElementById("newProjectButton").addEventListener("click",openProjectLauncher);document.getElementById("closeProjectLauncher").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("continueCurrentProject").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("launcherImportButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("createStarterProject").addEventListener("click",createStarterProject);document.getElementById("starterProvider").addEventListener("change",(event)=>{if(PROVIDER_MODELS[event.target.value])document.getElementById("starterModel").value=PROVIDER_MODELS[event.target.value];});
 
-  try { const meta=JSON.parse(localStorage.getItem(META_KEY)||"null");if(meta?.name)document.getElementById("projectName").value=meta.name; } catch(error) { console.warn(error); }
-  const initialize=async()=>{await Promise.all([loadStudioConfig(),loadStarterTemplates()]);updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();loadGearVersion();openProjectLauncher();};
+  const initialize=async()=>{await Promise.all([loadStudioConfig(),loadStarterTemplates()]);await loadExperimentContext();updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();loadGearVersion();if(!experimentActive)openProjectLauncher();};
   initialize();
 })();

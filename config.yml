@@ -12,5 +12,7 @@ paths:
   tasks_file: "research/agent-grid-planning/tasks.json"
 
 experiment:
-  group_a: ["T1", "T2"]
-  group_b: ["T3", "T4"]
+  training_task: "T1"
+  familiarization_task: "T2"
+  measured_tasks: ["T3", "T4"]
+  frameworks: ["crewai", "adk"]
