@@ -9,6 +9,9 @@
     <script src="/runtime/conversion-core.js" defer></script>
     <script src="/ui/js/workflow-order.js" defer></script>
     <script src="/ui/studio.js" defer></script>
+    <link rel="stylesheet" href="/ui/overlay.css" />
+    <script src="/ui/overlay.js" defer></script>
+
   </head>
   <body>
     <header class="studio-header">
@@ -162,7 +165,6 @@
 
       <aside class="project-inspector">
         <p class="nav-label">Project status</p>
-        <div class="participant-card"><span>Anonymous participant</span><strong id="participantIdentity">Connecting…</strong></div>
         <div id="projectHealth" class="health-card"><span class="health-icon">✓</span><div><strong>Project ready</strong><small>No blocking errors</small></div></div>
         <h2 class="inspector-heading">Composition</h2>
         <dl class="project-stats">
