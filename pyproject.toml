@@ -273,10 +273,13 @@ gear_sdk = ["py.typed", "runtime/*.js"]
   "connectors/frameworks/haystack/assembly.plugin.js",
   "connectors/frameworks/haystack/workflow.tmpl",
 ]
-"share/gear-framework/research/agent-grid-planning" = ["research/agent-grid-planning/tasks.json"]
 "share/gear-framework/data/AgentGridPlanning" = [
-  "data/AgentGridPlanning/P0.md", "data/AgentGridPlanning/P1.md", "data/AgentGridPlanning/P2.md",
-  "data/AgentGridPlanning/P3.md", "data/AgentGridPlanning/P4.md",
+  "data/AgentGridPlanning/tasks.json",
+  "data/AgentGridPlanning/P0.md",
+  "data/AgentGridPlanning/P1.md",
+  "data/AgentGridPlanning/P2.md",
+  "data/AgentGridPlanning/P3.md",
+  "data/AgentGridPlanning/P4.md",
 ]
 "share/gear-framework/data/AgentGridPlanning/images" = [
   "data/AgentGridPlanning/images/P0.png", "data/AgentGridPlanning/images/P1.svg",
