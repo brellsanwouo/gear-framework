@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Gear Experiment Lobby</title>
-
     <link rel="stylesheet" href="experiment.css">
     <script src="experiment.js" defer></script>
 </head>
-
 <body>
 
     <div id="introScreen" class="card">
         <h1>Gear Experiment</h1>
 
         <p>
-            Welcome. During this experiment, you will complete tasks using both
-            Gear and a manual approach.
+            Welcome. You will be assigned to one method, either Gear Studio or
+            manual Python. After training and familiarization, you will implement the
+            same two measured tasks in two agent frameworks.
         </p>
 
         <button
@@ -39,77 +37,68 @@
 
             <h3>Purpose of the study</h3>
             <p>
-                This study investigates how users perform software-related tasks
-                with and without the Gear framework. The objective is to understand
-                how Gear may affect the way tasks are completed, including task
-                duration, user interactions, and user experience.
+                This study investigates how a visual configuration approach and a
+                manual Python approach support the implementation of multi-agent systems
+                across different agent frameworks.
             </p>
 
             <h3>What you will be asked to do</h3>
             <p>
-                You will complete a series of tasks in two different conditions:
-                using Gear and using a manual approach. You will also be asked to
-                complete a short questionnaire after the final task.
+                You will be assigned to either Gear Studio or manual Python for the
+                entire experiment. You will first complete an unmeasured training task
+                and a familiarization task in the first framework. You will then complete
+                two measured tasks involving parallelism and loops, before adapting those
+                same two tasks to a second framework. You will also complete a questionnaire
+                after the final task.
             </p>
 
             <h3>Data collected</h3>
-            <p>During the experiment, we may collect information such as:</p>
-
+            <p>During the experiment, we may collect:</p>
             <ul>
-                <li>the tasks and experimental conditions assigned to you;</li>
+                <li>the method, framework order, task order, and study phase assigned to you;</li>
                 <li>the time required to complete each task;</li>
-                <li>your interactions with the experimental interface;</li>
-                <li>the results or outputs produced during the tasks;</li>
+                <li>whether a task was confirmed voluntarily or ended because time expired;</li>
+                <li>the configurations, code, executions, and outputs produced during the tasks;</li>
                 <li>your answers to the final questionnaire;</li>
                 <li>technical information needed to analyse the experiment.</li>
             </ul>
 
             <p>
-                The experiment is not intended to collect sensitive personal
-                information. Please do not enter confidential, private, or personally
-                identifying information while completing the tasks.
+                The experiment is not intended to collect sensitive personal information.
+                Please do not enter confidential, private, or personally identifying
+                information while completing the tasks.
             </p>
 
             <h3>Data use and confidentiality</h3>
             <p>
-                The collected data will be used for scientific research and for
-                evaluating the Gear framework. Results may be presented in academic
-                publications, reports, or presentations.
+                The collected data will be used for scientific research and for evaluating
+                Gear. Results may be presented in academic publications, reports, or presentations.
             </p>
-
             <p>
-                Your task measurements and questionnaire answers are associated using
-                the same anonymous participant identifier. Data will be analysed and
-                reported in a way that does not directly identify individual participants.
-                Access to the raw data will be restricted to the researchers involved
-                in the study.
+                Your task measurements and questionnaire answers are associated using the
+                same anonymous participant identifier. Data will be analysed and reported
+                without directly identifying individual participants. Access to raw data is
+                restricted to the researchers involved in the study.
             </p>
 
             <h3>Voluntary participation</h3>
             <p>
-                Your participation is voluntary. You may stop the experiment at any
-                time without providing a reason and without any penalty.
+                Your participation is voluntary. You may stop the experiment at any time
+                without providing a reason and without any penalty.
             </p>
 
             <h3>Risks and benefits</h3>
             <p>
-                No significant risks are expected from participating in this study,
-                beyond possible fatigue or frustration associated with completing
-                software-related tasks. You may take a break between tasks when needed.
+                No significant risks are expected beyond possible fatigue or frustration
+                associated with software-related tasks. You may take a break between tasks.
             </p>
-
             <p>
-                You may not receive a direct personal benefit from participating,
-                but your contribution may help improve Gear and support research on
-                software development tools.
+                You may not receive a direct personal benefit, but your contribution may
+                help improve Gear and support research on multi-agent development tools.
             </p>
 
             <h3>Questions and contact</h3>
-            <p>
-                For questions about the study, your data, or your participation,
-                please contact:
-            </p>
-
+            <p>For questions about the study, your data, or your participation, contact:</p>
             <p class="contact-placeholder">
                 <strong>Brell Sanwouo</strong><br>
                 Inria Lille<br>
@@ -120,17 +109,13 @@
 
             <h3>Consent</h3>
             <p>By selecting the consent checkbox below, you confirm that:</p>
-
             <ul>
                 <li>you have read and understood the information above;</li>
                 <li>you have had the opportunity to ask questions;</li>
                 <li>you understand that participation is voluntary;</li>
                 <li>you understand that you may stop at any time;</li>
                 <li>you agree to participate in this study;</li>
-                <li>
-                    you agree that the data collected during the experiment may be
-                    used for the research purposes described above.
-                </li>
+                <li>you agree that the collected data may be used for the purposes described above.</li>
             </ul>
         </section>
 
@@ -139,86 +124,166 @@
             <span>I have read the study information and consent to participate.</span>
         </label>
 
-        <button id="startBtn" type="button" disabled>
-            Start the experiment
-        </button>
+        <button id="startBtn" type="button" disabled>Start the experiment</button>
     </div>
 
     <div id="pauseScreen" class="card hidden">
-        <h1>Task completed</h1>
-
+        <h1>Experiment progress</h1>
         <p id="pauseText">
             <span id="progressText"></span><br>
             Take a break if needed. When you are ready, start the next task.
         </p>
-
         <button id="nextBtn" type="button">Start next task</button>
     </div>
 
     <div id="questionnaireScreen" class="card questionnaire-card hidden">
         <h1>Final questionnaire</h1>
         <p>
-            Please answer these short questions. Your answers will be linked to your
-            experiment measurements through your anonymous participant identifier.
+            Please answer the following questions about your background, the method
+            you used, and your experience translating the parallel and loop workflows
+            between the two frameworks.
         </p>
 
         <form id="questionnaireForm">
-            <label class="form-field" for="pythonExperience">
-                <span>What is your level of Python experience?</span>
-                <select id="pythonExperience" name="python_experience" required>
-                    <option value="" selected disabled>Select an answer</option>
-                    <option value="none">None</option>
-                    <option value="low">A little</option>
-                    <option value="medium">Moderate</option>
-                    <option value="high">A lot</option>
-                    <option value="expert">Expert</option>
-                </select>
-            </label>
+            <fieldset>
+                <legend>Your background</legend>
 
-            <label class="form-field" for="multiAgentExperience">
-                <span>What is your experience with multi-agent systems?</span>
-                <select id="multiAgentExperience" name="multi_agent_experience" required>
-                    <option value="" selected disabled>Select an answer</option>
-                    <option value="none">None</option>
-                    <option value="low">A little</option>
-                    <option value="medium">Moderate</option>
-                    <option value="high">A lot</option>
-                    <option value="expert">Expert</option>
-                </select>
-            </label>
+                <label class="form-field" for="pythonExperience">
+                    <span>What is your level of Python experience?</span>
+                    <select id="pythonExperience" name="python_experience" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="none">None</option>
+                        <option value="low">A little</option>
+                        <option value="medium">Moderate</option>
+                        <option value="high">A lot</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </label>
 
-            <label class="form-field" for="aiToolFrequency">
-                <span>How often do you use AI development tools?</span>
-                <select id="aiToolFrequency" name="ai_tool_frequency" required>
-                    <option value="" selected disabled>Select an answer</option>
-                    <option value="never">Never</option>
-                    <option value="rarely">Rarely</option>
-                    <option value="monthly">A few times per month</option>
-                    <option value="weekly">A few times per week</option>
-                    <option value="daily">Daily</option>
-                </select>
-            </label>
+                <label class="form-field" for="multiAgentExperience">
+                    <span>What is your experience with multi-agent systems?</span>
+                    <select id="multiAgentExperience" name="multi_agent_experience" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="none">None</option>
+                        <option value="low">A little</option>
+                        <option value="medium">Moderate</option>
+                        <option value="high">A lot</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </label>
 
-            <label class="form-field" for="priorGearUse">
-                <span>Had you used Gear before this experiment?</span>
-                <select id="priorGearUse" name="prior_gear_use" required>
-                    <option value="" selected disabled>Select an answer</option>
-                    <option value="no">No</option>
-                    <option value="yes_once">Yes, once or twice</option>
-                    <option value="yes_regularly">Yes, regularly</option>
-                </select>
-            </label>
+                <label class="form-field" for="crewaiExperience">
+                    <span>What was your CrewAI experience before this experiment?</span>
+                    <select id="crewaiExperience" name="crewai_experience" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="none">None</option>
+                        <option value="low">A little</option>
+                        <option value="medium">Moderate</option>
+                        <option value="high">A lot</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </label>
 
-            <label class="form-field" for="feedback">
-                <span>Optional feedback about the experiment</span>
-                <textarea
-                    id="feedback"
-                    name="feedback"
-                    rows="4"
-                    maxlength="2000"
-                    placeholder="What was clear, difficult, useful, or frustrating?"
-                ></textarea>
-            </label>
+                <label class="form-field" for="adkExperience">
+                    <span>What was your Google ADK experience before this experiment?</span>
+                    <select id="adkExperience" name="adk_experience" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="none">None</option>
+                        <option value="low">A little</option>
+                        <option value="medium">Moderate</option>
+                        <option value="high">A lot</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </label>
+
+                <label class="form-field" for="aiToolFrequency">
+                    <span>How often do you use AI development tools?</span>
+                    <select id="aiToolFrequency" name="ai_tool_frequency" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="never">Never</option>
+                        <option value="rarely">Rarely</option>
+                        <option value="monthly">A few times per month</option>
+                        <option value="weekly">A few times per week</option>
+                        <option value="daily">Daily</option>
+                    </select>
+                </label>
+
+                <label class="form-field" for="priorGearUse">
+                    <span>Had you used Gear before this experiment?</span>
+                    <select id="priorGearUse" name="prior_gear_use" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="no">No</option>
+                        <option value="yes_once">Yes, once or twice</option>
+                        <option value="yes_regularly">Yes, regularly</option>
+                    </select>
+                </label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Your experience during the experiment</legend>
+                <p class="scale-help">For the following statements: 1 = strongly disagree, 7 = strongly agree.</p>
+
+                <label class="form-field" for="methodEase">
+                    <span>The method I used was easy to use.</span>
+                    <select id="methodEase" name="method_ease" required data-likert></select>
+                </label>
+
+                <label class="form-field" for="mentalEffort">
+                    <span>Completing the tasks required a lot of mental effort.</span>
+                    <select id="mentalEffort" name="mental_effort" required data-likert></select>
+                </label>
+
+                <label class="form-field" for="confidence">
+                    <span>I am confident that my final solutions were correct.</span>
+                    <select id="confidence" name="confidence" required data-likert></select>
+                </label>
+
+                <label class="form-field" for="frameworkSwitchEase">
+                    <span>It was easy to adapt my solutions from the first framework to the second.</span>
+                    <select id="frameworkSwitchEase" name="framework_switch_ease" required data-likert></select>
+                </label>
+
+                <label class="form-field" for="reuseHelpfulness">
+                    <span>The work completed for the first framework helped me implement the second framework.</span>
+                    <select id="reuseHelpfulness" name="reuse_helpfulness" required data-likert></select>
+                </label>
+
+                <label class="form-field" for="errorClarity">
+                    <span>When I encountered feedback or errors, they were understandable.</span>
+                    <select id="errorClarity" name="error_clarity" required data-likert-na></select>
+                </label>
+
+                <label class="form-field" for="futureUse">
+                    <span>I would use this method again to implement the same system in another framework.</span>
+                    <select id="futureUse" name="future_use" required data-likert></select>
+                </label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Open feedback</legend>
+
+                <label class="form-field" for="frameworkTransitionFeedback">
+                    <span>What helped or hindered you when moving from the first framework to the second?</span>
+                    <textarea
+                        id="frameworkTransitionFeedback"
+                        name="framework_transition_feedback"
+                        rows="4"
+                        maxlength="2000"
+                        placeholder="Describe reuse, translation, framework-specific changes, or difficulties."
+                    ></textarea>
+                </label>
+
+                <label class="form-field" for="feedback">
+                    <span>Any other feedback about the method or the experiment?</span>
+                    <textarea
+                        id="feedback"
+                        name="feedback"
+                        rows="4"
+                        maxlength="2000"
+                        placeholder="What was clear, difficult, useful, or frustrating?"
+                    ></textarea>
+                </label>
+            </fieldset>
 
             <p id="questionnaireStatus" class="form-status" role="status" aria-live="polite"></p>
             <button id="submitQuestionnaireBtn" type="submit">Submit answers</button>
