@@ -25,6 +25,8 @@
 
   const modeLabel = mode === "GEAR" ? "Gear" : "Manual";
   const frameworkLabel = framework === "adk" ? "Google ADK" : "CrewAI";
+  const taskLabel = taskId.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") || "TASK";
+  document.title = `${taskLabel} · ${frameworkLabel} · Gear Experiment`;
   const phaseLabels = {
     training: "Training",
     familiarization: "Familiarization",
@@ -35,6 +37,7 @@
   const overlayHTML = `
     <div id="expBar" role="region" aria-label="Experiment controls">
       <div class="exp-info">
+        <span class="exp-task-id" aria-label="Current task">${taskLabel}</span>
         <span class="exp-label">${phaseLabel}</span>
         <span class="exp-mode">${modeLabel} · ${frameworkLabel}</span>
       </div>
