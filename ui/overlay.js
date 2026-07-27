@@ -77,14 +77,14 @@
     return legacyOutput?.value || legacyOutput?.textContent || "";
   }
 
-  function startTimerIfNeeded() {
+  function startTimerIfNeeded(seconds = durationSeconds) {
     if (durationSeconds === 0) {
       timerEl.textContent = "No time limit";
       timerEl.classList.add("is-unlimited");
       return;
     }
 
-    endTime = Date.now() + durationSeconds * 1000;
+    endTime = Date.now() + Math.max(0, Number(seconds) || 0) * 1000;
 
     function updateTimerDisplay() {
       const timeLeftMs = endTime - Date.now();
@@ -131,8 +131,47 @@
     .then((data) => {
       logId = data.log_id;
       window.currentLogId = logId;
+      if (data.resumed && durationSeconds > 0 && Number.isFinite(Number(data.start_time))) {
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        const elapsedSeconds = Math.max(0, Date.now() / 1000 - Number(data.start_time));
+        startTimerIfNeeded(Math.max(0, durationSeconds - elapsedSeconds));
+      }
+      const context = {
+        active: true,
+        task_log_id: logId,
+        task_id: taskId,
+        mode,
+        framework,
+        sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
+        study_phase: data.study_phase || studyPhase,
+        primary_analysis: Boolean(data.included_in_primary_analysis),
+        record_mlflow: Boolean(logId)
+      };
+      window.currentExperimentRunContext = context;
+      return context;
     })
-    .catch((error) => console.error("Error starting experiment log", error));
+    .catch((error) => {
+      console.error("Error starting experiment log", error);
+      const context = {
+        active: true,
+        task_log_id: null,
+        task_id: taskId,
+        mode,
+        framework,
+        sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
+        study_phase: studyPhase,
+        primary_analysis: false,
+        record_mlflow: false,
+        error: true
+      };
+      window.currentExperimentRunContext = context;
+      return context;
+    });
+
+  window.getExperimentRunContext = () => logStartPromise;
 
 
   btnValidate.addEventListener("click", async () => {

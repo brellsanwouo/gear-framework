@@ -161,14 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
       outputPre.classList.remove("error");
 
       try {
+        const experimentContext = typeof window.getExperimentRunContext === "function"
+          ? await window.getExperimentRunContext()
+          : null;
         const response = await fetch(API_MANUAL_RUN_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            log_id: window.currentLogId || null,
             code,
             target: targetFramework,
             async: true,
+            experiment_context: experimentContext,
           }),
         });
         const payload = await response.json().catch(() => ({}));

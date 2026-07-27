@@ -61,7 +61,13 @@ def create_app() -> Flask:
     model_service = FeatureModelService(BASE_DIR, UI_DIR)
     application.register_blueprint(create_system_blueprint(STUDIO_MODEL_POLICY))
     application.register_blueprint(create_builds_blueprint(STORE_PATH, STUDIO_MODEL_POLICY))
-    application.register_blueprint(create_runner_blueprint(STORE_PATH))
+    application.register_blueprint(
+        create_runner_blueprint(
+            STORE_PATH,
+            database=DB_CONFIG,
+            research_tracking_enabled=TRACKING_ENABLED,
+        )
+    )
     application.register_blueprint(create_models_blueprint(model_service))
     application.register_blueprint(
         create_research_blueprint(

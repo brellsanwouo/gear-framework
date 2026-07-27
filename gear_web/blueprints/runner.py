@@ -18,10 +18,16 @@ from ..services.execution import (
     ManualCodeValidationError,
     ensure_crewai_kickoff,
     parse_trace_id,
+    prepend_manual_mlflow_bootstrap,
     prepend_google_adk_imports,
     strip_crewai_tracing_messages,
     strip_trace_markers,
     validate_manual_code,
+)
+from ..services.experiment_context import (
+    ExperimentContextError,
+    ExperimentRunContext,
+    load_experiment_run_context,
 )
 from ..services.participants import current_participant
 
@@ -67,70 +73,245 @@ def _clean_output(target: str, stdout: str, stderr: str) -> tuple[str, str, str 
     return clean_stdout, clean_stderr, external_trace_id
 
 
-def create_runner_blueprint(store_path: str) -> Blueprint:
+def _timeout_output(error: subprocess.TimeoutExpired) -> tuple[str, str]:
+    stdout = error.output.decode() if isinstance(error.output, bytes) else str(error.output or "")
+    stderr = error.stderr.decode() if isinstance(error.stderr, bytes) else str(error.stderr or "")
+    return stdout, stderr
+
+
+def create_runner_blueprint(
+    store_path: str,
+    *,
+    database: dict[str, Any] | None = None,
+    research_tracking_enabled: bool = False,
+) -> Blueprint:
     blueprint = Blueprint("runner", __name__)
+    research_database = database or {}
+
+    def resolve_experiment_context(
+        payload: dict[str, Any],
+        identity,
+        *,
+        expected_mode: str,
+        expected_framework: str,
+    ) -> tuple[ExperimentRunContext | None, bool]:
+        raw_context = payload.get("experiment_context")
+        if not isinstance(raw_context, dict):
+            legacy_log_id = payload.get("log_id")
+            if legacy_log_id not in (None, ""):
+                raw_context = {"active": True, "task_log_id": legacy_log_id}
+            else:
+                return None, True
+
+        if raw_context.get("active") is not True:
+            return None, True
+
+        phase = str(raw_context.get("study_phase") or "").lower()
+        task_log_id = raw_context.get("task_log_id")
+        if task_log_id in (None, ""):
+            # T1 is intentionally absent from task_logs and MLflow. Any other
+            # experiment phase must have a database log before it can execute.
+            if phase == "training":
+                return None, False
+            raise ExperimentContextError("The experiment task log is not ready yet.")
+
+        if not research_tracking_enabled:
+            raise ExperimentContextError("Research tracking is disabled; the execution cannot be linked.")
+
+        try:
+            numeric_log_id = int(task_log_id)
+        except (TypeError, ValueError) as error:
+            raise ExperimentContextError("Invalid experiment task log identifier.") from error
+
+        context = load_experiment_run_context(
+            research_database,
+            task_log_id=numeric_log_id,
+            participant_id=identity.user_id,
+            expected_mode=expected_mode,
+            expected_framework=expected_framework,
+        )
+        return context, True
+
+    def execution_tags(
+        context: ExperimentRunContext | None,
+        *,
+        execution_kind: str,
+        execution_id: str,
+        build_id: str | None = None,
+        project_id: str | None = None,
+    ) -> dict[str, str]:
+        tags = context.mlflow_tags() if context else {}
+        tags.update({
+            "gear.execution_kind": execution_kind,
+            "gear.execution_id": execution_id,
+        })
+        if build_id:
+            tags["gear.build_id"] = build_id
+        if project_id and context is None:
+            tags["gear.project_id"] = project_id
+        return tags
+
+    def record_result(
+        *,
+        enabled: bool,
+        framework: str,
+        execution_kind: str,
+        execution_id: str,
+        status_value: str,
+        returncode: int | None,
+        duration_ms: int,
+        stdout: str,
+        stderr: str,
+        context: ExperimentRunContext | None,
+        external_trace_id: str | None = None,
+        build_id: str | None = None,
+        project_id: str | None = None,
+    ) -> tuple[str | None, str | None]:
+        if not enabled:
+            return None, external_trace_id
+        return observability.record_execution(
+            framework=framework,
+            execution_kind=execution_kind,
+            execution_id=execution_id,
+            status_value=status_value,
+            returncode=returncode,
+            duration_ms=duration_ms,
+            stdout=stdout,
+            stderr=stderr,
+            context_tags=context.mlflow_tags() if context else None,
+            external_trace_id=external_trace_id,
+            build_id=build_id,
+            project_id=project_id,
+        )
 
     def execute_build(
         build: dict[str, Any],
         identity,
+        experiment_context: ExperimentRunContext | None,
+        record_mlflow: bool,
         cancel_event: threading.Event | None = None,
     ) -> tuple[dict[str, Any], int]:
         build_id = str(build["id"])
+        execution_id = f"studio-run-{uuid.uuid4()}"
         target = str(build.get("target") or "").lower()
+        project_id = str(build.get("project_id") or "")
         code = str((build.get("outputs") or {}).get("orchestration") or "")
         executable = _prepare_executable(code, target)
+        child_tags = execution_tags(
+            experiment_context,
+            execution_kind="studio",
+            execution_id=execution_id,
+            build_id=build_id,
+            project_id=project_id,
+        )
         started_at = time.perf_counter()
+
         try:
             result = gear_runner.run_python(
                 executable,
                 timeout=_timeout(),
-                managed_mlflow=True,
+                managed_mlflow=record_mlflow,
                 participant_id=identity.user_id,
                 session_id=identity.session_id,
-                project_id=str(build.get("project_id") or ""),
+                project_id=project_id,
                 build_id=build_id,
+                mlflow_context=child_tags,
+                enable_mlflow=record_mlflow,
                 cancel_event=cancel_event,
             )
         except gear_runner.RunCancelled as error:
-            stdout, stderr, _ = _clean_output(target, error.stdout, error.stderr)
+            duration_ms = round((time.perf_counter() - started_at) * 1000)
+            stdout, stderr, external_trace_id = _clean_output(target, error.stdout, error.stderr)
+            mlflow_run_id, trace_id = record_result(
+                enabled=record_mlflow,
+                framework=target,
+                execution_kind="studio",
+                execution_id=execution_id,
+                status_value="cancelled",
+                returncode=None,
+                duration_ms=duration_ms,
+                stdout=stdout,
+                stderr=stderr,
+                context=experiment_context,
+                external_trace_id=external_trace_id,
+                build_id=build_id,
+                project_id=project_id,
+            )
             return {
                 "cancelled": True,
+                "run_id": execution_id,
+                "mlflow_run_id": mlflow_run_id,
+                "trace_id": trace_id,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
+                "duration_ms": duration_ms,
                 "error": "Execution cancelled.",
             }, 409
-        except subprocess.TimeoutExpired:
-            return {"error": f"Execution timed out after {_timeout()} seconds."}, 408
+        except subprocess.TimeoutExpired as error:
+            duration_ms = round((time.perf_counter() - started_at) * 1000)
+            raw_stdout, raw_stderr = _timeout_output(error)
+            stdout, stderr, external_trace_id = _clean_output(target, raw_stdout, raw_stderr)
+            mlflow_run_id, trace_id = record_result(
+                enabled=record_mlflow,
+                framework=target,
+                execution_kind="studio",
+                execution_id=execution_id,
+                status_value="timeout",
+                returncode=None,
+                duration_ms=duration_ms,
+                stdout=stdout,
+                stderr=stderr,
+                context=experiment_context,
+                external_trace_id=external_trace_id,
+                build_id=build_id,
+                project_id=project_id,
+            )
+            return {
+                "timed_out": True,
+                "run_id": execution_id,
+                "mlflow_run_id": mlflow_run_id,
+                "trace_id": trace_id,
+                "stdout": stdout,
+                "stderr": stderr,
+                "returncode": None,
+                "duration_ms": duration_ms,
+                "error": f"Execution timed out after {_timeout()} seconds.",
+            }, 408
 
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         stdout, stderr, external_trace_id = _clean_output(target, result.stdout, result.stderr)
-        mlflow_run_id = observability.record_execution(
-            build_id=build_id,
-            target=target,
+        status_value = "succeeded" if result.returncode == 0 else "failed"
+        mlflow_run_id, trace_id = record_result(
+            enabled=record_mlflow,
+            framework=target,
+            execution_kind="studio",
+            execution_id=execution_id,
+            status_value=status_value,
             returncode=result.returncode,
             duration_ms=duration_ms,
             stdout=stdout,
             stderr=stderr,
+            context=experiment_context,
             external_trace_id=external_trace_id,
-            user_id=identity.user_id,
-            session_id=identity.session_id,
-            project_id=str(build.get("project_id") or ""),
+            build_id=build_id,
+            project_id=project_id,
         )
-        trace_id = external_trace_id or mlflow_run_id
-        run_id = BuildStore(store_path).record_run(
+        BuildStore(store_path).record_run(
             build_id,
-            "succeeded" if result.returncode == 0 else "failed",
+            status_value,
             stdout,
             stderr,
-            trace_id,
+            trace_id or mlflow_run_id,
+            run_id=execution_id,
             participant_id=identity.user_id,
             session_id=identity.session_id,
         )
         return {
-            "run_id": run_id,
+            "run_id": execution_id,
             "trace_id": trace_id,
             "mlflow_run_id": mlflow_run_id,
+            "task_log_id": experiment_context.task_log_id if experiment_context else None,
             "stdout": stdout,
             "stderr": stderr,
             "returncode": result.returncode,
@@ -140,61 +321,115 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
     def execute_manual(
         code: str,
         target: str,
-        log_id: str,
         identity,
+        experiment_context: ExperimentRunContext | None,
+        record_mlflow: bool,
         cancel_event: threading.Event | None = None,
     ) -> tuple[dict[str, Any], int]:
-        manual_run_id = f"manual-run-{uuid.uuid4()}"
-        executable = _prepare_executable(code, target)
-        project_id = f"experiment-log:{log_id}" if log_id else "manual-editor"
+        execution_id = f"manual-run-{uuid.uuid4()}"
+        executable = prepend_manual_mlflow_bootstrap(_prepare_executable(code, target), target)
+        project_id = "manual-editor"
+        child_tags = execution_tags(
+            experiment_context,
+            execution_kind="manual",
+            execution_id=execution_id,
+            project_id=project_id,
+        )
         started_at = time.perf_counter()
 
         try:
             result = gear_runner.run_python(
                 executable,
                 timeout=_timeout(),
-                managed_mlflow=True,
+                managed_mlflow=record_mlflow,
                 participant_id=identity.user_id,
                 session_id=identity.session_id,
                 project_id=project_id,
-                build_id=manual_run_id,
+                build_id=execution_id,
+                mlflow_context=child_tags,
+                enable_mlflow=record_mlflow,
                 cancel_event=cancel_event,
             )
         except gear_runner.RunCancelled as error:
-            stdout, stderr, _ = _clean_output(target, error.stdout, error.stderr)
+            duration_ms = round((time.perf_counter() - started_at) * 1000)
+            stdout, stderr, external_trace_id = _clean_output(target, error.stdout, error.stderr)
+            mlflow_run_id, trace_id = record_result(
+                enabled=record_mlflow,
+                framework=target,
+                execution_kind="manual",
+                execution_id=execution_id,
+                status_value="cancelled",
+                returncode=None,
+                duration_ms=duration_ms,
+                stdout=stdout,
+                stderr=stderr,
+                context=experiment_context,
+                external_trace_id=external_trace_id,
+                project_id=project_id,
+            )
             return {
                 "cancelled": True,
-                "manual_run_id": manual_run_id,
+                "manual_run_id": execution_id,
+                "mlflow_run_id": mlflow_run_id,
+                "trace_id": trace_id,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
+                "duration_ms": duration_ms,
                 "error": "Execution cancelled.",
             }, 409
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as error:
+            duration_ms = round((time.perf_counter() - started_at) * 1000)
+            raw_stdout, raw_stderr = _timeout_output(error)
+            stdout, stderr, external_trace_id = _clean_output(target, raw_stdout, raw_stderr)
+            mlflow_run_id, trace_id = record_result(
+                enabled=record_mlflow,
+                framework=target,
+                execution_kind="manual",
+                execution_id=execution_id,
+                status_value="timeout",
+                returncode=None,
+                duration_ms=duration_ms,
+                stdout=stdout,
+                stderr=stderr,
+                context=experiment_context,
+                external_trace_id=external_trace_id,
+                project_id=project_id,
+            )
             return {
-                "manual_run_id": manual_run_id,
+                "timed_out": True,
+                "manual_run_id": execution_id,
+                "mlflow_run_id": mlflow_run_id,
+                "trace_id": trace_id,
+                "stdout": stdout,
+                "stderr": stderr,
+                "returncode": None,
+                "duration_ms": duration_ms,
                 "error": f"Execution timed out after {_timeout()} seconds.",
             }, 408
 
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         stdout, stderr, external_trace_id = _clean_output(target, result.stdout, result.stderr)
-        mlflow_run_id = observability.record_execution(
-            build_id=manual_run_id,
-            target=f"manual-{target}",
+        status_value = "succeeded" if result.returncode == 0 else "failed"
+        mlflow_run_id, trace_id = record_result(
+            enabled=record_mlflow,
+            framework=target,
+            execution_kind="manual",
+            execution_id=execution_id,
+            status_value=status_value,
             returncode=result.returncode,
             duration_ms=duration_ms,
             stdout=stdout,
             stderr=stderr,
+            context=experiment_context,
             external_trace_id=external_trace_id,
-            user_id=identity.user_id,
-            session_id=identity.session_id,
             project_id=project_id,
         )
-        trace_id = external_trace_id or mlflow_run_id
         return {
-            "manual_run_id": manual_run_id,
+            "manual_run_id": execution_id,
             "trace_id": trace_id,
             "mlflow_run_id": mlflow_run_id,
+            "task_log_id": experiment_context.task_log_id if experiment_context else None,
             "stdout": stdout,
             "stderr": stderr,
             "returncode": result.returncode,
@@ -304,17 +539,32 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         if not code.strip():
             return jsonify({"error": "This build contains no executable orchestration."}), 400
 
+        try:
+            experiment_context, record_mlflow = resolve_experiment_context(
+                payload,
+                identity,
+                expected_mode="GEAR",
+                expected_framework=target,
+            )
+        except ExperimentContextError as error:
+            return jsonify({"error": str(error)}), 409
+
         if payload.get("async") is True:
             job_id = start_job(
                 identity=identity,
                 kind="studio",
                 executor=execute_build,
-                args=(build, identity),
+                args=(build, identity, experiment_context, record_mlflow),
             )
             return jsonify({"job_id": job_id, "status": "running"}), 202
 
         try:
-            result, status_code = execute_build(build, identity)
+            result, status_code = execute_build(
+                build,
+                identity,
+                experiment_context,
+                record_mlflow,
+            )
             return jsonify(result), status_code
         except Exception as error:
             LOGGER.exception("Workflow execution failed")
@@ -334,7 +584,6 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         identity = current_participant()
         code = str(payload.get("code") or "")
         target = str(payload.get("target") or "crewai").strip().lower()
-        log_id = str(payload.get("log_id") or "").strip()[:128]
 
         if not code.strip():
             return jsonify({"error": "Python code is required."}), 400
@@ -350,17 +599,33 @@ def create_runner_blueprint(store_path: str) -> Blueprint:
         except ManualCodeValidationError as error:
             return jsonify({"error": str(error)}), 400
 
+        try:
+            experiment_context, record_mlflow = resolve_experiment_context(
+                payload,
+                identity,
+                expected_mode="MANUAL",
+                expected_framework=target,
+            )
+        except ExperimentContextError as error:
+            return jsonify({"error": str(error)}), 409
+
         if payload.get("async") is True:
             job_id = start_job(
                 identity=identity,
                 kind="manual",
                 executor=execute_manual,
-                args=(code, target, log_id, identity),
+                args=(code, target, identity, experiment_context, record_mlflow),
             )
             return jsonify({"job_id": job_id, "status": "running"}), 202
 
         try:
-            result, status_code = execute_manual(code, target, log_id, identity)
+            result, status_code = execute_manual(
+                code,
+                target,
+                identity,
+                experiment_context,
+                record_mlflow,
+            )
             return jsonify(result), status_code
         except Exception as error:
             LOGGER.exception("Manual workflow execution failed")

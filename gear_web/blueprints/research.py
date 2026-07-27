@@ -109,17 +109,11 @@ class ResearchStore:
                     "CREATE INDEX IF NOT EXISTS idx_task_logs_user_task ON task_logs(user_id, task_id)"
                 )
                 cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS task_runs (
-                        id BIGSERIAL PRIMARY KEY,
-                        log_id BIGINT NOT NULL,
-                        trace_id VARCHAR(64),
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        trace_json TEXT,
-                        FOREIGN KEY (log_id) REFERENCES task_logs(id)
-                    )
-                    """
+                    "CREATE INDEX IF NOT EXISTS idx_task_logs_user_sequence "
+                    "ON task_logs(user_id, sequence_index)"
                 )
+
+                cursor.execute("DROP TABLE IF EXISTS task_runs")
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS experiment_questionnaire_responses (
@@ -667,6 +661,31 @@ def create_research_blueprint(
 
                 study_phase = str(entry.get("study_phase") or "measured")
                 included_in_primary_analysis = bool(entry.get("included_in_primary_analysis"))
+
+                cursor.execute(
+                    """
+                    SELECT id, start_time, completed
+                    FROM task_logs
+                    WHERE user_id=%s AND sequence_index=%s
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (user_id, sequence_index),
+                )
+                existing_log = cursor.fetchone()
+                if existing_log:
+                    if bool(existing_log[2]):
+                        cursor.close()
+                        return jsonify({"error": "This experiment task is already completed."}), 409
+                    cursor.close()
+                    return jsonify({
+                        "log_id": int(existing_log[0]),
+                        "start_time": float(existing_log[1]),
+                        "study_phase": study_phase,
+                        "included_in_primary_analysis": included_in_primary_analysis,
+                        "resumed": True,
+                    })
+
                 cursor.execute(
                     """
                     INSERT INTO task_logs (

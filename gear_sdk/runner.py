@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import resource
 import signal
@@ -95,6 +96,8 @@ def run_python(
     session_id: str | None = None,
     project_id: str | None = None,
     build_id: str | None = None,
+    mlflow_context: dict[str, str] | None = None,
+    enable_mlflow: bool = True,
     cancel_event: Event | None = None,
 ) -> RunResult:
     """Run Python code in an isolated temporary directory with hard resource limits.
@@ -105,6 +108,8 @@ def run_python(
     must therefore stay disabled unless the experiment participants are trusted.
     """
     environment = {key: value for key, value in os.environ.items() if key in ALLOWED_ENVIRONMENT}
+    if not enable_mlflow:
+        environment = {key: value for key, value in environment.items() if not key.startswith("MLFLOW_")}
     with tempfile.TemporaryDirectory(prefix="gear-run-") as temporary:
         runtime_home = Path(temporary)
         runtime_data = runtime_home / ".local" / "share"
@@ -126,8 +131,10 @@ def run_python(
             "CREWAI_TRACING_ENABLED": "false",
             "CREWAI_DISABLE_TELEMETRY": "true",
         })
-        if managed_mlflow:
+        if managed_mlflow and enable_mlflow:
             environment["GEAR_MLFLOW_MANAGED"] = "true"
+        if mlflow_context and enable_mlflow:
+            environment["GEAR_MLFLOW_CONTEXT_JSON"] = json.dumps(mlflow_context, ensure_ascii=False)
         for key, value in {
             "GEAR_PARTICIPANT_ID": participant_id,
             "GEAR_SESSION_ID": session_id,
