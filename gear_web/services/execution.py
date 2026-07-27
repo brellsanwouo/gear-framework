@@ -184,13 +184,16 @@ def strip_trace_markers(stderr: str) -> str:
 
 
 def prepend_manual_mlflow_bootstrap(code: str, target: str) -> str:
-
     framework = "adk" if target.strip().lower() == "adk" else "crewai"
+    uses_async_crewai = framework == "crewai" and (
+        "kickoff_async(" in code or "async def run_workflow" in code
+    )
     bootstrap = f'''
 # --- GEAR MANUAL MLflow observability ---
 _gear_manual_mlflow = None
 _gear_manual_root_context = None
 _gear_manual_root_span = None
+_gear_manual_otel_provider = None
 _gear_manual_trace_closed = False
 try:
     import atexit as _gear_manual_atexit
@@ -209,14 +212,6 @@ try:
         _gear_manual_experiment = _gear_manual_mlflow.set_experiment(
             _gear_manual_os.environ.get("MLFLOW_EXPERIMENT_NAME", "gear-framework-production")
         )
-        if {framework!r} == "adk":
-            try:
-                from mlflow.entities import MlflowExperimentLocation as _GearManualExperimentLocation
-                _gear_manual_mlflow.tracing.set_destination(
-                    _GearManualExperimentLocation(_gear_manual_experiment.experiment_id)
-                )
-            except Exception:
-                pass
 
         _gear_manual_tags = {{
             "gear.source": "manual-code",
@@ -232,30 +227,73 @@ try:
                     for key, value in _gear_manual_context.items()
                     if value not in (None, "")
                 }})
-        except Exception:
-            pass
+        except Exception as _gear_manual_context_error:
+            print(
+                f"Unable to load GEAR MLflow context: {{_gear_manual_context_error}}",
+                file=_gear_manual_sys.stderr,
+            )
 
-        if {framework!r} == "crewai":
+        if {framework!r} == "adk":
             try:
-                _gear_manual_mlflow.crewai.autolog()
-            except Exception as _gear_manual_crewai_autolog_error:
+                from mlflow.entities.trace_location import (
+                    MlflowExperimentLocation as _GearManualExperimentLocation,
+                )
+                from opentelemetry import trace as _gear_manual_otel_trace
+                from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                    OTLPSpanExporter as _GearManualOTLPSpanExporter,
+                )
+                from opentelemetry.sdk.trace import TracerProvider as _GearManualTracerProvider
+                from opentelemetry.sdk.trace.export import (
+                    SimpleSpanProcessor as _GearManualSimpleSpanProcessor,
+                )
+
+                _gear_manual_mlflow.tracing.set_destination(
+                    _GearManualExperimentLocation(_gear_manual_experiment.experiment_id)
+                )
+                _gear_manual_otel_provider = _GearManualTracerProvider()
+                _gear_manual_exporter = _GearManualOTLPSpanExporter(
+                    endpoint=f"{{_gear_manual_tracking_uri.rstrip('/')}}/v1/traces",
+                    headers={{
+                        "x-mlflow-experiment-id": _gear_manual_experiment.experiment_id,
+                    }},
+                )
+                _gear_manual_otel_provider.add_span_processor(
+                    _GearManualSimpleSpanProcessor(_gear_manual_exporter)
+                )
+                _gear_manual_otel_trace.set_tracer_provider(_gear_manual_otel_provider)
+            except Exception as _gear_manual_adk_trace_error:
                 print(
-                    f"MLflow CrewAI tracing unavailable: {{_gear_manual_crewai_autolog_error}}",
+                    f"MLflow ADK native tracing unavailable: {{_gear_manual_adk_trace_error}}",
                     file=_gear_manual_sys.stderr,
                 )
 
-        try:
-            _gear_manual_mlflow.litellm.autolog()
-        except Exception as _gear_manual_litellm_autolog_error:
-            print(
-                f"MLflow LiteLLM tracing unavailable: {{_gear_manual_litellm_autolog_error}}",
-                file=_gear_manual_sys.stderr,
-            )
+        if {framework!r} == "crewai":
+            try:
+                if {uses_async_crewai!r}:
+                    # MLflow's CrewAI integration is synchronous-only. GEAR's
+                    # generated workflow uses kickoff_async(), so trace the
+                    # underlying LiteLLM calls instead.
+                    _gear_manual_mlflow.litellm.autolog()
+                else:
+                    _gear_manual_mlflow.crewai.autolog()
+            except Exception as _gear_manual_crewai_autolog_error:
+                print(
+                    f"MLflow CrewAI/LiteLLM tracing unavailable: {{_gear_manual_crewai_autolog_error}}",
+                    file=_gear_manual_sys.stderr,
+                )
+
+        _gear_manual_trace_attributes = dict(_gear_manual_tags)
+        _gear_manual_experiment_user = _gear_manual_tags.get("gear.experiment_user_id")
+        _gear_manual_session_id = _gear_manual_os.environ.get("GEAR_SESSION_ID", "").strip()
+        if _gear_manual_experiment_user:
+            _gear_manual_trace_attributes["user.id"] = _gear_manual_experiment_user
+        if _gear_manual_session_id:
+            _gear_manual_trace_attributes["session.id"] = _gear_manual_session_id
 
         _gear_manual_root_context = _gear_manual_mlflow.start_span(
             name="gear.manual.{framework}",
             span_type="CHAIN",
-            attributes=_gear_manual_tags,
+            attributes=_gear_manual_trace_attributes,
         )
         _gear_manual_root_span = _gear_manual_root_context.__enter__()
         _gear_manual_root_span.set_inputs({{
@@ -276,10 +314,16 @@ try:
             if _gear_manual_trace_closed or _gear_manual_root_context is None:
                 return
             _gear_manual_trace_closed = True
-            if error is not None and _gear_manual_root_span is not None:
-                _gear_manual_root_span.set_outputs({{"error": str(error)}})
-                _gear_manual_root_span.set_status("ERROR")
+            if _gear_manual_root_span is not None:
+                if error is not None:
+                    _gear_manual_root_span.set_outputs({{"error": str(error)}})
+                    _gear_manual_root_span.set_status("ERROR")
+                else:
+                    _gear_manual_root_span.set_outputs({{"status": "completed"}})
             _gear_manual_root_context.__exit__(None, None, None)
+            if _gear_manual_otel_provider is not None:
+                _gear_manual_otel_provider.force_flush()
+                _gear_manual_otel_provider.shutdown()
             _gear_manual_mlflow.flush_trace_async_logging()
 
         _gear_manual_original_excepthook = _gear_manual_sys.excepthook

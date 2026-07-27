@@ -120,7 +120,9 @@ jobs:
           from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings
           from semantic_kernel.functions import KernelArguments
           import mlflow
+          from packaging.version import Version
 
+          assert Version(mlflow.__version__) >= Version("3.10.0"), mlflow.__version__
           for integration in ("autogen", "crewai", "haystack", "langchain", "litellm", "openai", "pydantic_ai", "semantic_kernel", "strands"):
               assert callable(getattr(getattr(mlflow, integration), "autolog")), integration
           assert callable(mlflow.start_span_no_context)
@@ -164,6 +166,12 @@ jobs:
           fi
           if ! sudo grep -Eq '^MLFLOW_HTTP_REQUEST_MAX_RETRIES=.+$' /etc/gear.env; then
             echo 'MLFLOW_HTTP_REQUEST_MAX_RETRIES=1' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+          if ! sudo grep -Eq '^GEAR_MLFLOW_USAGE_WAIT_SECONDS=.+$' /etc/gear.env; then
+            echo 'GEAR_MLFLOW_USAGE_WAIT_SECONDS=3' | sudo tee -a /etc/gear.env > /dev/null
+          fi
+          if ! sudo grep -Eq '^GEAR_MLFLOW_USAGE_POLL_INTERVAL_SECONDS=.+$' /etc/gear.env; then
+            echo 'GEAR_MLFLOW_USAGE_POLL_INTERVAL_SECONDS=0.25' | sudo tee -a /etc/gear.env > /dev/null
           fi
 
           mlflow_uri="$(sudo sed -n 's/^MLFLOW_TRACKING_URI=//p' /etc/gear.env | tail -n 1)"

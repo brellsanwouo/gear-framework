@@ -166,9 +166,9 @@ def create_runner_blueprint(
         external_trace_id: str | None = None,
         build_id: str | None = None,
         project_id: str | None = None,
-    ) -> tuple[str | None, str | None]:
+    ) -> tuple[str | None, str | None, dict[str, Any]]:
         if not enabled:
-            return None, external_trace_id
+            return None, external_trace_id, observability.empty_usage_summary(external_trace_id)
         return observability.record_execution(
             framework=framework,
             execution_kind=execution_kind,
@@ -222,7 +222,7 @@ def create_runner_blueprint(
         except gear_runner.RunCancelled as error:
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             stdout, stderr, external_trace_id = _clean_output(target, error.stdout, error.stderr)
-            mlflow_run_id, trace_id = record_result(
+            mlflow_run_id, trace_id, llm_usage = record_result(
                 enabled=record_mlflow,
                 framework=target,
                 execution_kind="studio",
@@ -242,6 +242,7 @@ def create_runner_blueprint(
                 "run_id": execution_id,
                 "mlflow_run_id": mlflow_run_id,
                 "trace_id": trace_id,
+                "llm_usage": llm_usage,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
@@ -252,7 +253,7 @@ def create_runner_blueprint(
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             raw_stdout, raw_stderr = _timeout_output(error)
             stdout, stderr, external_trace_id = _clean_output(target, raw_stdout, raw_stderr)
-            mlflow_run_id, trace_id = record_result(
+            mlflow_run_id, trace_id, llm_usage = record_result(
                 enabled=record_mlflow,
                 framework=target,
                 execution_kind="studio",
@@ -272,6 +273,7 @@ def create_runner_blueprint(
                 "run_id": execution_id,
                 "mlflow_run_id": mlflow_run_id,
                 "trace_id": trace_id,
+                "llm_usage": llm_usage,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
@@ -282,7 +284,7 @@ def create_runner_blueprint(
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         stdout, stderr, external_trace_id = _clean_output(target, result.stdout, result.stderr)
         status_value = "succeeded" if result.returncode == 0 else "failed"
-        mlflow_run_id, trace_id = record_result(
+        mlflow_run_id, trace_id, llm_usage = record_result(
             enabled=record_mlflow,
             framework=target,
             execution_kind="studio",
@@ -311,6 +313,7 @@ def create_runner_blueprint(
             "run_id": execution_id,
             "trace_id": trace_id,
             "mlflow_run_id": mlflow_run_id,
+            "llm_usage": llm_usage,
             "task_log_id": experiment_context.task_log_id if experiment_context else None,
             "stdout": stdout,
             "stderr": stderr,
@@ -353,7 +356,7 @@ def create_runner_blueprint(
         except gear_runner.RunCancelled as error:
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             stdout, stderr, external_trace_id = _clean_output(target, error.stdout, error.stderr)
-            mlflow_run_id, trace_id = record_result(
+            mlflow_run_id, trace_id, llm_usage = record_result(
                 enabled=record_mlflow,
                 framework=target,
                 execution_kind="manual",
@@ -372,6 +375,7 @@ def create_runner_blueprint(
                 "manual_run_id": execution_id,
                 "mlflow_run_id": mlflow_run_id,
                 "trace_id": trace_id,
+                "llm_usage": llm_usage,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
@@ -382,7 +386,7 @@ def create_runner_blueprint(
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             raw_stdout, raw_stderr = _timeout_output(error)
             stdout, stderr, external_trace_id = _clean_output(target, raw_stdout, raw_stderr)
-            mlflow_run_id, trace_id = record_result(
+            mlflow_run_id, trace_id, llm_usage = record_result(
                 enabled=record_mlflow,
                 framework=target,
                 execution_kind="manual",
@@ -401,6 +405,7 @@ def create_runner_blueprint(
                 "manual_run_id": execution_id,
                 "mlflow_run_id": mlflow_run_id,
                 "trace_id": trace_id,
+                "llm_usage": llm_usage,
                 "stdout": stdout,
                 "stderr": stderr,
                 "returncode": None,
@@ -411,7 +416,7 @@ def create_runner_blueprint(
         duration_ms = round((time.perf_counter() - started_at) * 1000)
         stdout, stderr, external_trace_id = _clean_output(target, result.stdout, result.stderr)
         status_value = "succeeded" if result.returncode == 0 else "failed"
-        mlflow_run_id, trace_id = record_result(
+        mlflow_run_id, trace_id, llm_usage = record_result(
             enabled=record_mlflow,
             framework=target,
             execution_kind="manual",
@@ -429,6 +434,7 @@ def create_runner_blueprint(
             "manual_run_id": execution_id,
             "trace_id": trace_id,
             "mlflow_run_id": mlflow_run_id,
+            "llm_usage": llm_usage,
             "task_log_id": experiment_context.task_log_id if experiment_context else None,
             "stdout": stdout,
             "stderr": stderr,

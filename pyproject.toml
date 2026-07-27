@@ -40,21 +40,21 @@ execution = [
   "semantic-kernel>=1.44,<2",
   "haystack-ai>=2.31,<3",
   "litellm>=1.84,<2",
-  "mlflow>=3.0,<4",
+  "mlflow[genai]>=3.10,<4",
   "opentelemetry-api>=1.42,<1.43",
   "opentelemetry-sdk>=1.42,<1.43",
   "opentelemetry-exporter-otlp-proto-http>=1.42,<1.43",
 ]
-execution-crewai = ["crewai>=1.15.4,<2", "mlflow>=3.0,<4"]
-execution-adk = ["google-adk>=2.5,<3", "litellm>=1.84,<2", "mlflow>=3.0,<4"]
-execution-langgraph = ["langchain>=1.0,<2", "langchain-openai>=1.0,<2", "langgraph>=1.0,<2", "mlflow>=3.0,<4"]
-execution-openai-agents = ["openai-agents>=0.18,<1", "mlflow>=3.0,<4"]
-execution-microsoft-agent-framework = ["agent-framework-core>=1.11,<2", "agent-framework-openai>=1.10,<2", "mlflow>=3.0,<4"]
-execution-strands = ["strands-agents[openai]>=1.48,<2", "mlflow>=3.0,<4"]
-execution-pydantic-ai = ["pydantic-ai-slim[openai]>=2.13,<3", "mlflow>=3.0,<4"]
-execution-autogen = ["autogen-agentchat>=0.7.5,<1", "autogen-ext[openai]>=0.7.5,<1", "mlflow>=3.0,<4"]
-execution-semantic-kernel = ["semantic-kernel>=1.44,<2", "mlflow>=3.0,<4"]
-execution-haystack = ["haystack-ai>=2.31,<3", "mlflow>=3.0,<4"]
+execution-crewai = ["crewai>=1.15.4,<2", "litellm>=1.84,<2", "mlflow[genai]>=3.10,<4"]
+execution-adk = ["google-adk>=2.5,<3", "litellm>=1.84,<2", "mlflow[genai]>=3.10,<4", "opentelemetry-exporter-otlp-proto-http>=1.42,<1.43"]
+execution-langgraph = ["langchain>=1.0,<2", "langchain-openai>=1.0,<2", "langgraph>=1.0,<2", "mlflow>=3.10,<4"]
+execution-openai-agents = ["openai-agents>=0.18,<1", "mlflow>=3.10,<4"]
+execution-microsoft-agent-framework = ["agent-framework-core>=1.11,<2", "agent-framework-openai>=1.10,<2", "mlflow>=3.10,<4"]
+execution-strands = ["strands-agents[openai]>=1.48,<2", "mlflow>=3.10,<4"]
+execution-pydantic-ai = ["pydantic-ai-slim[openai]>=2.13,<3", "mlflow>=3.10,<4"]
+execution-autogen = ["autogen-agentchat>=0.7.5,<1", "autogen-ext[openai]>=0.7.5,<1", "mlflow>=3.10,<4"]
+execution-semantic-kernel = ["semantic-kernel>=1.44,<2", "mlflow>=3.10,<4"]
+execution-haystack = ["haystack-ai>=2.31,<3", "mlflow>=3.10,<4"]
 dev = [
   "build>=1.2,<2",
   "pytest>=8,<10",
