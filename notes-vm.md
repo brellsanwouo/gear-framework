@@ -339,6 +339,18 @@ Password: <MLFLOW_DB_PASSWORD>
 ```
 ---
 
+### 8.4 Connexion à MLflow
+Pour créer le tunnel
+```bash
+ssh -N \
+  -i ~/.ssh/id_ed25519_inria_vm \
+  -J nzine@ssh-lne.inria.fr \
+  -L 5000:127.0.0.1:5000 \
+  nzine@gear-backend.lille.inria.fr
+```
+
+Ensuite en local sur: http://127.0.0.1:5000
+
 ## 11. Mise à jour de l’application
 
 Toujours redémarrer après mis à jour de fichier avec:
