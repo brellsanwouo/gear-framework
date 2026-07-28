@@ -148,6 +148,7 @@ def run_python(
         script.write_text(code, encoding="utf-8")
         process = subprocess.Popen(
             [sys.executable, "-I", str(script)],
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

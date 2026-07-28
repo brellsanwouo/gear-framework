@@ -185,9 +185,190 @@ def strip_trace_markers(stderr: str) -> str:
 
 def prepend_manual_mlflow_bootstrap(code: str, target: str) -> str:
     framework = "adk" if target.strip().lower() == "adk" else "crewai"
-    uses_async_crewai = framework == "crewai" and (
-        "kickoff_async(" in code or "async def run_workflow" in code
+    uses_async_crewai = framework == "crewai" and any(
+        marker in code
+        for marker in (
+            "kickoff_async(",
+            "kickoff_for_each_async(",
+            "akickoff(",
+            "akickoff_for_each(",
+            "async def run_workflow",
+        )
     )
+    usage_helpers = r'''
+def _gear_manual_mapping(value):
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    for method_name in ("model_dump", "dict"):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            try:
+                mapped = method()
+                if isinstance(mapped, dict):
+                    return mapped
+            except Exception:
+                pass
+    try:
+        return vars(value)
+    except (TypeError, ValueError):
+        return {}
+
+
+def _gear_manual_int(value):
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _gear_manual_usage_from_value(value):
+    candidates = [
+        getattr(value, "usage_metrics", None),
+        getattr(value, "token_usage", None),
+        value,
+    ]
+    for candidate in candidates:
+        mapped = _gear_manual_mapping(candidate)
+        if not mapped:
+            continue
+        input_tokens = _gear_manual_int(
+            mapped.get("input_tokens", mapped.get("prompt_tokens", mapped.get("prompt_token_count")))
+        )
+        output_tokens = _gear_manual_int(
+            mapped.get(
+                "output_tokens",
+                mapped.get("completion_tokens", mapped.get("candidates_token_count")),
+            )
+        )
+        total_tokens = _gear_manual_int(mapped.get("total_tokens", mapped.get("total_token_count")))
+        if total_tokens is None and input_tokens is not None and output_tokens is not None:
+            total_tokens = input_tokens + output_tokens
+        if input_tokens is None and output_tokens is None and total_tokens is None:
+            continue
+        usage = {
+            "input_tokens": input_tokens or 0,
+            "output_tokens": output_tokens or 0,
+            "total_tokens": total_tokens or 0,
+        }
+        cached_tokens = _gear_manual_int(
+            mapped.get("cached_prompt_tokens", mapped.get("cached_content_token_count"))
+        )
+        if cached_tokens is not None:
+            usage["cache_read_input_tokens"] = cached_tokens
+        return usage, _gear_manual_int(mapped.get("successful_requests"))
+    return None, None
+
+
+def _gear_manual_adk_usage(events):
+    if not isinstance(events, (list, tuple)):
+        return None, None
+    totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    cached_total = 0
+    has_cached = False
+    calls = 0
+    for event in events:
+        metadata = getattr(event, "usage_metadata", None)
+        usage, _ = _gear_manual_usage_from_value(metadata)
+        if not usage:
+            continue
+        totals["input_tokens"] += usage.get("input_tokens", 0)
+        totals["output_tokens"] += usage.get("output_tokens", 0)
+        totals["total_tokens"] += usage.get("total_tokens", 0)
+        if "cache_read_input_tokens" in usage:
+            cached_total += usage["cache_read_input_tokens"]
+            has_cached = True
+        calls += 1
+    if not calls:
+        return None, None
+    if has_cached:
+        totals["cache_read_input_tokens"] = cached_total
+    return totals, calls
+
+
+def _gear_manual_model_and_provider(value):
+    if value is None:
+        return None, None
+    model = str(value).strip()
+    if not model:
+        return None, None
+    if "/" in model:
+        provider, model_name = model.split("/", 1)
+        if provider and model_name:
+            return model_name, provider
+    return model, None
+
+
+def _gear_manual_models_from_value(value):
+    models = []
+
+    def append_model(candidate):
+        if isinstance(candidate, str) and candidate.strip():
+            models.append(candidate)
+            return
+        nested = getattr(candidate, "model", None)
+        if isinstance(nested, str) and nested.strip():
+            models.append(nested)
+
+    append_model(getattr(value, "model", None))
+    append_model(getattr(value, "llm", None))
+    for collection_name in ("agents", "sub_agents"):
+        agents = getattr(value, collection_name, None)
+        if not isinstance(agents, (list, tuple)):
+            continue
+        for agent in agents:
+            append_model(getattr(agent, "model", None))
+            append_model(getattr(agent, "llm", None))
+    return models
+
+
+def _gear_manual_apply_usage_fallback():
+    if _gear_manual_root_span is None:
+        return
+    best_usage = None
+    best_calls = None
+    best_source = None
+    model_values = []
+    for name, value in list(globals().items()):
+        if name.startswith("_gear_manual_"):
+            continue
+        model_values.extend(_gear_manual_models_from_value(value))
+        if _gear_manual_framework == "adk":
+            usage, calls = _gear_manual_adk_usage(value)
+            source = "adk.events"
+        else:
+            usage, calls = _gear_manual_usage_from_value(value)
+            source = "crewai.result"
+        if not usage:
+            continue
+        score = usage.get("total_tokens", 0) or (
+            usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+        )
+        current_score = -1 if best_usage is None else (
+            best_usage.get("total_tokens", 0)
+            or best_usage.get("input_tokens", 0) + best_usage.get("output_tokens", 0)
+        )
+        if score > current_score:
+            best_usage = usage
+            best_calls = calls
+            best_source = source
+    if not best_usage:
+        return
+    _gear_manual_root_span.set_attribute("mlflow.chat.tokenUsage", best_usage)
+    _gear_manual_root_span.set_attribute("gear.usage_source", best_source)
+    if best_calls is not None:
+        _gear_manual_root_span.set_attribute("gear.llm.call_count", best_calls)
+    normalized_models = {
+        pair for pair in (_gear_manual_model_and_provider(value) for value in model_values) if pair[0]
+    }
+    if len(normalized_models) == 1:
+        model, provider = next(iter(normalized_models))
+        _gear_manual_root_span.set_attribute("mlflow.llm.model", model)
+        if provider:
+            _gear_manual_root_span.set_attribute("mlflow.llm.provider", provider)
+'''
+
     bootstrap = f'''
 # --- GEAR MANUAL MLflow observability ---
 _gear_manual_mlflow = None
@@ -195,6 +376,8 @@ _gear_manual_root_context = None
 _gear_manual_root_span = None
 _gear_manual_otel_provider = None
 _gear_manual_trace_closed = False
+_gear_manual_framework = {framework!r}
+{usage_helpers}
 try:
     import atexit as _gear_manual_atexit
     import json as _gear_manual_json
@@ -314,6 +497,7 @@ try:
             if _gear_manual_trace_closed or _gear_manual_root_context is None:
                 return
             _gear_manual_trace_closed = True
+            _gear_manual_apply_usage_fallback()
             if _gear_manual_root_span is not None:
                 if error is not None:
                     _gear_manual_root_span.set_outputs({{"error": str(error)}})
@@ -324,7 +508,7 @@ try:
             if _gear_manual_otel_provider is not None:
                 _gear_manual_otel_provider.force_flush()
                 _gear_manual_otel_provider.shutdown()
-            _gear_manual_mlflow.flush_trace_async_logging()
+            _gear_manual_mlflow.flush_trace_async_logging(terminate=True)
 
         _gear_manual_original_excepthook = _gear_manual_sys.excepthook
 

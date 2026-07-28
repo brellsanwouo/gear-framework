@@ -193,6 +193,12 @@
     const agentMappedList = gearAgents.map((agent) =>
       applyMapping(agent, Array.isArray(mappings.adkAgent) ? mappings.adkAgent : []),
     );
+    const workflowModels = Array.from(new Set(
+      gearAgents
+        .map((agent) => toCrewaiModel(agent.LLMConfiguration?.Provider, agent.LLMConfiguration?.Model))
+        .filter(Boolean),
+    ));
+    const workflowModel = workflowModels.length === 1 ? workflowModels[0] : null;
     const agentMemoryMap = agentMappedList.map(
       (mappedAgent) => getMappedValue(mappedAgent, "Runtime.Memory.AgentEnabled") === true,
     );
@@ -401,8 +407,37 @@
       "      return text",
       "  return \"\"",
       "",
+      "def _event_usage(events):",
+      "  usage = {\"input_tokens\": 0, \"output_tokens\": 0, \"total_tokens\": 0}",
+      "  cached_tokens = 0",
+      "  has_cached = False",
+      "  call_count = 0",
+      "  for event in events:",
+      "    metadata = getattr(event, \"usage_metadata\", None)",
+      "    if metadata is None:",
+      "      continue",
+      "    prompt_tokens = int(getattr(metadata, \"prompt_token_count\", 0) or 0)",
+      "    response_tokens = int(getattr(metadata, \"candidates_token_count\", 0) or 0)",
+      "    total_tokens = int(getattr(metadata, \"total_token_count\", 0) or (prompt_tokens + response_tokens))",
+      "    usage[\"input_tokens\"] += prompt_tokens",
+      "    usage[\"output_tokens\"] += response_tokens",
+      "    usage[\"total_tokens\"] += total_tokens",
+      "    cached = getattr(metadata, \"cached_content_token_count\", None)",
+      "    if cached is not None:",
+      "      cached_tokens += int(cached or 0)",
+      "      has_cached = True",
+      "    call_count += 1",
+      "  if not call_count:",
+      "    return None, 0",
+      "  if has_cached:",
+      "    usage[\"cache_read_input_tokens\"] = cached_tokens",
+      "  return usage, call_count",
+      "",
       "async def run_workflow(user_input: str) -> str:",
       "  events = await runner.run_debug(user_input, quiet=True)",
+      "  usage, call_count = _event_usage(events)",
+      "  if usage and \"_gear_apply_root_usage\" in globals():",
+      `    _gear_apply_root_usage(usage, model=${toPythonLiteral(workflowModel)}, call_count=call_count, source="adk.events")`,
       "  return _event_text(events)",
       "",
       "if __name__ == \"__main__\":",

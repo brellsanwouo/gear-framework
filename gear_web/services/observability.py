@@ -13,6 +13,8 @@ DEFAULT_EXPERIMENT = "gear-framework-production"
 _TOKEN_USAGE_ATTRIBUTE = "mlflow.chat.tokenUsage"
 _MODEL_ATTRIBUTE = "mlflow.llm.model"
 _PROVIDER_ATTRIBUTE = "mlflow.llm.provider"
+_CALL_COUNT_ATTRIBUTE = "gear.llm.call_count"
+_USAGE_SOURCE_ATTRIBUTE = "gear.usage_source"
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -126,6 +128,8 @@ def summarize_trace_usage(trace: Any, trace_id: str | None = None) -> dict[str, 
             "name": str(getattr(span, "name", "") or ""),
             "model": _span_attribute(span, _MODEL_ATTRIBUTE),
             "provider": _span_attribute(span, _PROVIDER_ATTRIBUTE),
+            "usage_source": _span_attribute(span, _USAGE_SOURCE_ATTRIBUTE),
+            "declared_call_count": _safe_int(_span_attribute(span, _CALL_COUNT_ATTRIBUTE)),
             "input_tokens": _safe_int(usage.get("input_tokens")),
             "output_tokens": _safe_int(usage.get("output_tokens")),
             "total_tokens": _safe_int(usage.get("total_tokens")),
@@ -154,6 +158,13 @@ def summarize_trace_usage(trace: Any, trace_id: str | None = None) -> dict[str, 
         if total_cost is None and input_cost is not None and output_cost is not None:
             total_cost = input_cost + output_cost
 
+    declared_call_counts = [
+        item["declared_call_count"]
+        for item in calls
+        if item.get("declared_call_count") is not None
+    ]
+    llm_call_count = max(declared_call_counts) if declared_call_counts else len(calls)
+
     summary.update({
         "trace_id": trace_id or str(getattr(info, "trace_id", "") or "") or None,
         "token_usage_available": any(
@@ -166,7 +177,7 @@ def summarize_trace_usage(trace: Any, trace_id: str | None = None) -> dict[str, 
         "input_cost_usd": input_cost,
         "output_cost_usd": output_cost,
         "total_cost_usd": total_cost,
-        "llm_call_count": len(calls),
+        "llm_call_count": llm_call_count,
         "calls": calls,
     })
     return summary
