@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gear Experiment Lobby</title>
+    <title>Gear Experiment</title>
     <link rel="stylesheet" href="experiment.css">
     <script src="experiment.js" defer></script>
 </head>
 <body>
-
     <div id="introScreen" class="card">
         <h1>Gear Experiment</h1>
-
         <p>
             Welcome. You will be assigned to one method, either Gear Studio or
             manual Python. After training and familiarization, you will implement the
@@ -28,11 +26,7 @@
             Read the study information
         </button>
 
-        <section
-            id="consentInformation"
-            class="consent-information hidden"
-            aria-labelledby="consentTitle"
-        >
+        <section id="consentInformation" class="consent-information hidden" aria-labelledby="consentTitle">
             <h2 id="consentTitle">Study information and consent</h2>
 
             <h3>Purpose of the study</h3>
@@ -47,26 +41,26 @@
                 You will be assigned to either Gear Studio or manual Python for the
                 entire experiment. You will first complete an unmeasured training task
                 and a familiarization task in the first framework. You will then complete
-                two measured tasks involving parallelism and loops, before adapting those
-                same two tasks to a second framework. You will also complete a questionnaire
-                after the final task.
+                two measured tasks before adapting those same tasks to a second framework.
+                Short questionnaires are presented after tasks and frameworks, followed by
+                a final questionnaire and written debriefing.
             </p>
 
             <h3>Data collected</h3>
             <p>During the experiment, we may collect:</p>
             <ul>
                 <li>the method, framework order, task order, and study phase assigned to you;</li>
-                <li>the time required to complete each task;</li>
-                <li>whether a task was confirmed voluntarily or ended because time expired;</li>
-                <li>the configurations, code, executions, and outputs produced during the tasks;</li>
-                <li>your answers to the final questionnaire;</li>
-                <li>technical information needed to analyse the experiment.</li>
+                <li>the time required to complete each task and any recorded technical pauses;</li>
+                <li>whether a task was confirmed, timed out, or ended because of a technical failure;</li>
+                <li>the configurations, code, executions, outputs, model usage, tokens, and estimated costs;</li>
+                <li>your questionnaire and written debriefing responses;</li>
+                <li>an operator report documenting protocol deviations or technical incidents.</li>
             </ul>
 
             <p>
                 The experiment is not intended to collect sensitive personal information.
                 Please do not enter confidential, private, or personally identifying
-                information while completing the tasks.
+                information while completing the tasks or questionnaires.
             </p>
 
             <h3>Data use and confidentiality</h3>
@@ -75,8 +69,8 @@
                 Gear. Results may be presented in academic publications, reports, or presentations.
             </p>
             <p>
-                Your task measurements and questionnaire answers are associated using the
-                same anonymous participant identifier. Data will be analysed and reported
+                Task measurements, questionnaire answers, and the operator report are linked
+                using the same pseudonymous study code. Data will be analysed and reported
                 without directly identifying individual participants. Access to raw data is
                 restricted to the researchers involved in the study.
             </p>
@@ -90,11 +84,8 @@
             <h3>Risks and benefits</h3>
             <p>
                 No significant risks are expected beyond possible fatigue or frustration
-                associated with software-related tasks. You may take a break between tasks.
-            </p>
-            <p>
-                You may not receive a direct personal benefit, but your contribution may
-                help improve Gear and support research on multi-agent development tools.
+                associated with software-related tasks. Technical interruptions may be paused
+                by the experimenter so that they do not reduce your active task time.
             </p>
 
             <h3>Questions and contact</h3>
@@ -127,6 +118,86 @@
         <button id="startBtn" type="button" disabled>Start the experiment</button>
     </div>
 
+    <div id="backgroundScreen" class="card questionnaire-card wide-card hidden">
+        <h1>Background questionnaire</h1>
+        <p class="study-code-line">Study code: <strong id="backgroundStudyCode">—</strong></p>
+        <p>
+            These questions describe experience that may influence task performance.
+            They are collected before the training task.
+        </p>
+        <form id="backgroundForm" class="survey-form">
+            <fieldset>
+                <legend>Professional and technical background</legend>
+
+                <label class="form-field">
+                    <span>What best describes your current role?</span>
+                    <select name="current_role" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="student">Student</option>
+                        <option value="phd_student">PhD student</option>
+                        <option value="researcher">Researcher</option>
+                        <option value="software_developer">Software developer</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+
+                <label class="form-field">
+                    <span>For how long have you used Python?</span>
+                    <select name="python_duration" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="never">Never</option>
+                        <option value="lt_1_year">Less than 1 year</option>
+                        <option value="1_2_years">1–2 years</option>
+                        <option value="3_5_years">3–5 years</option>
+                        <option value="gt_5_years">More than 5 years</option>
+                    </select>
+                </label>
+
+                <label class="form-field">
+                    <span>How often do you currently use Python?</span>
+                    <select name="python_frequency" required data-frequency></select>
+                </label>
+
+                <label class="form-field">
+                    <span>What was your experience with multi-agent systems before this experiment?</span>
+                    <select name="mas_experience" required data-framework-experience></select>
+                </label>
+
+                <label class="form-field">
+                    <span>What was your CrewAI experience before this experiment?</span>
+                    <select name="crewai_experience" required data-framework-experience></select>
+                </label>
+
+                <label class="form-field">
+                    <span>What was your Google ADK experience before this experiment?</span>
+                    <select name="adk_experience" required data-framework-experience></select>
+                </label>
+
+                <label class="form-field">
+                    <span>How often do you use AI-assisted development tools?</span>
+                    <select name="ai_coding_frequency" required data-frequency></select>
+                </label>
+
+                <label class="form-field">
+                    <span>Had you used Gear before this experiment?</span>
+                    <select name="prior_gear_use" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="no">No</option>
+                        <option value="once_or_twice">Once or twice</option>
+                        <option value="more_than_twice">More than twice</option>
+                    </select>
+                </label>
+
+                <label class="form-field">
+                    <span>How comfortable are you reading technical instructions in English?</span>
+                    <select name="technical_english" required data-likert-comfort></select>
+                </label>
+            </fieldset>
+            <p id="backgroundStatus" class="form-status" role="status" aria-live="polite"></p>
+            <button id="submitBackgroundBtn" type="submit">Save and continue</button>
+        </form>
+    </div>
+
     <div id="pauseScreen" class="card hidden">
         <h1>Experiment progress</h1>
         <p class="study-code-line">Study code: <strong id="studyCodeText">—</strong></p>
@@ -137,165 +208,235 @@
         <button id="nextBtn" type="button">Start next task</button>
     </div>
 
-    <div id="questionnaireScreen" class="card questionnaire-card hidden">
-        <h1>Final questionnaire</h1>
-        <p>
-            Please answer the following questions about your background, the method
-            you used, and your experience translating the parallel and loop workflows
-            between the two frameworks.
-        </p>
-
-        <form id="questionnaireForm">
+    <div id="taskQuestionnaireScreen" class="card questionnaire-card hidden">
+        <h1>Task questionnaire</h1>
+        <p id="taskQuestionnaireContext" class="context-summary"></p>
+        <p>Please answer based only on the task you have just completed.</p>
+        <form id="taskQuestionnaireForm" class="survey-form">
             <fieldset>
-                <legend>Your background</legend>
-
-                <label class="form-field" for="pythonExperience">
-                    <span>What is your level of Python experience?</span>
-                    <select id="pythonExperience" name="python_experience" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="none">None</option>
-                        <option value="low">A little</option>
-                        <option value="medium">Moderate</option>
-                        <option value="high">A lot</option>
-                        <option value="expert">Expert</option>
-                    </select>
+                <legend>Post-task assessment</legend>
+                <label class="form-field">
+                    <span>Overall, how difficult or easy was this task?</span>
+                    <select name="seq_ease" required data-seq></select>
                 </label>
-
-                <label class="form-field" for="multiAgentExperience">
-                    <span>What is your experience with multi-agent systems?</span>
-                    <select id="multiAgentExperience" name="multi_agent_experience" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="none">None</option>
-                        <option value="low">A little</option>
-                        <option value="medium">Moderate</option>
-                        <option value="high">A lot</option>
-                        <option value="expert">Expert</option>
-                    </select>
-                </label>
-
-                <label class="form-field" for="crewaiExperience">
-                    <span>What was your CrewAI experience before this experiment?</span>
-                    <select id="crewaiExperience" name="crewai_experience" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="none">None</option>
-                        <option value="low">A little</option>
-                        <option value="medium">Moderate</option>
-                        <option value="high">A lot</option>
-                        <option value="expert">Expert</option>
-                    </select>
-                </label>
-
-                <label class="form-field" for="adkExperience">
-                    <span>What was your Google ADK experience before this experiment?</span>
-                    <select id="adkExperience" name="adk_experience" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="none">None</option>
-                        <option value="low">A little</option>
-                        <option value="medium">Moderate</option>
-                        <option value="high">A lot</option>
-                        <option value="expert">Expert</option>
-                    </select>
-                </label>
-
-                <label class="form-field" for="aiToolFrequency">
-                    <span>How often do you use AI development tools?</span>
-                    <select id="aiToolFrequency" name="ai_tool_frequency" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="never">Never</option>
-                        <option value="rarely">Rarely</option>
-                        <option value="monthly">A few times per month</option>
-                        <option value="weekly">A few times per week</option>
-                        <option value="daily">Daily</option>
-                    </select>
-                </label>
-
-                <label class="form-field" for="priorGearUse">
-                    <span>Had you used Gear before this experiment?</span>
-                    <select id="priorGearUse" name="prior_gear_use" required>
-                        <option value="" selected disabled>Select an answer</option>
-                        <option value="no">No</option>
-                        <option value="yes_once">Yes, once or twice</option>
-                        <option value="yes_regularly">Yes, regularly</option>
-                    </select>
+                <label class="form-field">
+                    <span>Did a technical issue outside your own solution affect your work on this task?</span>
+                    <select name="technical_impact" required data-technical-impact></select>
                 </label>
             </fieldset>
-
-            <fieldset>
-                <legend>Your experience during the experiment</legend>
-                <p class="scale-help">For the following statements: 1 = strongly disagree, 7 = strongly agree.</p>
-
-                <label class="form-field" for="methodEase">
-                    <span>The method I used was easy to use.</span>
-                    <select id="methodEase" name="method_ease" required data-likert></select>
+            <fieldset id="translationTaskFields" class="hidden">
+                <legend>Translation and reuse</legend>
+                <label class="form-field">
+                    <span>How much of your previous implementation for this task could you reuse?</span>
+                    <select name="reuse_extent" data-reuse-extent></select>
                 </label>
-
-                <label class="form-field" for="mentalEffort">
-                    <span>Completing the tasks required a lot of mental effort.</span>
-                    <select id="mentalEffort" name="mental_effort" required data-likert></select>
+                <label class="form-field">
+                    <span>The implementation completed in the first framework helped me implement this task in the second framework.</span>
+                    <select name="previous_solution_help" data-likert-agreement></select>
                 </label>
-
-                <label class="form-field" for="confidence">
-                    <span>I am confident that my final solutions were correct.</span>
-                    <select id="confidence" name="confidence" required data-likert></select>
-                </label>
-
-                <label class="form-field" for="frameworkSwitchEase">
-                    <span>It was easy to adapt my solutions from the first framework to the second.</span>
-                    <select id="frameworkSwitchEase" name="framework_switch_ease" required data-likert></select>
-                </label>
-
-                <label class="form-field" for="reuseHelpfulness">
-                    <span>The work completed for the first framework helped me implement the second framework.</span>
-                    <select id="reuseHelpfulness" name="reuse_helpfulness" required data-likert></select>
-                </label>
-
-                <label class="form-field" for="errorClarity">
-                    <span>When I encountered feedback or errors, they were understandable.</span>
-                    <select id="errorClarity" name="error_clarity" required data-likert-na></select>
-                </label>
-
-                <label class="form-field" for="futureUse">
-                    <span>I would use this method again to implement the same system in another framework.</span>
-                    <select id="futureUse" name="future_use" required data-likert></select>
+                <label class="form-field">
+                    <span>Moving this task to the second framework required substantial rework.</span>
+                    <select name="translation_rework" data-likert-agreement></select>
                 </label>
             </fieldset>
-
-            <fieldset>
-                <legend>Open feedback</legend>
-
-                <label class="form-field" for="frameworkTransitionFeedback">
-                    <span>What helped or hindered you when moving from the first framework to the second?</span>
-                    <textarea
-                        id="frameworkTransitionFeedback"
-                        name="framework_transition_feedback"
-                        rows="4"
-                        maxlength="2000"
-                        placeholder="Describe reuse, translation, framework-specific changes, or difficulties."
-                    ></textarea>
-                </label>
-
-                <label class="form-field" for="feedback">
-                    <span>Any other feedback about the method or the experiment?</span>
-                    <textarea
-                        id="feedback"
-                        name="feedback"
-                        rows="4"
-                        maxlength="2000"
-                        placeholder="What was clear, difficult, useful, or frustrating?"
-                    ></textarea>
-                </label>
-            </fieldset>
-
-            <p id="questionnaireStatus" class="form-status" role="status" aria-live="polite"></p>
-            <button id="submitQuestionnaireBtn" type="submit">Submit answers</button>
+            <p id="taskQuestionnaireStatus" class="form-status" role="status" aria-live="polite"></p>
+            <button id="submitTaskQuestionnaireBtn" type="submit">Save and continue</button>
         </form>
     </div>
+
+    <div id="frameworkQuestionnaireScreen" class="card questionnaire-card wide-card hidden">
+        <h1>Framework workload questionnaire</h1>
+        <p id="frameworkQuestionnaireContext" class="context-summary"></p>
+        <p>
+            Rate the measured tasks completed with this framework. The six workload
+            dimensions use the Raw NASA-TLX format.
+        </p>
+        <form id="frameworkQuestionnaireForm" class="survey-form">
+            <fieldset>
+                <legend>Workload — 0 to 100</legend>
+                <label class="range-field">
+                    <span>How mentally demanding were the tasks?</span>
+                    <div><span>Very low</span><input name="mental_demand" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
+                    <output>50</output>
+                </label>
+                <label class="range-field">
+                    <span>How physically demanding were the tasks?</span>
+                    <div><span>Very low</span><input name="physical_demand" type="range" min="0" max="100" step="5" value="0"><span>Very high</span></div>
+                    <output>0</output>
+                </label>
+                <label class="range-field">
+                    <span>How hurried or rushed did you feel?</span>
+                    <div><span>Very low</span><input name="temporal_demand" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
+                    <output>50</output>
+                </label>
+                <label class="range-field">
+                    <span>How successful were you in accomplishing what you were asked to do?</span>
+                    <div><span>Perfect</span><input name="performance" type="range" min="0" max="100" step="5" value="50"><span>Failure</span></div>
+                    <output>50</output>
+                </label>
+                <label class="range-field">
+                    <span>How hard did you have to work to accomplish your level of performance?</span>
+                    <div><span>Very low</span><input name="effort" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
+                    <output>50</output>
+                </label>
+                <label class="range-field">
+                    <span>How insecure, discouraged, irritated, stressed, or annoyed were you?</span>
+                    <div><span>Very low</span><input name="frustration" type="range" min="0" max="100" step="5" value="25"><span>Very high</span></div>
+                    <output>25</output>
+                </label>
+            </fieldset>
+            <fieldset>
+                <legend>Framework experience</legend>
+                <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
+                <label class="form-field">
+                    <span>The concepts and APIs of this framework were understandable.</span>
+                    <select name="concept_clarity" required data-likert-agreement></select>
+                </label>
+                <label class="form-field">
+                    <span>When the framework produced errors or feedback, the information helped me understand what needed to be changed.</span>
+                    <select name="error_feedback_clarity" required data-likert-agreement-na></select>
+                </label>
+            </fieldset>
+            <p id="frameworkQuestionnaireStatus" class="form-status" role="status" aria-live="polite"></p>
+            <button id="submitFrameworkQuestionnaireBtn" type="submit">Save and continue</button>
+        </form>
+    </div>
+
+    <div id="finalQuestionnaireScreen" class="card questionnaire-card wide-card hidden">
+        <h1>Final questionnaire and written debriefing</h1>
+        <div id="assignmentSummary" class="assignment-summary"></div>
+        <p>
+            Answer before discussing the experiment with the experimenter. In this section,
+            “development method” means the method assigned to you: Gear or manual implementation.
+        </p>
+        <form id="finalQuestionnaireForm" class="survey-form">
+            <fieldset>
+                <legend>System Usability Scale</legend>
+                <p class="scale-help">1 = strongly disagree, 5 = strongly agree.</p>
+                <div id="susItems" class="item-list"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Perceived usefulness and future use</legend>
+                <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
+                <label class="form-field"><span>This development method would improve my productivity when implementing a multi-agent system.</span><select name="usefulness_1" required data-likert-agreement></select></label>
+                <label class="form-field"><span>This development method would reduce the effort required to implement the same system with multiple frameworks.</span><select name="usefulness_2" required data-likert-agreement></select></label>
+                <label class="form-field"><span>This development method would be useful for maintaining framework-independent system designs.</span><select name="usefulness_3" required data-likert-agreement></select></label>
+                <label class="form-field"><span>I would consider using this development method in a future multi-agent project.</span><select name="usefulness_4" required data-likert-agreement></select></label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Translation and reuse across frameworks</legend>
+                <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
+                <label class="form-field"><span>My first implementation helped me complete the implementation in the second framework.</span><select name="transfer_1" required data-likert-agreement></select></label>
+                <label class="form-field"><span>I was able to preserve the conceptual structure of my solution across the two frameworks.</span><select name="transfer_2" required data-likert-agreement></select></label>
+                <label class="form-field"><span>I understood which elements had to change when moving to the second framework.</span><select name="transfer_3" required data-likert-agreement></select></label>
+                <label class="form-field"><span>Moving between the frameworks required substantial framework-specific rework.</span><select name="transfer_4" required data-likert-agreement></select></label>
+                <label class="form-field"><span>The second implementation was easier because I had already solved the task in the first framework.</span><select name="transfer_5" required data-likert-agreement></select></label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Framework comparison</legend>
+                <label class="form-field">
+                    <span>Overall, which framework was easier to work with?</span>
+                    <select name="easier_framework" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="crewai_much_easier">CrewAI was much easier</option>
+                        <option value="crewai_somewhat_easier">CrewAI was somewhat easier</option>
+                        <option value="no_meaningful_difference">No meaningful difference</option>
+                        <option value="adk_somewhat_easier">Google ADK was somewhat easier</option>
+                        <option value="adk_much_easier">Google ADK was much easier</option>
+                    </select>
+                </label>
+                <label class="form-field">
+                    <span>Which framework would you prefer for a future project?</span>
+                    <select name="preferred_framework" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="crewai">CrewAI</option>
+                        <option value="adk">Google ADK</option>
+                        <option value="no_preference">No preference</option>
+                        <option value="not_enough_information">Not enough information to decide</option>
+                    </select>
+                </label>
+                <label class="form-field"><span>What mainly explains your framework preference?</span><textarea name="preference_reason" required maxlength="4000" rows="4" placeholder="If you have no preference, explain why."></textarea></label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Written debriefing</legend>
+                <p class="scale-help">Answer “Nothing in particular” when a question does not apply.</p>
+                <label class="form-field"><span>Briefly describe the strategy you used to design your solutions.</span><textarea name="design_strategy" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>How did you adapt or reuse your first implementation when moving to the second framework?</span><textarea name="translation_strategy" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>What was the main difficulty you encountered during the experiment?</span><textarea name="main_difficulty" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>What most helped you complete the tasks?</span><textarea name="main_help" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>How did error messages, execution outputs, or interface feedback affect your work?</span><textarea name="feedback_effect" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>What feature, information, or support would have made the tasks easier?</span><textarea name="missing_support" required maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field"><span>Is there anything else about the method, frameworks, tasks, or experiment that you would like us to know?</span><textarea name="additional_feedback" maxlength="4000" rows="4"></textarea></label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Protocol and technical checks</legend>
+                <label class="form-field">
+                    <span>Apart from errors caused by your own solution, did technical problems affect your performance during the experiment?</span>
+                    <select name="technical_impact_overall" required data-technical-impact></select>
+                </label>
+                <label id="technicalIssueDescriptionField" class="form-field hidden"><span>Please briefly describe the technical problem and the tasks it affected.</span><textarea name="technical_issue_description" maxlength="4000" rows="4"></textarea></label>
+                <label class="form-field">
+                    <span>Did the experimenter provide help beyond explaining the interface, restating the instructions, or resolving a technical problem?</span>
+                    <select name="experimenter_help" required>
+                        <option value="" selected disabled>Select an answer</option>
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                        <option value="unsure">Unsure</option>
+                    </select>
+                </label>
+                <label id="experimenterHelpDescriptionField" class="form-field hidden"><span>Please describe the assistance you received.</span><textarea name="experimenter_help_description" maxlength="4000" rows="4"></textarea></label>
+            </fieldset>
+
+            <p id="finalQuestionnaireStatus" class="form-status" role="status" aria-live="polite"></p>
+            <button id="submitFinalQuestionnaireBtn" type="submit">Submit participant questionnaire</button>
+        </form>
+    </div>
+
+    <div id="operatorReportScreen" class="card questionnaire-card hidden">
+        <h1>Operator report</h1>
+        <p class="study-code-line">Study code: <strong id="operatorStudyCode">—</strong></p>
+        <div id="operatorLockedPanel">
+            <p>The participant questionnaire is complete. Please call the experimenter.</p>
+            <button id="unlockOperatorReportBtn" type="button">Unlock operator report</button>
+        </div>
+        <form id="operatorReportForm" class="survey-form hidden">
+            <fieldset>
+                <legend>Session quality report</legend>
+                <label class="form-field"><span>Operator</span><select name="operator_id" required><option value="" selected disabled>Select an answer</option><option value="nada">Nada</option><option value="brell">Brell</option></select></label>
+                <label class="form-field"><span>Was the protocol followed without deviation?</span><select name="protocol_followed" required><option value="" selected disabled>Select an answer</option><option value="true">Yes</option><option value="false">No</option></select></label>
+                <label class="form-field"><span>Was conceptual assistance provided?</span><select name="conceptual_help" required><option value="" selected disabled>Select an answer</option><option value="no">No</option><option value="possibly">Possibly</option><option value="yes">Yes</option></select></label>
+                <label class="form-field"><span>Were technical incidents recorded?</span><select name="technical_incidents" required><option value="" selected disabled>Select an answer</option><option value="none">No</option><option value="resolved_with_pause">Yes, resolved with a technical pause</option><option value="technical_failure">Yes, one or more tasks ended as technical failure</option></select></label>
+                <label class="form-field"><span>Overall session data quality</span><select name="data_quality" required><option value="" selected disabled>Select an answer</option><option value="usable">Usable</option><option value="usable_with_reservations">Usable with reservations</option><option value="partially_usable">Partially usable</option><option value="exclude_primary_analysis">Exclude from primary analysis</option><option value="to_review">To be reviewed</option></select></label>
+                <label class="form-field"><span>Describe any protocol deviation, technical incident, interruption, or assistance provided.</span><textarea name="incident_notes" maxlength="4000" rows="5"></textarea></label>
+                <label class="form-field"><span>Explain the data-quality assessment.</span><textarea name="quality_notes" required maxlength="4000" rows="5"></textarea></label>
+            </fieldset>
+            <p id="operatorReportStatus" class="form-status" role="status" aria-live="polite"></p>
+            <button id="submitOperatorReportBtn" type="submit">Save operator report</button>
+        </form>
+    </div>
+
+    <dialog id="operatorPinDialog" class="pin-dialog">
+        <form method="dialog" id="operatorPinForm">
+            <h2>Operator access</h2>
+            <p>Enter the PIN shared by the experimenters.</p>
+            <label class="form-field"><span>Operator PIN</span><input id="operatorPinInput" type="password" autocomplete="off" required></label>
+            <p id="operatorPinStatus" class="form-status is-error" aria-live="polite"></p>
+            <div class="dialog-actions">
+                <button value="cancel" class="secondary-button" type="button" id="cancelOperatorPinBtn">Cancel</button>
+                <button type="submit">Unlock</button>
+            </div>
+        </form>
+    </dialog>
 
     <div id="endScreen" class="card hidden">
         <h1>Thank you!</h1>
         <p class="study-code-line">Study code: <strong id="endStudyCodeText">—</strong></p>
         <p id="endMessage">The experiment is finished.</p>
     </div>
-
 </body>
 </html>

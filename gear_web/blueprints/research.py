@@ -18,15 +18,19 @@ from flask import Blueprint, jsonify, request
 from markdown import markdown
 
 from ..services.participants import current_participant
+from ..services.questionnaires import (
+    QUESTIONNAIRE_VERSION,
+    validate_background_response,
+    validate_final_response,
+    validate_framework_response,
+    validate_operator_report,
+    validate_task_response,
+)
 
 
-EXPERIENCE_LEVELS = {"none", "low", "medium", "high", "expert"}
-AI_TOOL_FREQUENCIES = {"never", "rarely", "monthly", "weekly", "daily"}
-PRIOR_GEAR_USE_LEVELS = {"no", "yes_once", "yes_regularly"}
 EXPERIMENT_MODES = ("GEAR", "MANUAL")
 SUPPORTED_EXPERIMENT_FRAMEWORKS = ("crewai", "adk")
 COMPLETION_REASONS = {"confirmed", "timeout", "technical_failure", "withdrawal"}
-MAX_QUESTIONNAIRE_FEEDBACK_LENGTH = 2000
 MAX_SUBMISSION_LENGTH = 1_000_000
 MAX_INCIDENT_NOTE_LENGTH = 1000
 STUDY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -188,48 +192,123 @@ class ResearchStore:
                 )
 
                 cursor.execute("DROP TABLE IF EXISTS task_runs")
+
+                # Questionnaire data is split by measurement level: background, task,
+                # framework, final debriefing, and operator report.
                 cursor.execute(
                     """
-                    CREATE TABLE IF NOT EXISTS experiment_questionnaire_responses (
-                        user_id VARCHAR(255) PRIMARY KEY,
-                        python_experience VARCHAR(32) NOT NULL,
-                        multi_agent_experience VARCHAR(32) NOT NULL,
-                        crewai_experience VARCHAR(32),
-                        adk_experience VARCHAR(32),
-                        ai_tool_frequency VARCHAR(32) NOT NULL,
-                        prior_gear_use VARCHAR(32) NOT NULL,
-                        method_ease SMALLINT,
-                        mental_effort SMALLINT,
-                        confidence SMALLINT,
-                        framework_switch_ease SMALLINT,
-                        reuse_helpfulness SMALLINT,
-                        error_clarity SMALLINT,
-                        future_use SMALLINT,
-                        framework_transition_feedback TEXT NOT NULL DEFAULT '',
-                        feedback TEXT NOT NULL DEFAULT '',
+                    CREATE TABLE IF NOT EXISTS experiment_background_responses (
+                        user_id VARCHAR(255) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                        current_role VARCHAR(40) NOT NULL,
+                        python_duration VARCHAR(40) NOT NULL,
+                        python_frequency VARCHAR(40) NOT NULL,
+                        mas_experience VARCHAR(40) NOT NULL,
+                        crewai_experience VARCHAR(40) NOT NULL,
+                        adk_experience VARCHAR(40) NOT NULL,
+                        ai_coding_frequency VARCHAR(40) NOT NULL,
+                        prior_gear_use VARCHAR(40) NOT NULL,
+                        technical_english SMALLINT NOT NULL,
+                        questionnaire_version VARCHAR(32) NOT NULL,
                         submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )
                     """
                 )
-                questionnaire_columns = {
-                    "crewai_experience": "VARCHAR(32)",
-                    "adk_experience": "VARCHAR(32)",
-                    "method_ease": "SMALLINT",
-                    "mental_effort": "SMALLINT",
-                    "confidence": "SMALLINT",
-                    "framework_switch_ease": "SMALLINT",
-                    "reuse_helpfulness": "SMALLINT",
-                    "error_clarity": "SMALLINT",
-                    "future_use": "SMALLINT",
-                    "framework_transition_feedback": "TEXT NOT NULL DEFAULT ''",
-                }
-                for column, definition in questionnaire_columns.items():
-                    cursor.execute(
-                        f"ALTER TABLE experiment_questionnaire_responses "
-                        f"ADD COLUMN IF NOT EXISTS {column} {definition}"
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS experiment_task_responses (
+                        task_log_id BIGINT PRIMARY KEY REFERENCES task_logs(id) ON DELETE CASCADE,
+                        user_id VARCHAR(255) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                        seq_ease SMALLINT NOT NULL,
+                        technical_impact SMALLINT NOT NULL,
+                        reuse_extent SMALLINT,
+                        previous_solution_help SMALLINT,
+                        translation_rework SMALLINT,
+                        questionnaire_version VARCHAR(32) NOT NULL,
+                        submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )
+                    """
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_experiment_task_responses_user "
+                    "ON experiment_task_responses(user_id)"
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS experiment_framework_responses (
+                        id BIGSERIAL PRIMARY KEY,
+                        user_id VARCHAR(255) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                        framework VARCHAR(32) NOT NULL,
+                        mental_demand SMALLINT NOT NULL,
+                        physical_demand SMALLINT NOT NULL,
+                        temporal_demand SMALLINT NOT NULL,
+                        performance SMALLINT NOT NULL,
+                        effort SMALLINT NOT NULL,
+                        frustration SMALLINT NOT NULL,
+                        raw_tlx_score NUMERIC(6,2) NOT NULL,
+                        concept_clarity SMALLINT NOT NULL,
+                        error_feedback_clarity SMALLINT,
+                        questionnaire_version VARCHAR(32) NOT NULL,
+                        submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(user_id, framework)
+                    )
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS experiment_final_responses (
+                        user_id VARCHAR(255) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                        sus_1 SMALLINT NOT NULL, sus_2 SMALLINT NOT NULL,
+                        sus_3 SMALLINT NOT NULL, sus_4 SMALLINT NOT NULL,
+                        sus_5 SMALLINT NOT NULL, sus_6 SMALLINT NOT NULL,
+                        sus_7 SMALLINT NOT NULL, sus_8 SMALLINT NOT NULL,
+                        sus_9 SMALLINT NOT NULL, sus_10 SMALLINT NOT NULL,
+                        sus_score NUMERIC(6,2) NOT NULL,
+                        usefulness_1 SMALLINT NOT NULL, usefulness_2 SMALLINT NOT NULL,
+                        usefulness_3 SMALLINT NOT NULL, usefulness_4 SMALLINT NOT NULL,
+                        transfer_1 SMALLINT NOT NULL, transfer_2 SMALLINT NOT NULL,
+                        transfer_3 SMALLINT NOT NULL, transfer_4 SMALLINT NOT NULL,
+                        transfer_5 SMALLINT NOT NULL,
+                        easier_framework VARCHAR(40) NOT NULL,
+                        preferred_framework VARCHAR(40) NOT NULL,
+                        preference_reason TEXT NOT NULL,
+                        design_strategy TEXT NOT NULL,
+                        translation_strategy TEXT NOT NULL,
+                        main_difficulty TEXT NOT NULL,
+                        main_help TEXT NOT NULL,
+                        feedback_effect TEXT NOT NULL,
+                        missing_support TEXT NOT NULL,
+                        additional_feedback TEXT NOT NULL DEFAULT '',
+                        technical_impact_overall SMALLINT NOT NULL,
+                        technical_issue_description TEXT NOT NULL DEFAULT '',
+                        experimenter_help VARCHAR(16) NOT NULL,
+                        experimenter_help_description TEXT NOT NULL DEFAULT '',
+                        questionnaire_version VARCHAR(32) NOT NULL,
+                        submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS experiment_operator_reports (
+                        user_id VARCHAR(255) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                        study_code VARCHAR(32) NOT NULL,
+                        operator_id VARCHAR(16) NOT NULL,
+                        protocol_followed BOOLEAN NOT NULL,
+                        conceptual_help VARCHAR(16) NOT NULL,
+                        technical_incidents VARCHAR(32) NOT NULL,
+                        data_quality VARCHAR(40) NOT NULL,
+                        incident_notes TEXT NOT NULL DEFAULT '',
+                        quality_notes TEXT NOT NULL,
+                        questionnaire_version VARCHAR(32) NOT NULL,
+                        submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
                 connection.commit()
                 cursor.close()
         except Exception as error:
@@ -387,63 +466,6 @@ def _sequence_entry(value: Any, sequence_index: int | None) -> dict[str, Any] | 
     return sequence[sequence_index]
 
 
-def _likert_value(payload: dict[str, Any], name: str, *, allow_not_applicable: bool = False) -> int:
-    try:
-        value = int(payload.get(name))
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"A valid answer is required for '{name}'.") from error
-    minimum = 0 if allow_not_applicable else 1
-    if not minimum <= value <= 7:
-        raise ValueError(f"'{name}' must be between {minimum} and 7.")
-    return value
-
-
-def _validate_questionnaire(payload: Any) -> tuple[dict[str, Any] | None, str | None]:
-    if not isinstance(payload, dict):
-        return None, "The questionnaire payload must be a JSON object."
-
-    values: dict[str, Any] = {
-        "user_id": str(payload.get("user_id") or "").strip(),
-        "python_experience": str(payload.get("python_experience") or "").strip(),
-        "multi_agent_experience": str(payload.get("multi_agent_experience") or "").strip(),
-        "crewai_experience": str(payload.get("crewai_experience") or "").strip(),
-        "adk_experience": str(payload.get("adk_experience") or "").strip(),
-        "ai_tool_frequency": str(payload.get("ai_tool_frequency") or "").strip(),
-        "prior_gear_use": str(payload.get("prior_gear_use") or "").strip(),
-        "framework_transition_feedback": str(payload.get("framework_transition_feedback") or "").strip(),
-        "feedback": str(payload.get("feedback") or "").strip(),
-    }
-
-    if not values["user_id"]:
-        return None, "The participant identifier is required."
-    for key in ("python_experience", "multi_agent_experience", "crewai_experience", "adk_experience"):
-        if values[key] not in EXPERIENCE_LEVELS:
-            return None, f"Invalid value for {key}."
-    if values["ai_tool_frequency"] not in AI_TOOL_FREQUENCIES:
-        return None, "Invalid AI tool usage frequency."
-    if values["prior_gear_use"] not in PRIOR_GEAR_USE_LEVELS:
-        return None, "Invalid prior Gear usage value."
-
-    try:
-        values.update({
-            "method_ease": _likert_value(payload, "method_ease"),
-            "mental_effort": _likert_value(payload, "mental_effort"),
-            "confidence": _likert_value(payload, "confidence"),
-            "framework_switch_ease": _likert_value(payload, "framework_switch_ease"),
-            "reuse_helpfulness": _likert_value(payload, "reuse_helpfulness"),
-            "error_clarity": _likert_value(payload, "error_clarity", allow_not_applicable=True),
-            "future_use": _likert_value(payload, "future_use"),
-        })
-    except ValueError as error:
-        return None, str(error)
-
-    for key in ("framework_transition_feedback", "feedback"):
-        if len(values[key]) > MAX_QUESTIONNAIRE_FEEDBACK_LENGTH:
-            return None, f"{key} must contain at most {MAX_QUESTIONNAIRE_FEEDBACK_LENGTH} characters."
-
-    return values, None
-
-
 def create_research_blueprint(
     *,
     base_dir: Path,
@@ -470,6 +492,22 @@ def create_research_blueprint(
         if not _operator_pin_matches(operator_pin, provided_pin):
             return jsonify({"error": "Incorrect operator PIN."}), 403
         return None
+
+    def owned_user_row(cursor, user_id: str):
+        cursor.execute(
+            """
+            SELECT participant_id, study_code, assigned_mode, framework_order, task_order
+            FROM users
+            WHERE user_id=%s
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None, (jsonify({"error": "Unknown experiment participant."}), 404)
+        if row[0] and row[0] != current_participant().user_id:
+            return None, (jsonify({"error": "This experiment belongs to another participant."}), 403)
+        return row, None
 
     @blueprint.get("/api/experiment/status")
     def experiment_status():
@@ -1018,85 +1056,106 @@ def create_research_blueprint(
         except Exception as error:
             return jsonify({"error": str(error)}), 500
 
-    @blueprint.post("/api/experiment/questionnaire")
-    def save_questionnaire():
-        values, validation_error = _validate_questionnaire(request.get_json(silent=True))
-        if validation_error:
-            return jsonify({"error": validation_error}), 400
-        assert values is not None
-
+    @blueprint.get("/api/experiment/questionnaire_progress")
+    def questionnaire_progress():
+        user_id = str(request.args.get("user_id") or "").strip()
+        if not user_id:
+            return jsonify({"error": "The participant identifier is required."}), 400
         if not tracking_enabled:
-            return jsonify({"success": True, "saved": False, "tracking": False})
-
+            return jsonify({
+                "tracking": False,
+                "background_submitted": False,
+                "task_log_ids": [],
+                "frameworks": [],
+                "final_submitted": False,
+                "operator_report_submitted": False,
+            })
         try:
             with closing(store.connect()) as connection:
                 cursor = connection.cursor()
-                cursor.execute("SELECT participant_id FROM users WHERE user_id=%s", (values["user_id"],))
-                participant_row = cursor.fetchone()
-                if participant_row is None:
+                _, ownership_error = owned_user_row(cursor, user_id)
+                if ownership_error is not None:
                     cursor.close()
-                    return jsonify({"error": "Unknown experiment participant."}), 404
-                if participant_row[0] and participant_row[0] != current_participant().user_id:
+                    return ownership_error
+                cursor.execute(
+                    "SELECT 1 FROM experiment_background_responses WHERE user_id=%s",
+                    (user_id,),
+                )
+                background_submitted = cursor.fetchone() is not None
+                cursor.execute(
+                    "SELECT task_log_id FROM experiment_task_responses WHERE user_id=%s",
+                    (user_id,),
+                )
+                task_log_ids = [int(row[0]) for row in cursor.fetchall()]
+                cursor.execute(
+                    "SELECT framework FROM experiment_framework_responses WHERE user_id=%s",
+                    (user_id,),
+                )
+                frameworks = [str(row[0]) for row in cursor.fetchall()]
+                cursor.execute(
+                    "SELECT 1 FROM experiment_final_responses WHERE user_id=%s",
+                    (user_id,),
+                )
+                final_submitted = cursor.fetchone() is not None
+                cursor.execute(
+                    "SELECT 1 FROM experiment_operator_reports WHERE user_id=%s",
+                    (user_id,),
+                )
+                operator_report_submitted = cursor.fetchone() is not None
+                cursor.close()
+            return jsonify({
+                "tracking": True,
+                "background_submitted": background_submitted,
+                "task_log_ids": task_log_ids,
+                "frameworks": frameworks,
+                "final_submitted": final_submitted,
+                "operator_report_submitted": operator_report_submitted,
+            })
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/background_questionnaire")
+    def save_background_questionnaire():
+        try:
+            values = validate_background_response(request.get_json(silent=True))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        if not tracking_enabled:
+            return jsonify({"success": True, "saved": False, "tracking": False})
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                _, ownership_error = owned_user_row(cursor, values["user_id"])
+                if ownership_error is not None:
                     cursor.close()
-                    return jsonify({"error": "This questionnaire belongs to another participant."}), 403
+                    return ownership_error
                 cursor.execute(
                     """
-                    INSERT INTO experiment_questionnaire_responses (
-                        user_id,
-                        python_experience,
-                        multi_agent_experience,
-                        crewai_experience,
-                        adk_experience,
-                        ai_tool_frequency,
-                        prior_gear_use,
-                        method_ease,
-                        mental_effort,
-                        confidence,
-                        framework_switch_ease,
-                        reuse_helpfulness,
-                        error_clarity,
-                        future_use,
-                        framework_transition_feedback,
-                        feedback
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s
-                    )
+                    INSERT INTO experiment_background_responses (
+                        user_id, current_role, python_duration, python_frequency,
+                        mas_experience, crewai_experience, adk_experience,
+                        ai_coding_frequency, prior_gear_use, technical_english,
+                        questionnaire_version
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
-                        python_experience = EXCLUDED.python_experience,
-                        multi_agent_experience = EXCLUDED.multi_agent_experience,
-                        crewai_experience = EXCLUDED.crewai_experience,
-                        adk_experience = EXCLUDED.adk_experience,
-                        ai_tool_frequency = EXCLUDED.ai_tool_frequency,
-                        prior_gear_use = EXCLUDED.prior_gear_use,
-                        method_ease = EXCLUDED.method_ease,
-                        mental_effort = EXCLUDED.mental_effort,
-                        confidence = EXCLUDED.confidence,
-                        framework_switch_ease = EXCLUDED.framework_switch_ease,
-                        reuse_helpfulness = EXCLUDED.reuse_helpfulness,
-                        error_clarity = EXCLUDED.error_clarity,
-                        future_use = EXCLUDED.future_use,
-                        framework_transition_feedback = EXCLUDED.framework_transition_feedback,
-                        feedback = EXCLUDED.feedback,
-                        updated_at = CURRENT_TIMESTAMP
+                        current_role=EXCLUDED.current_role,
+                        python_duration=EXCLUDED.python_duration,
+                        python_frequency=EXCLUDED.python_frequency,
+                        mas_experience=EXCLUDED.mas_experience,
+                        crewai_experience=EXCLUDED.crewai_experience,
+                        adk_experience=EXCLUDED.adk_experience,
+                        ai_coding_frequency=EXCLUDED.ai_coding_frequency,
+                        prior_gear_use=EXCLUDED.prior_gear_use,
+                        technical_english=EXCLUDED.technical_english,
+                        questionnaire_version=EXCLUDED.questionnaire_version,
+                        updated_at=CURRENT_TIMESTAMP
                     """,
                     (
-                        values["user_id"],
-                        values["python_experience"],
-                        values["multi_agent_experience"],
-                        values["crewai_experience"],
-                        values["adk_experience"],
-                        values["ai_tool_frequency"],
-                        values["prior_gear_use"],
-                        values["method_ease"],
-                        values["mental_effort"],
-                        values["confidence"],
-                        values["framework_switch_ease"],
-                        values["reuse_helpfulness"],
-                        values["error_clarity"],
-                        values["future_use"],
-                        values["framework_transition_feedback"],
-                        values["feedback"],
+                        values["user_id"], values["current_role"], values["python_duration"],
+                        values["python_frequency"], values["mas_experience"],
+                        values["crewai_experience"], values["adk_experience"],
+                        values["ai_coding_frequency"], values["prior_gear_use"],
+                        values["technical_english"], QUESTIONNAIRE_VERSION,
                     ),
                 )
                 connection.commit()
@@ -1104,5 +1163,242 @@ def create_research_blueprint(
             return jsonify({"success": True, "saved": True, "tracking": True})
         except Exception as error:
             return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/task_questionnaire")
+    def save_task_questionnaire():
+        payload = request.get_json(silent=True) or {}
+        if not tracking_enabled:
+            return jsonify({"success": True, "saved": False, "tracking": False})
+        user_id = str(payload.get("user_id") or "").strip()
+        try:
+            task_log_id = int(payload.get("task_log_id"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "A valid task_log_id is required."}), 400
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                _, ownership_error = owned_user_row(cursor, user_id)
+                if ownership_error is not None:
+                    cursor.close()
+                    return ownership_error
+                cursor.execute(
+                    """
+                    SELECT study_phase, completed
+                    FROM task_logs
+                    WHERE id=%s AND user_id=%s
+                    """,
+                    (task_log_id, user_id),
+                )
+                task_row = cursor.fetchone()
+                if task_row is None:
+                    cursor.close()
+                    return jsonify({"error": "Unknown task log."}), 404
+                if not bool(task_row[1]):
+                    cursor.close()
+                    return jsonify({"error": "The task must be completed before answering."}), 409
+                values = validate_task_response(
+                    payload,
+                    translation=str(task_row[0] or "") == "translation",
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO experiment_task_responses (
+                        task_log_id, user_id, seq_ease, technical_impact,
+                        reuse_extent, previous_solution_help, translation_rework,
+                        questionnaire_version
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (task_log_id) DO UPDATE SET
+                        seq_ease=EXCLUDED.seq_ease,
+                        technical_impact=EXCLUDED.technical_impact,
+                        reuse_extent=EXCLUDED.reuse_extent,
+                        previous_solution_help=EXCLUDED.previous_solution_help,
+                        translation_rework=EXCLUDED.translation_rework,
+                        questionnaire_version=EXCLUDED.questionnaire_version,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        values["task_log_id"], values["user_id"], values["seq_ease"],
+                        values["technical_impact"], values["reuse_extent"],
+                        values["previous_solution_help"], values["translation_rework"],
+                        QUESTIONNAIRE_VERSION,
+                    ),
+                )
+                connection.commit()
+                cursor.close()
+            return jsonify({"success": True, "saved": True, "tracking": True})
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/framework_questionnaire")
+    def save_framework_questionnaire():
+        try:
+            values = validate_framework_response(request.get_json(silent=True))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        if not tracking_enabled:
+            return jsonify({"success": True, "saved": False, "tracking": False})
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                user_row, ownership_error = owned_user_row(cursor, values["user_id"])
+                if ownership_error is not None:
+                    cursor.close()
+                    return ownership_error
+                assigned_frameworks = set(str(user_row[3] or "").split(","))
+                if values["framework"] not in assigned_frameworks:
+                    cursor.close()
+                    return jsonify({"error": "This framework was not assigned to the participant."}), 400
+                cursor.execute(
+                    """
+                    INSERT INTO experiment_framework_responses (
+                        user_id, framework, mental_demand, physical_demand,
+                        temporal_demand, performance, effort, frustration,
+                        raw_tlx_score, concept_clarity, error_feedback_clarity,
+                        questionnaire_version
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id, framework) DO UPDATE SET
+                        mental_demand=EXCLUDED.mental_demand,
+                        physical_demand=EXCLUDED.physical_demand,
+                        temporal_demand=EXCLUDED.temporal_demand,
+                        performance=EXCLUDED.performance,
+                        effort=EXCLUDED.effort,
+                        frustration=EXCLUDED.frustration,
+                        raw_tlx_score=EXCLUDED.raw_tlx_score,
+                        concept_clarity=EXCLUDED.concept_clarity,
+                        error_feedback_clarity=EXCLUDED.error_feedback_clarity,
+                        questionnaire_version=EXCLUDED.questionnaire_version,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        values["user_id"], values["framework"], values["mental_demand"],
+                        values["physical_demand"], values["temporal_demand"],
+                        values["performance"], values["effort"], values["frustration"],
+                        values["raw_tlx_score"], values["concept_clarity"],
+                        values["error_feedback_clarity"], QUESTIONNAIRE_VERSION,
+                    ),
+                )
+                connection.commit()
+                cursor.close()
+            return jsonify({
+                "success": True,
+                "saved": True,
+                "tracking": True,
+                "raw_tlx_score": values["raw_tlx_score"],
+            })
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/final_questionnaire")
+    def save_final_questionnaire():
+        try:
+            values = validate_final_response(request.get_json(silent=True))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        if not tracking_enabled:
+            return jsonify({"success": True, "saved": False, "tracking": False})
+        columns = [
+            *(f"sus_{index}" for index in range(1, 11)), "sus_score",
+            *(f"usefulness_{index}" for index in range(1, 5)),
+            *(f"transfer_{index}" for index in range(1, 6)),
+            "easier_framework", "preferred_framework", "preference_reason",
+            "design_strategy", "translation_strategy", "main_difficulty",
+            "main_help", "feedback_effect", "missing_support", "additional_feedback",
+            "technical_impact_overall", "technical_issue_description",
+            "experimenter_help", "experimenter_help_description",
+        ]
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                _, ownership_error = owned_user_row(cursor, values["user_id"])
+                if ownership_error is not None:
+                    cursor.close()
+                    return ownership_error
+                insert_columns = ["user_id", *columns, "questionnaire_version"]
+                placeholders = ", ".join(["%s"] * len(insert_columns))
+                updates = ", ".join(
+                    f"{column}=EXCLUDED.{column}" for column in [*columns, "questionnaire_version"]
+                )
+                cursor.execute(
+                    f"""
+                    INSERT INTO experiment_final_responses ({', '.join(insert_columns)})
+                    VALUES ({placeholders})
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        {updates}, updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        values["user_id"],
+                        *(values[column] for column in columns),
+                        QUESTIONNAIRE_VERSION,
+                    ),
+                )
+                connection.commit()
+                cursor.close()
+            return jsonify({
+                "success": True,
+                "saved": True,
+                "tracking": True,
+                "sus_score": values["sus_score"],
+            })
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/operator_report")
+    def save_operator_report():
+        authorization_error = require_operator_pin()
+        if authorization_error is not None:
+            return authorization_error
+        try:
+            values = validate_operator_report(request.get_json(silent=True))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        if not tracking_enabled:
+            return jsonify({"success": True, "saved": False, "tracking": False})
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                user_row, ownership_error = owned_user_row(cursor, values["user_id"])
+                if ownership_error is not None:
+                    cursor.close()
+                    return ownership_error
+                cursor.execute(
+                    """
+                    INSERT INTO experiment_operator_reports (
+                        user_id, study_code, operator_id, protocol_followed,
+                        conceptual_help, technical_incidents, data_quality,
+                        incident_notes, quality_notes, questionnaire_version
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        study_code=EXCLUDED.study_code,
+                        operator_id=EXCLUDED.operator_id,
+                        protocol_followed=EXCLUDED.protocol_followed,
+                        conceptual_help=EXCLUDED.conceptual_help,
+                        technical_incidents=EXCLUDED.technical_incidents,
+                        data_quality=EXCLUDED.data_quality,
+                        incident_notes=EXCLUDED.incident_notes,
+                        quality_notes=EXCLUDED.quality_notes,
+                        questionnaire_version=EXCLUDED.questionnaire_version,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        values["user_id"], str(user_row[1] or ""), values["operator_id"],
+                        values["protocol_followed"], values["conceptual_help"],
+                        values["technical_incidents"], values["data_quality"],
+                        values["incident_notes"], values["quality_notes"],
+                        QUESTIONNAIRE_VERSION,
+                    ),
+                )
+                connection.commit()
+                cursor.close()
+            return jsonify({"success": True, "saved": True, "tracking": True})
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/questionnaire")
+    def legacy_questionnaire_endpoint():
+        return jsonify({
+            "error": "This endpoint was replaced by the versioned experiment questionnaires."
+        }), 410
 
     return blueprint

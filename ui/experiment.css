@@ -198,7 +198,7 @@ button:disabled {
     text-align: center;
 }
 
-#questionnaireForm {
+.survey-form {
     display: grid;
     gap: 1.15rem;
 }
@@ -236,7 +236,7 @@ button:disabled {
     min-height: 110px;
 }
 
-#submitQuestionnaireBtn {
+.survey-form > button[type="submit"] {
     justify-self: center;
     min-width: 190px;
     margin-top: 0.4rem;
@@ -265,7 +265,7 @@ button:disabled {
         border-radius: 0;
     }
 }
-#questionnaireForm fieldset {
+.survey-form fieldset {
     display: grid;
     gap: 1.15rem;
     margin: 0;
@@ -275,7 +275,7 @@ button:disabled {
     background: rgba(15, 23, 42, 0.45);
 }
 
-#questionnaireForm legend {
+.survey-form legend {
     padding: 0 0.55rem;
     color: #93c5fd;
     font-size: 1.05rem;
@@ -304,4 +304,120 @@ button:disabled {
     border-radius: 999px;
     font-family: monospace;
     letter-spacing: 0.06em;
+}
+
+.wide-card {
+    width: min(100%, 920px);
+}
+
+.context-summary,
+.assignment-summary {
+    padding: 0.9rem 1rem;
+    color: #dbeafe;
+    background: rgba(37, 99, 235, 0.15);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+
+.assignment-summary {
+    margin-bottom: 1.25rem;
+}
+
+.item-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.range-field {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.9rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid #334155;
+    border-radius: 10px;
+}
+
+.range-field > span:first-child {
+    color: #f1f5f9;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.range-field > div {
+    display: grid;
+    grid-template-columns: auto minmax(160px, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+.range-field input[type="range"] {
+    width: 100%;
+}
+
+.range-field output {
+    justify-self: center;
+    min-width: 3.2rem;
+    padding: 0.25rem 0.55rem;
+    color: #f8fafc;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 999px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.form-field input[type="password"] {
+    width: 100%;
+    padding: 0.85rem 0.9rem;
+    color: #f8fafc;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    font: inherit;
+}
+
+.pin-dialog {
+    width: min(92vw, 440px);
+    padding: 1.5rem;
+    color: #f8fafc;
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-radius: 14px;
+}
+
+.pin-dialog::backdrop {
+    background: rgba(2, 6, 23, 0.78);
+}
+
+.pin-dialog h2 {
+    margin-top: 0;
+    color: #93c5fd;
+}
+
+.pin-dialog p {
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.dialog-actions .secondary-button {
+    width: auto;
+    margin: 0;
+}
+
+@media (max-width: 620px) {
+    .range-field > div {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
 }

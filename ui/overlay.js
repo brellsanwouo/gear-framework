@@ -558,6 +558,20 @@
 
     const storage = window.sessionStorage;
     const index = Number.parseInt(storage.getItem("gear_index") || "0", 10);
+    if (studyPhase !== "training") {
+      storage.setItem(
+        `gear_pending_task_questionnaire_${userId}`,
+        JSON.stringify({
+          task_log_id: logId,
+          task_id: taskId,
+          mode,
+          framework,
+          sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : index,
+          study_phase: studyPhase,
+          completion_reason: completionReason
+        })
+      );
+    }
     storage.setItem("gear_index", String(index + 1));
 
     window.setTimeout(() => {
