@@ -49,6 +49,7 @@ TRACKING_ENABLED = os.environ.get(
     "GEAR_TRACKING_ENABLED",
     os.environ.get("TRACKING_ENABLED", ""),
 ).lower() in {"1", "true", "yes"}
+OPERATOR_PIN = os.environ.get("GEAR_OPERATOR_PIN", "").strip()
 STUDIO_MODEL_POLICY = _studio_model_policy()
 TASKS_FILE_PATH = BASE_DIR / CONFIG["paths"]["tasks_file"]
 

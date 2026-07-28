@@ -21,6 +21,7 @@ from .settings import (
     DB_CONFIG,
     HOST,
     PORT,
+    OPERATOR_PIN,
     RUNTIME_PUBLIC_DIR,
     STORE_PATH,
     STUDIO_MODEL_POLICY,
@@ -76,6 +77,7 @@ def create_app() -> Flask:
             experiment_config=CONFIG.get("experiment", {}),
             database=DB_CONFIG,
             tracking_enabled=TRACKING_ENABLED,
+            operator_pin=OPERATOR_PIN,
         )
     )
     application.register_blueprint(create_pages_blueprint(BASE_DIR, UI_DIR, RUNTIME_PUBLIC_DIR))

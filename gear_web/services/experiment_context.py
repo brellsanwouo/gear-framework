@@ -21,6 +21,7 @@ class ExperimentRunContext:
     sequence_index: int
     study_phase: str
     included_in_primary_analysis: bool
+    study_code: str = ""
 
     def mlflow_tags(self) -> dict[str, str]:
         return {
@@ -34,6 +35,7 @@ class ExperimentRunContext:
             "gear.primary_analysis": (
                 "true" if self.included_in_primary_analysis else "false"
             ),
+            "gear.study_code": self.study_code,
         }
 
 
@@ -79,7 +81,8 @@ def load_experiment_run_context(
                 task_logs.sequence_index,
                 task_logs.study_phase,
                 task_logs.included_in_primary_analysis,
-                task_logs.completed
+                task_logs.completed,
+                users.study_code
             FROM task_logs
             JOIN users ON users.user_id = task_logs.user_id
             WHERE task_logs.id = %s
@@ -111,4 +114,5 @@ def load_experiment_run_context(
         sequence_index=int(row[5]),
         study_phase=str(row[6] or "measured"),
         included_in_primary_analysis=bool(row[7]),
+        study_code=str(row[9] or ""),
     )

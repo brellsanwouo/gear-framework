@@ -27,6 +27,7 @@
   let runnerTimeoutSeconds = 180;
   let buildBusy = false;
   let runBusy = false;
+  let activeRunJobId = null;
   const DEFAULT_MODEL_POLICY = Object.freeze({ locked: false, provider: "openai", model: "gpt-5.1-codex-mini" });
   let modelPolicy = { ...DEFAULT_MODEL_POLICY };
   let modelDefaults = { provider: DEFAULT_MODEL_POLICY.provider, model: DEFAULT_MODEL_POLICY.model };
@@ -138,15 +139,28 @@
     }
   };
   const waitForRun = async (jobId) => {
+    activeRunJobId=jobId;
     const deadline=Date.now()+(runnerTimeoutSeconds+30)*1000;
-    while(Date.now()<deadline){
-      const response=await fetch(`/api/run/jobs/${encodeURIComponent(jobId)}`);const result=await readApiResponse(response);
-      if(response.status===202){await new Promise((resolve)=>setTimeout(resolve,1000));continue;}
-      if(!response.ok)throw new Error(result.error||"Execution failed.");
-      return result;
+    try {
+      while(Date.now()<deadline){
+        const response=await fetch(`/api/run/jobs/${encodeURIComponent(jobId)}`);const result=await readApiResponse(response);
+        if(response.status===202){await new Promise((resolve)=>setTimeout(resolve,1000));continue;}
+        if(!response.ok)throw new Error(result.error||"Execution failed.");
+        return result;
+      }
+      throw new Error("Execution status timed out. Check the saved execution history.");
+    } finally {
+      if(activeRunJobId===jobId)activeRunJobId=null;
     }
-    throw new Error("Execution status timed out. Check the saved execution history.");
   };
+  const cancelStudioRun = async () => {
+    if(!activeRunJobId)return;
+    const jobId=activeRunJobId;
+    const response=await fetch(`/api/run/jobs/${encodeURIComponent(jobId)}`,{method:"DELETE",headers:{Accept:"application/json"}});
+    if(!response.ok&&response.status!==404){const result=await readApiResponse(response);throw new Error(result.error||"Unable to stop the execution.");}
+  };
+  window.isStudioExecutionRunning=()=>Boolean(activeRunJobId||runBusy);
+  window.stopStudioExecution=()=>cancelStudioRun();
 
   const artifactText = (value) => typeof value === "string" ? value : window.jsyaml.dump(value,{noRefs:true,lineWidth:-1,sortKeys:false});
   const setBuildOutput = (view) => {const code=view==="code";document.getElementById("codeOutputPanel").hidden=!code;document.getElementById("consoleOutputPanel").hidden=code;document.getElementById("pythonActions").hidden=!code;document.getElementById("executionActions").hidden=code;document.querySelectorAll("[data-build-output]").forEach((button)=>{const active=button.dataset.buildOutput===view;button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active));});};

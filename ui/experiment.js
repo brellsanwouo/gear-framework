@@ -4,7 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
         userId: storage.getItem("gear_user_id"),
         sequence: JSON.parse(storage.getItem("gear_sequence") || "[]"),
         currentIndex: Number.parseInt(storage.getItem("gear_index") || "0", 10),
-        assignedMode: storage.getItem("gear_assigned_mode") || ""
+        assignedMode: storage.getItem("gear_assigned_mode") || "",
+        studyCode: storage.getItem("gear_study_code") || ""
     };
 
     const introScreen = document.getElementById("introScreen");
@@ -21,6 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const questionnaireForm = document.getElementById("questionnaireForm");
     const questionnaireStatus = document.getElementById("questionnaireStatus");
     const submitQuestionnaireBtn = document.getElementById("submitQuestionnaireBtn");
+    const studyCodeText = document.getElementById("studyCodeText");
+    const endStudyCodeText = document.getElementById("endStudyCodeText");
 
     document.querySelectorAll("select[data-likert], select[data-likert-na]").forEach((select) => {
         const placeholder = document.createElement("option");
@@ -95,11 +98,13 @@ document.addEventListener("DOMContentLoaded", () => {
             storage.setItem("gear_tracking", data.tracking ? "true" : "false");
             storage.setItem("gear_assigned_mode", data.mode || "");
             if (data.participant_id) storage.setItem("gear_participant_id", data.participant_id);
+            if (data.study_code) storage.setItem("gear_study_code", data.study_code);
 
             state.userId = data.user_id;
             state.sequence = data.sequence;
             state.currentIndex = 0;
             state.assignedMode = data.mode || "";
+            state.studyCode = data.study_code || "";
             launchTask();
         } catch (error) {
             console.error(error);
@@ -179,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function showPauseScreen() {
         hideAllScreens();
         pauseScreen.classList.remove("hidden");
+        if (studyCodeText) studyCodeText.textContent = state.studyCode || "—";
         const nextTask = state.sequence[state.currentIndex];
         const previousTask = state.sequence[state.currentIndex - 1];
         const assignment = nextTask ? modeLabel(nextTask.mode) : modeLabel(state.assignedMode);
@@ -220,6 +226,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function showEndScreen(questionnaireSaved) {
         hideAllScreens();
         endScreen.classList.remove("hidden");
+        if (endStudyCodeText) endStudyCodeText.textContent = state.studyCode || "—";
 
         if (!trackingEnabled()) {
             endMessage.textContent =
@@ -246,7 +253,8 @@ document.addEventListener("DOMContentLoaded", () => {
             mode: task.mode,
             framework: task.framework,
             idx: String(state.currentIndex),
-            phase: task.study_phase || "measured"
+            phase: task.study_phase || "measured",
+            code: state.studyCode || ""
         });
 
         const destination = task.mode === "GEAR" ? "/studio" : "/manual";

@@ -288,3 +288,20 @@ button:disabled {
     font-size: 0.9rem;
     text-align: left;
 }
+
+.study-code-line {
+    margin: -0.25rem 0 1.25rem;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
+.study-code-line strong {
+    display: inline-block;
+    padding: 0.3rem 0.65rem;
+    color: #f8fafc;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 999px;
+    font-family: monospace;
+    letter-spacing: 0.06em;
+}

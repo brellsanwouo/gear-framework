@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import ast
+import hmac
 import json
 import os
 import random
+import secrets
 import time
 import uuid
 from contextlib import closing
@@ -26,6 +28,40 @@ SUPPORTED_EXPERIMENT_FRAMEWORKS = ("crewai", "adk")
 COMPLETION_REASONS = {"confirmed", "timeout", "technical_failure", "withdrawal"}
 MAX_QUESTIONNAIRE_FEEDBACK_LENGTH = 2000
 MAX_SUBMISSION_LENGTH = 1_000_000
+MAX_INCIDENT_NOTE_LENGTH = 1000
+STUDY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+OPERATOR_PIN_HEADER = "X-Gear-Operator-Pin"
+
+
+def _generate_study_code() -> str:
+    """Generate a short pseudonymous code that is easy to copy to operator notes."""
+    suffix = "".join(secrets.choice(STUDY_CODE_ALPHABET) for _ in range(6))
+    return f"GEAR-{suffix}"
+
+
+
+def _operator_pin_matches(configured_pin: str, provided_pin: str) -> bool:
+    """Compare an operator PIN without leaking timing information."""
+    return bool(configured_pin) and hmac.compare_digest(
+        configured_pin.encode("utf-8"),
+        provided_pin.encode("utf-8"),
+    )
+
+
+def _task_durations(
+    *,
+    started_at: float,
+    ended_at: float,
+    paused_duration: float = 0.0,
+    paused_at: float | None = None,
+) -> tuple[float, float, float]:
+    """Return active, wall-clock, and total paused duration in seconds."""
+    wall_duration = max(0.0, ended_at - started_at)
+    total_paused = max(0.0, paused_duration)
+    if paused_at is not None:
+        total_paused += max(0.0, ended_at - paused_at)
+    active_duration = max(0.0, wall_duration - total_paused)
+    return active_duration, wall_duration, total_paused
 
 
 class ResearchStore:
@@ -58,6 +94,7 @@ class ResearchStore:
                         current_task_index INT DEFAULT 0,
                         participant_id VARCHAR(255),
                         session_id VARCHAR(255),
+                        study_code VARCHAR(32),
                         assigned_mode VARCHAR(16),
                         framework_order VARCHAR(64),
                         task_order VARCHAR(128)
@@ -66,6 +103,7 @@ class ResearchStore:
                 )
                 cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS participant_id VARCHAR(255)")
                 cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_id VARCHAR(255)")
+                cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS study_code VARCHAR(32)")
                 cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_mode VARCHAR(16)")
                 cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS framework_order VARCHAR(64)")
                 cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS task_order VARCHAR(128)")
@@ -74,6 +112,10 @@ class ResearchStore:
                 )
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_experiment_users_mode ON users(assigned_mode)"
+                )
+                cursor.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_experiment_users_study_code "
+                    "ON users(study_code) WHERE study_code IS NOT NULL"
                 )
                 cursor.execute(
                     """
@@ -87,8 +129,13 @@ class ResearchStore:
                         start_time DOUBLE PRECISION,
                         end_time DOUBLE PRECISION,
                         duration DOUBLE PRECISION,
+                        wall_duration DOUBLE PRECISION,
+                        paused_at DOUBLE PRECISION,
+                        paused_duration DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        pause_count INT NOT NULL DEFAULT 0,
                         completed BOOLEAN DEFAULT FALSE,
                         completion_reason VARCHAR(32),
+                        completion_note TEXT,
                         study_phase VARCHAR(32),
                         included_in_primary_analysis BOOLEAN DEFAULT FALSE,
                         submission TEXT,
@@ -99,6 +146,17 @@ class ResearchStore:
                 cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS framework VARCHAR(50)")
                 cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS sequence_index INT")
                 cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS completion_reason VARCHAR(32)")
+                cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS completion_note TEXT")
+                cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS wall_duration DOUBLE PRECISION")
+                cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS paused_at DOUBLE PRECISION")
+                cursor.execute(
+                    "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS "
+                    "paused_duration DOUBLE PRECISION NOT NULL DEFAULT 0"
+                )
+                cursor.execute(
+                    "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS "
+                    "pause_count INT NOT NULL DEFAULT 0"
+                )
                 cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS study_phase VARCHAR(32)")
                 cursor.execute(
                     "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS "
@@ -111,6 +169,22 @@ class ResearchStore:
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_task_logs_user_sequence "
                     "ON task_logs(user_id, sequence_index)"
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS task_pause_events (
+                        id BIGSERIAL PRIMARY KEY,
+                        task_log_id BIGINT NOT NULL REFERENCES task_logs(id) ON DELETE CASCADE,
+                        started_at DOUBLE PRECISION NOT NULL,
+                        ended_at DOUBLE PRECISION,
+                        duration DOUBLE PRECISION,
+                        reason TEXT NOT NULL DEFAULT ''
+                    )
+                    """
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_task_pause_events_log "
+                    "ON task_pause_events(task_log_id, started_at)"
                 )
 
                 cursor.execute("DROP TABLE IF EXISTS task_runs")
@@ -377,6 +451,7 @@ def create_research_blueprint(
     experiment_config: dict[str, Any],
     database: dict[str, Any],
     tracking_enabled: bool,
+    operator_pin: str = "",
 ) -> Blueprint:
     blueprint = Blueprint("research", __name__)
     tasks = _load_tasks(tasks_path)
@@ -384,13 +459,33 @@ def create_research_blueprint(
     if tracking_enabled:
         store.initialize()
 
+    operator_controls_available = bool(operator_pin)
+
+    def require_operator_pin():
+        if not operator_controls_available:
+            return jsonify({
+                "error": "Operator controls are unavailable because GEAR_OPERATOR_PIN is not configured."
+            }), 503
+        provided_pin = request.headers.get(OPERATOR_PIN_HEADER, "")
+        if not _operator_pin_matches(operator_pin, provided_pin):
+            return jsonify({"error": "Incorrect operator PIN."}), 403
+        return None
+
     @blueprint.get("/api/experiment/status")
     def experiment_status():
         return jsonify({
             "tracking_enabled": tracking_enabled,
             "database_configured": bool(database.get("url") or database.get("password")),
             "database_available": store.available() if tracking_enabled else False,
+            "operator_controls_available": operator_controls_available,
         })
+
+    @blueprint.post("/api/experiment/operator/verify")
+    def verify_operator_pin():
+        authorization_error = require_operator_pin()
+        if authorization_error is not None:
+            return authorization_error
+        return jsonify({"success": True})
 
     @blueprint.get("/api/experiment/task_info/<task_id>")
     def task_info(task_id: str):
@@ -506,12 +601,21 @@ def create_research_blueprint(
         task_order_values = _task_order_options(measured_tasks)
         selected_task_order = random.choice(task_order_values)
         measured_task_order = selected_task_order.split(",")
+        study_code = _generate_study_code()
 
         if tracking_enabled:
             try:
                 with closing(store.connect()) as connection:
                     cursor = connection.cursor()
                     cursor.execute("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
+                    for _ in range(20):
+                        candidate = _generate_study_code()
+                        cursor.execute("SELECT 1 FROM users WHERE study_code=%s", (candidate,))
+                        if cursor.fetchone() is None:
+                            study_code = candidate
+                            break
+                    else:
+                        raise RuntimeError("Unable to allocate a unique study code.")
                     cursor.execute(
                         """
                         SELECT assigned_mode, COUNT(*)
@@ -564,8 +668,8 @@ def create_research_blueprint(
                         """
                         INSERT INTO users (
                             user_id, group_order, current_task_index, participant_id, session_id,
-                            assigned_mode, framework_order, task_order
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            study_code, assigned_mode, framework_order, task_order
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                         (
                             user_id,
@@ -573,6 +677,7 @@ def create_research_blueprint(
                             0,
                             identity.user_id,
                             identity.session_id,
+                            study_code,
                             assigned_mode,
                             ",".join(framework_order),
                             selected_task_order,
@@ -594,6 +699,7 @@ def create_research_blueprint(
         return jsonify({
             "user_id": user_id,
             "participant_id": identity.user_id,
+            "study_code": study_code,
             "mode": assigned_mode,
             "framework_order": list(framework_order),
             "task_order": measured_task_order,
@@ -606,7 +712,11 @@ def create_research_blueprint(
     @blueprint.post("/api/experiment/log_start")
     def log_start():
         if not tracking_enabled:
-            return jsonify({"log_id": None, "tracking": False})
+            return jsonify({
+                "log_id": None,
+                "tracking": False,
+                "operator_controls_available": operator_controls_available,
+            })
         payload = request.get_json(silent=True) or {}
         user_id = str(payload.get("user_id") or "").strip()
         task_id = str(payload.get("task_id") or "").strip()
@@ -657,6 +767,7 @@ def create_research_blueprint(
                         "log_id": None,
                         "tracking": False,
                         "study_phase": str(entry.get("study_phase") or "training"),
+                        "operator_controls_available": operator_controls_available,
                     })
 
                 study_phase = str(entry.get("study_phase") or "measured")
@@ -664,7 +775,7 @@ def create_research_blueprint(
 
                 cursor.execute(
                     """
-                    SELECT id, start_time, completed
+                    SELECT id, start_time, completed, paused_at, paused_duration, pause_count
                     FROM task_logs
                     WHERE user_id=%s AND sequence_index=%s
                     ORDER BY id DESC
@@ -678,12 +789,26 @@ def create_research_blueprint(
                         cursor.close()
                         return jsonify({"error": "This experiment task is already completed."}), 409
                     cursor.close()
+                    started_at_value = float(existing_log[1])
+                    paused_at_value = float(existing_log[3]) if existing_log[3] is not None else None
+                    paused_duration_value = float(existing_log[4] or 0.0)
+                    active_elapsed, _, _ = _task_durations(
+                        started_at=started_at_value,
+                        ended_at=time.time(),
+                        paused_duration=paused_duration_value,
+                        paused_at=paused_at_value,
+                    )
                     return jsonify({
                         "log_id": int(existing_log[0]),
-                        "start_time": float(existing_log[1]),
+                        "start_time": started_at_value,
                         "study_phase": study_phase,
                         "included_in_primary_analysis": included_in_primary_analysis,
                         "resumed": True,
+                        "paused": paused_at_value is not None,
+                        "paused_duration": paused_duration_value,
+                        "pause_count": int(existing_log[5] or 0),
+                        "active_elapsed_seconds": active_elapsed,
+                        "operator_controls_available": operator_controls_available,
                     })
 
                 cursor.execute(
@@ -707,6 +832,103 @@ def create_research_blueprint(
                 "start_time": started_at,
                 "study_phase": study_phase,
                 "included_in_primary_analysis": included_in_primary_analysis,
+                "paused": False,
+                "paused_duration": 0.0,
+                "pause_count": 0,
+                "active_elapsed_seconds": 0.0,
+                "operator_controls_available": operator_controls_available,
+            })
+        except Exception as error:
+            return jsonify({"error": str(error)}), 500
+
+    @blueprint.post("/api/experiment/pause")
+    def update_pause():
+        authorization_error = require_operator_pin()
+        if authorization_error is not None:
+            return authorization_error
+        if not tracking_enabled:
+            return jsonify({"success": True, "tracking": False})
+        payload = request.get_json(silent=True) or {}
+        log_id = payload.get("log_id")
+        action = str(payload.get("action") or "").strip().lower()
+        reason = str(payload.get("reason") or "technical interruption").strip()[:MAX_INCIDENT_NOTE_LENGTH]
+        if action not in {"pause", "resume"}:
+            return jsonify({"error": "Invalid pause action."}), 400
+        now = time.time()
+        try:
+            with closing(store.connect()) as connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    """
+                    SELECT task_logs.start_time, task_logs.completed, task_logs.paused_at,
+                           task_logs.paused_duration, task_logs.pause_count
+                    FROM task_logs
+                    JOIN users ON users.user_id = task_logs.user_id
+                    WHERE task_logs.id=%s AND users.participant_id=%s
+                    FOR UPDATE
+                    """,
+                    (log_id, current_participant().user_id),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    cursor.close()
+                    return jsonify({"error": "Log ID not found"}), 404
+                if bool(row[1]):
+                    cursor.close()
+                    return jsonify({"error": "This task is already completed."}), 409
+
+                started_at = float(row[0]) if row[0] is not None else now
+                paused_at = float(row[2]) if row[2] is not None else None
+                paused_duration = float(row[3] or 0.0)
+                pause_count = int(row[4] or 0)
+
+                if action == "pause" and paused_at is None:
+                    paused_at = now
+                    pause_count += 1
+                    cursor.execute(
+                        "UPDATE task_logs SET paused_at=%s, pause_count=%s WHERE id=%s",
+                        (paused_at, pause_count, log_id),
+                    )
+                    cursor.execute(
+                        "INSERT INTO task_pause_events (task_log_id, started_at, reason) "
+                        "VALUES (%s, %s, %s)",
+                        (log_id, paused_at, reason),
+                    )
+                elif action == "resume" and paused_at is not None:
+                    pause_delta = max(0.0, now - paused_at)
+                    paused_duration += pause_delta
+                    cursor.execute(
+                        "UPDATE task_logs SET paused_at=NULL, paused_duration=%s WHERE id=%s",
+                        (paused_duration, log_id),
+                    )
+                    cursor.execute(
+                        """
+                        UPDATE task_pause_events
+                        SET ended_at=%s, duration=%s
+                        WHERE id=(
+                            SELECT id FROM task_pause_events
+                            WHERE task_log_id=%s AND ended_at IS NULL
+                            ORDER BY id DESC LIMIT 1
+                        )
+                        """,
+                        (now, pause_delta, log_id),
+                    )
+                    paused_at = None
+
+                connection.commit()
+                active_elapsed, _, total_paused = _task_durations(
+                    started_at=started_at,
+                    ended_at=now,
+                    paused_duration=paused_duration,
+                    paused_at=paused_at,
+                )
+                cursor.close()
+            return jsonify({
+                "success": True,
+                "paused": paused_at is not None,
+                "active_elapsed_seconds": active_elapsed,
+                "paused_duration": total_paused,
+                "pause_count": pause_count,
             })
         except Exception as error:
             return jsonify({"error": str(error)}), 500
@@ -719,18 +941,25 @@ def create_research_blueprint(
         log_id = payload.get("log_id")
         submission = str(payload.get("code") or "")[:MAX_SUBMISSION_LENGTH]
         completion_reason = str(payload.get("completion_reason") or "confirmed").strip().lower()
+        completion_note = str(payload.get("completion_note") or "").strip()[:MAX_INCIDENT_NOTE_LENGTH]
         if completion_reason not in COMPLETION_REASONS:
             return jsonify({"error": "Invalid completion reason."}), 400
+        if completion_reason == "technical_failure":
+            authorization_error = require_operator_pin()
+            if authorization_error is not None:
+                return authorization_error
         ended_at = time.time()
         try:
             with closing(store.connect()) as connection:
                 cursor = connection.cursor()
                 cursor.execute(
                     """
-                    SELECT task_logs.start_time, task_logs.completed
+                    SELECT task_logs.start_time, task_logs.completed, task_logs.paused_at,
+                           task_logs.paused_duration
                     FROM task_logs
                     JOIN users ON users.user_id = task_logs.user_id
                     WHERE task_logs.id=%s AND users.participant_id=%s
+                    FOR UPDATE
                     """,
                     (log_id, current_participant().user_id),
                 )
@@ -742,20 +971,48 @@ def create_research_blueprint(
                     cursor.close()
                     return jsonify({"success": True, "already_completed": True})
                 started_at = float(row[0]) if row[0] is not None else ended_at
-                duration = max(0.0, ended_at - started_at)
+                paused_at = float(row[2]) if row[2] is not None else None
+                previous_paused_duration = float(row[3] or 0.0)
+                duration, wall_duration, total_paused_duration = _task_durations(
+                    started_at=started_at,
+                    ended_at=ended_at,
+                    paused_duration=previous_paused_duration,
+                    paused_at=paused_at,
+                )
+                if paused_at is not None:
+                    pause_delta = max(0.0, ended_at - paused_at)
+                    cursor.execute(
+                        """
+                        UPDATE task_pause_events
+                        SET ended_at=%s, duration=%s
+                        WHERE id=(
+                            SELECT id FROM task_pause_events
+                            WHERE task_log_id=%s AND ended_at IS NULL
+                            ORDER BY id DESC LIMIT 1
+                        )
+                        """,
+                        (ended_at, pause_delta, log_id),
+                    )
                 cursor.execute(
                     """
                     UPDATE task_logs
-                    SET end_time=%s, duration=%s, completed=%s, completion_reason=%s, submission=%s
+                    SET end_time=%s, duration=%s, wall_duration=%s, paused_at=NULL,
+                        paused_duration=%s, completed=%s, completion_reason=%s,
+                        completion_note=%s, submission=%s
                     WHERE id=%s AND completed=FALSE
                     """,
-                    (ended_at, duration, True, completion_reason, submission, log_id),
+                    (
+                        ended_at, duration, wall_duration, total_paused_duration, True,
+                        completion_reason, completion_note, submission, log_id,
+                    ),
                 )
                 connection.commit()
                 cursor.close()
             return jsonify({
                 "success": True,
                 "duration": duration,
+                "wall_duration": wall_duration,
+                "paused_duration": total_paused_duration,
                 "completion_reason": completion_reason,
             })
         except Exception as error:
