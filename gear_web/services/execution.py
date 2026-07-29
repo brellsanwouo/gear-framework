@@ -78,6 +78,7 @@ def validate_manual_code(code: str, target: str) -> None:
     target = target.strip().lower()
     expected_root = "crewai" if target == "crewai" else "google"
     imported_expected_framework = False
+    invokes_adk_workflow = False
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -99,11 +100,15 @@ def validate_manual_code(code: str, target: str) -> None:
                 )
             imported_expected_framework |= root == expected_root
 
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if node.func.id in _BLOCKED_CALLS:
-                raise ManualCodeValidationError(
-                    f"Call to '{node.func.id}' is not allowed in manual experiment execution."
-                )
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                if node.func.id in _BLOCKED_CALLS:
+                    raise ManualCodeValidationError(
+                        f"Call to '{node.func.id}' is not allowed in manual experiment execution."
+                    )
+                invokes_adk_workflow |= node.func.id == "run_workflow"
+            elif isinstance(node.func, ast.Attribute):
+                invokes_adk_workflow |= node.func.attr in {"run", "run_async", "run_live"}
 
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("__") or node.attr in _BLOCKED_ATTRIBUTES:
@@ -115,6 +120,10 @@ def validate_manual_code(code: str, target: str) -> None:
         framework_name = "CrewAI" if target == "crewai" else "Google ADK"
         raise ManualCodeValidationError(
             f"The script must import {framework_name} because it is the selected target framework."
+        )
+    if target == "adk" and not invokes_adk_workflow:
+        raise ManualCodeValidationError(
+            "The Google ADK script must invoke a runner (run, run_async, or run_live)."
         )
 
 

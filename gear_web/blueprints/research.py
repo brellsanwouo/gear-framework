@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import hmac
+import hashlib
 import json
 import os
 import random
@@ -17,6 +18,8 @@ import yaml
 from flask import Blueprint, jsonify, request
 from markdown import markdown
 
+from ..builds import _studio_project
+from ..services.execution import validate_manual_code
 from ..services.participants import current_participant
 from ..services.questionnaires import (
     QUESTIONNAIRE_VERSION,
@@ -167,6 +170,16 @@ class ResearchStore:
                     "included_in_primary_analysis BOOLEAN DEFAULT FALSE"
                 )
                 cursor.execute("ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS submission TEXT")
+                cursor.execute(
+                    "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS "
+                    "execution_succeeded BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+                cursor.execute(
+                    "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS successful_execution_id VARCHAR(255)"
+                )
+                cursor.execute(
+                    "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS successful_submission_hash VARCHAR(64)"
+                )
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_task_logs_user_task ON task_logs(user_id, task_id)"
                 )
@@ -540,6 +553,7 @@ def create_research_blueprint(
             "database_configured": bool(database.get("url") or database.get("password")),
             "database_available": store.available() if tracking_enabled else False,
             "operator_controls_available": operator_controls_available,
+            "frameworks": list(_experiment_frameworks(experiment_config)),
         })
 
     @blueprint.post("/api/experiment/operator/verify")
@@ -633,16 +647,21 @@ def create_research_blueprint(
         task_id = payload.get("task_id")
         code = str(payload.get("code") or "")
         mode = str(payload.get("mode") or "").upper()
+        framework = str(payload.get("framework") or "").strip().lower()
         if task_id not in tasks:
             return jsonify({"valid": False, "message": "Unknown task."}), 404
         if not code.strip():
             return jsonify({"valid": False, "message": "The submitted configuration is empty."}), 400
         try:
             if mode == "MANUAL":
-                ast.parse(code)
+                if framework not in SUPPORTED_EXPERIMENT_FRAMEWORKS:
+                    raise ValueError("Unknown experiment framework.")
+                validate_manual_code(code, framework)
             elif mode == "GEAR":
-                if not isinstance(yaml.safe_load(code), dict):
+                submission = yaml.safe_load(code)
+                if not isinstance(submission, dict):
                     raise ValueError("Gear configuration must contain a mapping at its root.")
+                _studio_project(submission)
             else:
                 raise ValueError("Unknown experiment mode.")
         except (SyntaxError, yaml.YAMLError, ValueError) as error:
@@ -1016,8 +1035,15 @@ def create_research_blueprint(
                 cursor = connection.cursor()
                 cursor.execute(
                     """
-                    SELECT task_logs.start_time, task_logs.completed, task_logs.paused_at,
-                           task_logs.paused_duration
+                    SELECT
+                        task_logs.start_time,
+                        task_logs.completed,
+                        task_logs.paused_at,
+                        task_logs.paused_duration,
+                        task_logs.mode,
+                        task_logs.framework,
+                        task_logs.execution_succeeded,
+                        task_logs.successful_submission_hash
                     FROM task_logs
                     JOIN users ON users.user_id = task_logs.user_id
                     WHERE task_logs.id=%s AND users.participant_id=%s
@@ -1032,6 +1058,31 @@ def create_research_blueprint(
                 if bool(row[1]):
                     cursor.close()
                     return jsonify({"success": True, "already_completed": True})
+                mode = str(row[4] or "").upper()
+                framework = str(row[5] or "").lower()
+                if completion_reason == "confirmed" and mode == "MANUAL":
+                    try:
+                        validate_manual_code(submission, framework)
+                    except ValueError as error:
+                        cursor.close()
+                        return jsonify({"error": str(error)}), 400
+                    if not bool(row[6]):
+                        cursor.close()
+                        return jsonify({
+                            "error": (
+                                "Run the assigned framework code successfully before "
+                                "confirming this experiment task."
+                            )
+                        }), 409
+                    submission_hash = hashlib.sha256(submission.encode("utf-8")).hexdigest()
+                    if not row[7] or str(row[7]) != submission_hash:
+                        cursor.close()
+                        return jsonify({
+                            "error": (
+                                "The code changed after its successful execution. "
+                                "Run the current code successfully before confirming."
+                            )
+                        }), 409
                 started_at = float(row[0]) if row[0] is not None else ended_at
                 paused_at = float(row[2]) if row[2] is not None else None
                 previous_paused_duration = float(row[3] or 0.0)

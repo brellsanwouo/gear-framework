@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from contextlib import closing
 from dataclasses import dataclass
 from typing import Any
@@ -116,3 +117,38 @@ def load_experiment_run_context(
         included_in_primary_analysis=bool(row[7]),
         study_code=str(row[9] or ""),
     )
+
+
+def mark_experiment_execution_succeeded(
+    database: dict[str, Any],
+    *,
+    context: ExperimentRunContext,
+    execution_id: str,
+    submission: str,
+) -> None:
+    """Persist the successful execution required to confirm a manual task."""
+
+    with closing(_connect(database)) as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            UPDATE task_logs
+            SET execution_succeeded = TRUE,
+                successful_execution_id = %s,
+                successful_submission_hash = %s
+            WHERE id = %s
+              AND completed = FALSE
+            """,
+            (
+                execution_id,
+                hashlib.sha256(submission.encode("utf-8")).hexdigest(),
+                context.task_log_id,
+            ),
+        )
+        updated = cursor.rowcount
+        connection.commit()
+        cursor.close()
+    if updated != 1:
+        raise ExperimentContextError(
+            "The successful execution could not be linked to the active experiment task."
+        )

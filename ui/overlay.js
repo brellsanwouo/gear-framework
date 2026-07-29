@@ -306,74 +306,134 @@
   updateOperatorButtons();
   startTimer();
 
-  const logStartPromise = fetch("/api/experiment/log_start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId,
+  let logStartPromise = null;
+  let logStartError = null;
+
+  function publishLogState(status, error = null) {
+    window.currentExperimentLogState = {
+      status,
+      error: error ? String(error.message || error) : null
+    };
+    window.dispatchEvent(new CustomEvent("gear:experiment-log-state", {
+      detail: window.currentExperimentLogState
+    }));
+  }
+
+  async function startExperimentLog() {
+    publishLogState("starting");
+    const response = await fetch("/api/experiment/log_start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        task_id: taskId,
+        mode,
+        framework,
+        sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Unable to start the experiment log (HTTP ${response.status}).`);
+    }
+
+    const resolvedPhase = data.study_phase || studyPhase;
+    if (
+      (data.log_id === undefined || data.log_id === null || data.log_id === "")
+      && resolvedPhase !== "training"
+    ) {
+      throw new Error(
+        data.tracking === false
+          ? "Research tracking is disabled; this experiment task cannot be executed."
+          : "The experiment server did not create a task log."
+      );
+    }
+
+    logId = data.log_id;
+    window.currentLogId = logId;
+    operatorControlsAvailable = Boolean(data.operator_controls_available && logId);
+    updateOperatorButtons();
+    if (data.resumed && durationSeconds > 0) {
+      setRemainingFromActiveElapsed(data.active_elapsed_seconds);
+      if (data.paused) {
+        clearTimer();
+        endTime = null;
+        setPausedUi(true);
+      } else {
+        startTimer(remainingMs);
+      }
+    }
+    const context = {
+      active: true,
+      task_log_id: logId,
       task_id: taskId,
       mode,
       framework,
-      sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null
-    }),
-  })
-    .then(async (response) => {
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Unable to start the experiment log");
-      return result;
-    })
-    .then((data) => {
-      logId = data.log_id;
-      window.currentLogId = logId;
-      operatorControlsAvailable = Boolean(data.operator_controls_available && logId);
-      updateOperatorButtons();
-      if (data.resumed && durationSeconds > 0) {
-        setRemainingFromActiveElapsed(data.active_elapsed_seconds);
-        if (data.paused) {
-          clearTimer();
-          endTime = null;
-          setPausedUi(true);
-        } else {
-          startTimer(remainingMs);
+      sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
+      study_phase: resolvedPhase,
+      primary_analysis: Boolean(data.included_in_primary_analysis),
+      study_code: studyCode,
+      record_mlflow: Boolean(logId)
+    };
+    logStartError = null;
+    window.currentExperimentRunContext = context;
+    publishLogState("ready");
+    return context;
+  }
+
+  function ensureExperimentLog({ retry = false } = {}) {
+    if (window.currentExperimentRunContext && !window.currentExperimentRunContext.error) {
+      return Promise.resolve(window.currentExperimentRunContext);
+    }
+    if (logStartPromise) return logStartPromise;
+    if (logStartError && !retry) return Promise.reject(logStartError);
+
+    logStartPromise = startExperimentLog()
+      .catch((error) => {
+        logStartError = error;
+        operatorControlsAvailable = false;
+        updateOperatorButtons();
+        window.currentExperimentRunContext = {
+          active: true,
+          task_log_id: null,
+          task_id: taskId,
+          mode,
+          framework,
+          sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
+          study_phase: studyPhase,
+          primary_analysis: false,
+          study_code: studyCode,
+          record_mlflow: false,
+          error: true
+        };
+        publishLogState("error", error);
+        console.error("Error starting experiment log", error);
+        throw error;
+      })
+      .finally(() => {
+        logStartPromise = null;
+      });
+    return logStartPromise;
+  }
+
+  window.getExperimentRunContext = async () => {
+    let error = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await ensureExperimentLog({ retry: true });
+      } catch (currentError) {
+        error = currentError;
+        if (attempt < 2) {
+          await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
         }
       }
-      const context = {
-        active: true,
-        task_log_id: logId,
-        task_id: taskId,
-        mode,
-        framework,
-        sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
-        study_phase: data.study_phase || studyPhase,
-        primary_analysis: Boolean(data.included_in_primary_analysis),
-        study_code: studyCode,
-        record_mlflow: Boolean(logId)
-      };
-      window.currentExperimentRunContext = context;
-      return context;
-    })
-    .catch((error) => {
-      console.error("Error starting experiment log", error);
-      operatorControlsAvailable = false;
-      updateOperatorButtons();
-      const context = {
-        active: true,
-        task_log_id: null,
-        task_id: taskId,
-        mode,
-        framework,
-        sequence_index: Number.isFinite(sequenceIndex) ? sequenceIndex : null,
-        study_phase: studyPhase,
-        primary_analysis: false,
-        study_code: studyCode,
-        record_mlflow: false,
-        error: true
-      };
-      window.currentExperimentRunContext = context;
-      return context;
-    });
+    }
+    throw new Error(`Experiment task log unavailable: ${error?.message || "unknown error"}`);
+  };
 
-  window.getExperimentRunContext = () => logStartPromise;
+  ensureExperimentLog().catch(() => {
+    // Run will retry and surface the original failure if the initial request was transient.
+  });
 
   async function stopActiveExecution() {
     const stops = [];
@@ -389,7 +449,7 @@
   }
 
   async function sendPauseAction(action, reason = "", operatorPin = "") {
-    await logStartPromise;
+    await window.getExperimentRunContext();
     if (!logId) throw new Error("The experiment task log is not ready yet.");
     const response = await fetch("/api/experiment/pause", {
       method: "POST",
@@ -482,6 +542,35 @@
       return;
     }
 
+    if (mode === "MANUAL" && typeof window.getManualExperimentCompletionState === "function") {
+      const completion = window.getManualExperimentCompletionState();
+      if (!completion?.ready) {
+        showToast(
+          completion?.message || "Run the current framework code successfully before confirming.",
+          "warning"
+        );
+        return;
+      }
+    }
+
+    if (mode === "GEAR" && typeof window.getExperimentCompletionState === "function") {
+      const completion = window.getExperimentCompletionState();
+      if (!completion?.ready) {
+        showToast(
+          completion?.message || "Complete every Gear Studio step before confirming the task.",
+          "warning"
+        );
+        return;
+      }
+    }
+
+    try {
+      await window.getExperimentRunContext();
+    } catch (error) {
+      showToast(error?.message || "The experiment task log is unavailable.", "error");
+      return;
+    }
+
     const userCode = getUserCode();
     btnValidate.disabled = true;
     const originalText = btnValidate.textContent;
@@ -527,34 +616,50 @@
       technical_failure: ["The current work is being saved as a technical failure.", "warning"],
       confirmed: ["Task successfully completed!", "success"]
     };
-    const [message, type] = messages[completionReason] || messages.confirmed;
-    showToast(message, type);
+    try {
+      await window.getExperimentRunContext();
+    } catch (error) {
+      finishing = false;
+      btnValidate.disabled = paused;
+      updateOperatorButtons();
+      if (!paused && durationSeconds > 0 && remainingMs > 0) startTimer(remainingMs);
+      throw error;
+    }
 
-    await logStartPromise;
     if (logId) {
-      const response = await fetch("/api/experiment/log_end", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(completionReason === "technical_failure"
-            ? { "X-Gear-Operator-Pin": operatorPin }
-            : {})
-        },
-        body: JSON.stringify({
-          log_id: logId,
-          code,
-          completion_reason: completionReason,
-          completion_note: completionNote
-        }),
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
+      try {
+        const response = await fetch("/api/experiment/log_end", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(completionReason === "technical_failure"
+              ? { "X-Gear-Operator-Pin": operatorPin }
+              : {})
+          },
+          body: JSON.stringify({
+            log_id: logId,
+            code,
+            completion_reason: completionReason,
+            completion_note: completionNote
+          }),
+        });
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          throw new Error(result.error || "Unable to end the experiment log");
+        }
+      } catch (error) {
+        console.error("Error ending experiment log", error);
         finishing = false;
+        btnValidate.disabled = paused;
+        btnValidate.textContent = "Confirm & Finish";
         updateOperatorButtons();
-        if (!paused && durationSeconds > 0) startTimer(remainingMs);
-        throw new Error(result.error || "Unable to end the experiment log");
+        if (!paused && durationSeconds > 0 && remainingMs > 0) startTimer(remainingMs);
+        throw error;
       }
     }
+
+    const [message, type] = messages[completionReason] || messages.confirmed;
+    showToast(message, type);
 
     const storage = window.sessionStorage;
     const index = Number.parseInt(storage.getItem("gear_index") || "0", 10);

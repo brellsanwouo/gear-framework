@@ -28,6 +28,7 @@ from ..services.experiment_context import (
     ExperimentContextError,
     ExperimentRunContext,
     load_experiment_run_context,
+    mark_experiment_execution_succeeded,
 )
 from ..services.participants import current_participant
 
@@ -430,6 +431,13 @@ def create_runner_blueprint(
             external_trace_id=external_trace_id,
             project_id=project_id,
         )
+        if result.returncode == 0 and experiment_context is not None:
+            mark_experiment_execution_succeeded(
+                research_database,
+                context=experiment_context,
+                execution_id=execution_id,
+                submission=code,
+            )
         return {
             "manual_run_id": execution_id,
             "trace_id": trace_id,

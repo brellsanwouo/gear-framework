@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const POLL_INTERVAL_MS = 500;
   let activeJobId = null;
   let stopping = false;
+  let successfullyExecutedCode = null;
 
   if (experimentFramework && frameworkSelect) {
     frameworkSelect.value = experimentFramework;
@@ -105,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `${partialOutput}\n\nExecution stopped.`
           : "Execution stopped.";
         outputPre.classList.remove("error");
-        return;
+        return false;
       }
 
       if (!response.ok) {
@@ -113,8 +114,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderResult(payload);
-      return;
+      return Number(payload?.returncode) === 0;
     }
+    return false;
   }
 
   async function cancelActiveRun({ silent = false } = {}) {
@@ -145,6 +147,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.isManualExecutionRunning = () => Boolean(activeJobId);
   window.stopManualExecution = () => cancelActiveRun();
+  window.getManualExperimentCompletionState = () => {
+    if (!experimentFramework) return { ready: true, message: "" };
+    if (!inputArea?.value.trim()) {
+      return { ready: false, message: "Write the assigned framework code before confirming." };
+    }
+    if (successfullyExecutedCode !== inputArea.value) {
+      return {
+        ready: false,
+        message: `Run the ${frameworkLabel(experimentFramework)} code successfully before confirming.`
+      };
+    }
+    return { ready: true, message: "" };
+  };
+
+  inputArea?.addEventListener("input", () => {
+    successfullyExecutedCode = null;
+  });
+  frameworkSelect?.addEventListener("change", () => {
+    successfullyExecutedCode = null;
+  });
 
   if (runBtn) {
     runBtn.addEventListener("click", async () => {
@@ -156,6 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const targetFramework = experimentFramework || frameworkSelect?.value || "crewai";
+      successfullyExecutedCode = null;
       setRunningState(true);
       outputPre.textContent = "Starting the workflow...";
       outputPre.classList.remove("error");
@@ -184,7 +207,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         activeJobId = payload.job_id;
-        await pollJob(activeJobId);
+        const succeeded = await pollJob(activeJobId);
+        successfullyExecutedCode = succeeded && inputArea?.value === code ? code : null;
       } catch (error) {
         console.error(error);
         outputPre.textContent = `# Error: ${error.message || error}`;

@@ -10,6 +10,7 @@
     ? requestedExperimentFramework
     : null;
   const experimentActive = Boolean(experimentUserId && experimentTaskId && experimentFramework);
+  let experimentFrameworks = experimentFramework ? [experimentFramework] : [];
   const steps = ["agents", "modules", "workflow", "validation", "build"];
   let currentStep = "agents";
   let selectedAgent = 0;
@@ -23,6 +24,7 @@
   const frameworkLabels = { crewai: "CrewAI", adk: "Google ADK", langgraph: "LangGraph", "openai-agents": "OpenAI Agents SDK", "microsoft-agent-framework": "Microsoft Agent Framework", strands: "Strands Agents", "pydantic-ai": "PydanticAI", autogen: "Microsoft AutoGen", "semantic-kernel": "Semantic Kernel", haystack: "Haystack" };
   const frameworkLabel = (target) => frameworkLabels[target] || target;
   const buildsByTarget = { crewai: null, adk: null, langgraph: null, "openai-agents": null, "microsoft-agent-framework": null, strands: null, "pydantic-ai": null, autogen: null, "semantic-kernel": null, haystack: null };
+  const successfulRunsByTarget = {};
   let runnerEnabled = false;
   let runnerTimeoutSeconds = 180;
   let buildBusy = false;
@@ -124,7 +126,7 @@
     // when the participant confirms the task, never in browser localStorage.
     invalidateBuild();
   };
-  const invalidateBuild = () => {if(!Object.values(buildsByTarget).some(Boolean)||buildBusy)return;Object.keys(buildsByTarget).forEach((target)=>{buildsByTarget[target]=null;setFrameworkStatus(target,"","Project changed · regenerate code");});lastBuild=null;document.getElementById("buildOutputCard").hidden=true;refreshFrameworkControls();};
+  const invalidateBuild = () => {Object.keys(successfulRunsByTarget).forEach((target)=>{successfulRunsByTarget[target]=false;});if(!Object.values(buildsByTarget).some(Boolean)||buildBusy){refreshFrameworkControls();refreshStepLinks();return;}Object.keys(buildsByTarget).forEach((target)=>{buildsByTarget[target]=null;setFrameworkStatus(target,"","Project changed · regenerate code");});lastBuild=null;document.getElementById("buildOutputCard").hidden=true;refreshFrameworkControls();refreshStepLinks();};
   const scheduleSave = () => { invalidateBuild();clearTimeout(saveTimer); saveTimer = setTimeout(save, 180); };
   const toast = (message) => {
     const element = document.getElementById("studioToast");
@@ -168,8 +170,8 @@
     const value=lastBuild?.outputs?.orchestration;const available=typeof value==="string"&&Boolean(value.trim());document.getElementById("copyArtifact").disabled=!available;document.querySelector("#artifactPreview code").textContent=available?value:"Generate framework code to preview it.";document.getElementById("pythonArtifactMeta").textContent=available?`${frameworkLabel(lastBuild.target)} · gear-${lastBuild.target}.py · build ${lastBuild.build_id.slice(0,8)}`:"The generated script will appear here.";
   };
   const setFrameworkStatus = (target,state,text) => {const status=document.querySelector(`[data-framework-status="${target}"]`);status.className=`framework-status${state?` is-${state}`:""}`;status.lastChild.textContent=text;};
-  const refreshFrameworkControls = () => {const blocked=validation().some((issue)=>issue.severity==="error");document.querySelectorAll("[data-framework-action]").forEach((button)=>{const card=button.closest("[data-framework]");const wrongExperimentTarget=Boolean(experimentFramework&&card?.dataset.framework!==experimentFramework);button.disabled=wrongExperimentTarget||buildBusy||runBusy||blocked||(button.dataset.frameworkAction==="run"&&!runnerEnabled);});const runExecution=document.getElementById("runExecution");if(runExecution)runExecution.disabled=buildBusy||runBusy||blocked||!runnerEnabled;};
-  const selectFramework = (target) => {if(experimentFramework&&target!==experimentFramework)return;buildTarget=target;document.querySelectorAll("[data-framework]").forEach((card)=>{const selected=card.dataset.framework===target;card.classList.toggle("is-selected",selected);card.setAttribute("aria-selected",String(selected));const choice=card.querySelector(".framework-choice");choice.querySelector("span").textContent=selected?"✓":"";choice.querySelector("b").textContent=selected?"Selected":"Select";});};
+  const refreshFrameworkControls = () => {const blocked=validation().some((issue)=>issue.severity==="error");document.querySelectorAll("[data-framework-action]").forEach((button)=>{const card=button.closest("[data-framework]");const target=card?.dataset.framework;const outsideExperiment=Boolean(experimentActive&&!experimentFrameworks.includes(target));const wrongRunTarget=Boolean(experimentActive&&button.dataset.frameworkAction==="run"&&target!==experimentFramework);button.disabled=outsideExperiment||wrongRunTarget||buildBusy||runBusy||blocked||(button.dataset.frameworkAction==="run"&&!runnerEnabled);button.title=wrongRunTarget?`This task must be executed with ${frameworkLabel(experimentFramework)}.`:"";});const runExecution=document.getElementById("runExecution");if(runExecution){const wrongRunTarget=Boolean(experimentActive&&buildTarget!==experimentFramework);runExecution.disabled=wrongRunTarget||buildBusy||runBusy||blocked||!runnerEnabled;runExecution.title=wrongRunTarget?`This task must be executed with ${frameworkLabel(experimentFramework)}.`:"";}};
+  const selectFramework = (target) => {if(experimentActive&&!experimentFrameworks.includes(target))return;buildTarget=target;document.querySelectorAll("[data-framework]").forEach((card)=>{const selected=card.dataset.framework===target;card.classList.toggle("is-selected",selected);card.setAttribute("aria-selected",String(selected));const choice=card.querySelector(".framework-choice");choice.querySelector("span").textContent=selected?"✓":"";choice.querySelector("b").textContent=selected?"Selected":"Select";});refreshFrameworkControls();};
   const openBuildOutput = (target,view="code") => {selectFramework(target);lastBuild=buildsByTarget[target];document.getElementById("buildOutputCard").hidden=false;document.getElementById("buildOutputTitle").textContent=frameworkLabel(target);document.getElementById("buildOutputSubtitle").textContent=lastBuild?`Build ${lastBuild.build_id.slice(0,8)}`:"Output";renderBuildArtifacts();setBuildOutput(view);document.getElementById("buildOutputCard").scrollIntoView({behavior:"smooth",block:"nearest"});};
   const loadRunnerStatus = async () => {
     const notice=document.getElementById("runnerNotice");try{const response=await fetch("/api/run/status");const status=await readApiResponse(response);runnerEnabled=Boolean(status.enabled);runnerTimeoutSeconds=Number(status.timeout_seconds)||180;notice.classList.toggle("is-enabled",runnerEnabled);notice.classList.toggle("is-disabled",!runnerEnabled);notice.querySelector("p").textContent=runnerEnabled?`Local execution available · ${status.timeout_seconds}s timeout`:"Local execution disabled. Set GEAR_ENABLE_LOCAL_RUNNER=true and restart the server.";}catch(error){runnerEnabled=false;notice.classList.add("is-disabled");notice.querySelector("p").textContent="Local execution status unavailable.";}refreshFrameworkControls();
@@ -216,12 +218,27 @@
   };
   const loadExperimentContext = async () => {
     if(!experimentActive)return;
+    try{
+      const statusResponse=await fetch("/api/experiment/status",{headers:{Accept:"application/json"}});
+      const status=await statusResponse.json();
+      const configured=Array.isArray(status.frameworks)?status.frameworks.map((value)=>String(value).toLowerCase()).filter((value)=>Object.hasOwn(frameworkLabels,value)):[];
+      if(statusResponse.ok&&configured.length===2&&configured.includes(experimentFramework))experimentFrameworks=[...new Set(configured)];
+    }catch(error){console.warn("Unable to load the experiment framework pair",error);}
+    if(experimentFrameworks.length<2){
+      const fallback=experimentFramework==="crewai"?"adk":"crewai";
+      experimentFrameworks=[experimentFramework,fallback];
+    }
     buildTarget=experimentFramework;
     validationTarget=experimentFramework;
     selectFramework(experimentFramework);
     const validationSelect=document.getElementById("validationTarget");
     if(validationSelect){validationSelect.value=experimentFramework;validationSelect.disabled=true;validationSelect.title="The target framework is assigned by the experiment.";}
-    document.querySelectorAll("[data-framework]").forEach((card)=>{card.hidden=card.dataset.framework!==experimentFramework;});
+    document.querySelectorAll("[data-framework]").forEach((card)=>{
+      const target=card.dataset.framework;
+      card.hidden=!experimentFrameworks.includes(target);
+      card.classList.toggle("is-experiment-target",target===experimentFramework);
+      card.title=target===experimentFramework?"Framework assigned to the current experiment task":"Second framework selected for this experiment";
+    });
     document.getElementById("projectName").value=`${experimentTaskId}-${experimentFramework}`;
     const query=new URLSearchParams({user_id:experimentUserId,task_id:experimentTaskId,framework:experimentFramework,sequence_index:Number.isFinite(experimentSequenceIndex)?String(experimentSequenceIndex):""});
     try{
@@ -240,16 +257,16 @@
   const studioBuildPayload = (target) => ({project_id:(document.getElementById("projectName").value||"studio-project").trim(),project_name:document.getElementById("projectName").value,target,agents:project.agents,modules:project.modules,workflows:project.workflows,workflow_sequence:orderedWorkflowItems().map(({kind,name})=>({kind,name}))});
   window.getExperimentSubmission = () => JSON.stringify({ schema_version: project.schema_version || "1.0", agents: project.agents, modules: project.modules, workflows: project.workflows });
   const createStudioBuild = async (target=buildTarget,show=true) => {
-    if(experimentFramework)target=experimentFramework;
+    if(experimentActive&&!experimentFrameworks.includes(target)){toast("Select one of the two experiment frameworks.");return null;}
     if(buildBusy)return null;const errors=validation().filter((issue)=>issue.severity==="error");if(errors.length){currentStep="validation";render();toast("Fix blocking errors before generating code.");return null;}
     buildBusy=true;setFrameworkStatus(target,"building","Generating…");refreshFrameworkControls();
     try{const response=await fetch("/api/studio/builds",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(studioBuildPayload(target))});const result=await response.json();if(!response.ok)throw new Error([result.error,...(result.details||[])].filter(Boolean).join("\n"));buildsByTarget[target]=result;lastBuild=result;setFrameworkStatus(target,"ready",`Code ready · ${result.duration_ms} ms`);if(show)openBuildOutput(target,"code");toast(`${frameworkLabel(target)} code generated.`);await renderHistory();return result;}catch(error){setFrameworkStatus(target,"failed","Generation failed");toast(error.message);return null;}finally{buildBusy=false;refreshFrameworkControls();}
   };
   const runStudioBuild = async (target=buildTarget) => {
-    if(experimentFramework)target=experimentFramework;
+    if(experimentActive&&target!==experimentFramework){toast(`This task must be executed with ${frameworkLabel(experimentFramework)}.`);return;}
     if(runBusy)return;if(!runnerEnabled){toast("Local execution is disabled.");return;}const build=buildsByTarget[target]||await createStudioBuild(target,false);if(!build)return;const code=build.outputs?.orchestration;if(typeof code!=="string"||!code.trim()){toast("This build contains no executable workflow.");return;}
     lastBuild=build;openBuildOutput(target,"console");runBusy=true;refreshFrameworkControls();setFrameworkStatus(target,"building","Running…");const consoleElement=document.getElementById("executionConsole");consoleElement.classList.remove("has-error");consoleElement.querySelector("code").textContent="Workflow execution in progress…";document.getElementById("executionMeta").textContent=`Build ${build.build_id.slice(0,8)} · ${target}`;
-    try{const experimentContext=typeof window.getExperimentRunContext==="function"?await window.getExperimentRunContext():null;const response=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,build_id:build.build_id,async:true,experiment_context:experimentContext})});let result=await readApiResponse(response);if(response.status===202)result=await waitForRun(result.job_id);else if(!response.ok)throw new Error(result.error||"Execution failed.");const succeeded=result.returncode===0;const sections=[];if(result.stdout)sections.push(`OUTPUT\n${result.stdout.trimEnd()}`);if(result.stderr)sections.push(`ERRORS\n${result.stderr.trimEnd()}`);if(!sections.length)sections.push("Execution completed without output.");consoleElement.querySelector("code").textContent=sections.join("\n\n");consoleElement.classList.toggle("has-error",!succeeded);document.getElementById("executionMeta").textContent=`${succeeded?"Completed":"Failed"} · code ${result.returncode}${result.trace_id?` · trace ${result.trace_id}`:""}`;setFrameworkStatus(target,succeeded?"ready":"failed",succeeded?"Last execution succeeded":"Last execution failed");toast(succeeded?"Execution completed.":"The workflow returned an error.");await renderHistory();}catch(error){consoleElement.querySelector("code").textContent=error.message;consoleElement.classList.add("has-error");document.getElementById("executionMeta").textContent="Execution failed";setFrameworkStatus(target,"failed","Last execution failed");toast("Execution failed.");}finally{runBusy=false;refreshFrameworkControls();}
+    try{const experimentContext=typeof window.getExperimentRunContext==="function"?await window.getExperimentRunContext():null;const response=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,build_id:build.build_id,async:true,experiment_context:experimentContext})});let result=await readApiResponse(response);if(response.status===202)result=await waitForRun(result.job_id);else if(!response.ok)throw new Error(result.error||"Execution failed.");const succeeded=result.returncode===0;successfulRunsByTarget[target]=succeeded;const sections=[];if(result.stdout)sections.push(`OUTPUT\n${result.stdout.trimEnd()}`);if(result.stderr)sections.push(`ERRORS\n${result.stderr.trimEnd()}`);if(!sections.length)sections.push("Execution completed without output.");consoleElement.querySelector("code").textContent=sections.join("\n\n");consoleElement.classList.toggle("has-error",!succeeded);document.getElementById("executionMeta").textContent=`${succeeded?"Completed":"Failed"} · code ${result.returncode}${result.trace_id?` · trace ${result.trace_id}`:""}`;setFrameworkStatus(target,succeeded?"ready":"failed",succeeded?"Last execution succeeded":"Last execution failed");toast(succeeded?"Execution completed.":"The workflow returned an error.");await renderHistory();}catch(error){successfulRunsByTarget[target]=false;const message=error?.message||"Execution failed.";consoleElement.querySelector("code").textContent=message;consoleElement.classList.add("has-error");document.getElementById("executionMeta").textContent="Execution not started";setFrameworkStatus(target,"failed","Execution not started");toast(message);}finally{runBusy=false;refreshFrameworkControls();render();}
   };
   const downloadStudioScript = (build) => {const value=build?.outputs?.orchestration;if(typeof value!=="string")return;const blob=new Blob([value.endsWith("\n")?value:`${value}\n`],{type:"text/x-python"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`gear-${build.target}.py`;link.click();URL.revokeObjectURL(url);toast(`gear-${build.target}.py downloaded.`);};
 
@@ -290,6 +307,42 @@
     if(syntaxValid&&window.GearConversionCore?.buildGearIR){const ir=window.GearConversionCore.buildGearIR({gearAgents:parsedAgents,gearModules:parsedModules,workflowYaml:workflow});const supported=new Set(["GEAR-WORKFLOW-CYCLE","GEAR-WORKFLOW-UNKNOWN-EDGE","GEAR-WORKFLOW-AMBIGUOUS-EDGE","GEAR-WORKFLOW-DEFAULT-ORDER","GEAR-MODULE-UNKNOWN-AGGREGATOR"]);ir.diagnostics.filter((item)=>supported.has(item.code)).forEach((item)=>{const messages={"GEAR-WORKFLOW-CYCLE":"The workflow contains a cycle outside a Loop module.","GEAR-WORKFLOW-UNKNOWN-EDGE":"A workflow edge references an unknown step.","GEAR-WORKFLOW-AMBIGUOUS-EDGE":"A workflow edge is ambiguous; use a unique step identifier.","GEAR-WORKFLOW-DEFAULT-ORDER":"No explicit edges: the displayed order will run sequentially.","GEAR-MODULE-UNKNOWN-AGGREGATOR":"A module references an unknown aggregator agent."};add({severity:item.severity,area:item.code.startsWith("GEAR-MODULE")?"Modules":"Workflow",code:item.code,path:item.path,message:messages[item.code]||item.message,step:item.code.startsWith("GEAR-MODULE")?"modules":"workflow",view:"yaml"});});}
     refsModules.filter((name)=>modules.includes(name)).forEach((name)=>add({severity:"warning",area:name,code:"GEAR-CREWAI-MODULE-ADAPTATION",path:"workflow.Items.Modules",message:"CrewAI will adapt this module; parallel or loop semantics may be partially lost.",step:"build",target:"crewai"}));
     return issues;
+  };
+
+  const blockingIssuesForStep = (step) => {
+    const errors=validation().filter((issue)=>issue.severity==="error");
+    return step==="validation"||step==="build"?errors:errors.filter((issue)=>issue.step===step);
+  };
+  const stepRequirement = (step) => {
+    const blockers=blockingIssuesForStep(step);
+    if(blockers.length)return {ready:false,message:step==="validation"?"Resolve all blocking errors before continuing.":blockers[0].message};
+    if(step==="build"&&experimentActive){
+      if(!buildsByTarget[experimentFramework])return {ready:false,message:`Generate the ${frameworkLabel(experimentFramework)} code before finishing.`};
+      if(!successfulRunsByTarget[experimentFramework])return {ready:false,message:`Run the ${frameworkLabel(experimentFramework)} workflow successfully before finishing.`};
+    }
+    return {ready:true,message:""};
+  };
+  const canOpenStep = (targetStep) => {
+    if(!experimentActive)return {ready:true,message:""};
+    const targetIndex=steps.indexOf(targetStep);
+    for(let index=0;index<targetIndex;index+=1){
+      const requirement=stepRequirement(steps[index]);
+      if(!requirement.ready)return requirement;
+    }
+    return {ready:true,message:""};
+  };
+  const refreshStepLinks = () => {
+    document.querySelectorAll("[data-step-link]").forEach((link)=>{
+      const access=canOpenStep(link.dataset.stepLink);
+      link.classList.toggle("is-locked",!access.ready);
+      link.setAttribute("aria-disabled",String(!access.ready));
+      link.title=access.ready?"":access.message;
+    });
+  };
+  window.getExperimentCompletionState = () => {
+    if(!experimentActive)return {ready:true,message:""};
+    const requirement=stepRequirement("build");
+    return {...requirement,framework:experimentFramework,frameworks:[...experimentFrameworks]};
   };
 
   const entityCard = (kind, text, index, selected) => {
@@ -406,10 +459,19 @@
   const render = () => {
     document.querySelectorAll("[data-step-panel]").forEach((panel)=>panel.classList.toggle("is-active",panel.dataset.stepPanel===currentStep));document.querySelectorAll("[data-step-link]").forEach((link)=>link.classList.toggle("is-active",link.dataset.stepLink===currentStep));
     renderEntities("agent");renderEntities("module");renderWorkflow();const issues=renderValidation();renderHealth(issues);if(currentStep==="build")renderHistory();
-    const index=steps.indexOf(currentStep);const blocked=issues.some((issue)=>issue.severity==="error");const next=document.getElementById("nextStep");next.textContent=index===steps.length-1?`View ${frameworkLabel(buildTarget)} code`:"Next step →";next.disabled=index===steps.length-1&&blocked;next.title=next.disabled?"Fix blocking errors before building.":"";const conversion=document.getElementById("buildConversion");conversion.classList.toggle("is-disabled",blocked);conversion.setAttribute("aria-disabled",String(blocked));conversion.title=blocked?"Fix blocking errors before conversion.":"";refreshFrameworkControls();
+    const index=steps.indexOf(currentStep);const blocked=issues.some((issue)=>issue.severity==="error");const currentBlockers=blockingIssuesForStep(currentStep);const next=document.getElementById("nextStep");
+    if(index===steps.length-1){
+      if(experimentActive&&!buildsByTarget[experimentFramework])next.textContent=`Generate ${frameworkLabel(experimentFramework)} code`;
+      else if(experimentActive&&!successfulRunsByTarget[experimentFramework])next.textContent=`Run ${frameworkLabel(experimentFramework)} workflow`;
+      else next.textContent=experimentActive?"Ready to finish":`View ${frameworkLabel(buildTarget)} code`;
+    }else next.textContent="Next step →";
+    next.disabled=experimentActive&&index===steps.length-1&&Boolean(successfulRunsByTarget[experimentFramework]);
+    next.title=currentBlockers.length?currentBlockers[0].message:experimentActive&&index===steps.length-1&&successfulRunsByTarget[experimentFramework]?"Use Confirm & Finish to complete the task.":"";
+    refreshStepLinks();
+    const conversion=document.getElementById("buildConversion");conversion.classList.toggle("is-disabled",blocked);conversion.setAttribute("aria-disabled",String(blocked));conversion.title=blocked?"Fix blocking errors before conversion.":"";refreshFrameworkControls();
   };
 
-  document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{currentStep=button.dataset.stepLink;render();window.scrollTo({top:0,behavior:"smooth"});}));
+  document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{const access=canOpenStep(button.dataset.stepLink);if(!access.ready){toast(access.message);return;}currentStep=button.dataset.stepLink;render();window.scrollTo({top:0,behavior:"smooth"});}));
   document.querySelectorAll("[data-add]").forEach((button)=>button.addEventListener("click",()=>{const kind=button.dataset.add;const values=project[`${kind}s`];values.push(kind==="agent"?defaultAgent(values.length+1):defaultModule(values.length+1));kind==="agent"?selectedAgent=values.length-1:selectedModule=values.length-1;save();render();}));
   document.querySelectorAll("[data-entity-view]").forEach((button)=>button.addEventListener("click",()=>setEntityView(button.dataset.kind,button.dataset.entityView)));
   document.getElementById("agentForm").addEventListener("input",updateAgentFromForm);document.getElementById("moduleForm").addEventListener("input",updateModuleFromForm);
@@ -422,7 +484,7 @@
   document.querySelectorAll("[data-build-output]").forEach((button)=>button.addEventListener("click",()=>setBuildOutput(button.dataset.buildOutput)));document.getElementById("copyArtifact").addEventListener("click",async()=>{const value=lastBuild?.outputs?.orchestration;if(typeof value!=="string")return;await navigator.clipboard.writeText(value);toast("Python code copied.");});document.getElementById("runExecution").addEventListener("click",()=>runStudioBuild(buildTarget));document.getElementById("clearExecutionConsole").addEventListener("click",()=>{document.querySelector("#executionConsole code").textContent="Console cleared.";document.getElementById("executionConsole").classList.remove("has-error");document.getElementById("executionMeta").textContent="No output displayed.";});document.getElementById("closeBuildOutput").addEventListener("click",()=>{document.getElementById("buildOutputCard").hidden=true;});document.getElementById("toggleStudioHistory").addEventListener("click",(event)=>{const content=document.getElementById("studioHistoryContent");const expanded=content.hidden;content.hidden=!expanded;event.currentTarget.setAttribute("aria-expanded",String(expanded));event.currentTarget.lastElementChild.textContent=expanded?"Hide":"Show";if(expanded)renderHistory();});
   document.getElementById("openValidation").addEventListener("click",()=>{currentStep="validation";render();});
   document.getElementById("toggleWorkflowSource").addEventListener("click",(event)=>{const grid=document.querySelector(".workflow-grid");const hidden=grid.classList.toggle("source-hidden");event.currentTarget.textContent=hidden?"Show YAML":"Hide YAML";event.currentTarget.setAttribute("aria-expanded",String(!hidden));});
-  document.getElementById("nextStep").addEventListener("click",()=>{const index=steps.indexOf(currentStep);const errors=validation().some((issue)=>issue.severity==="error");if(index===steps.length-1){if(errors){toast("Fix blocking errors before building.");return;}createStudioBuild();return;}currentStep=steps[index+1];render();window.scrollTo({top:0,behavior:"smooth"});});
+  document.getElementById("nextStep").addEventListener("click",async()=>{const index=steps.indexOf(currentStep);const requirement=stepRequirement(currentStep);if(index===steps.length-1){const errors=blockingIssuesForStep("build");if(errors.length){toast("Fix blocking errors before building.");return;}if(experimentActive){if(!buildsByTarget[experimentFramework]){selectFramework(experimentFramework);await createStudioBuild(experimentFramework);return;}if(!successfulRunsByTarget[experimentFramework]){selectFramework(experimentFramework);await runStudioBuild(experimentFramework);return;}toast("The workflow is ready. Use Confirm & Finish to complete the task.");return;}createStudioBuild();return;}if(!requirement.ready){toast(requirement.message);return;}currentStep=steps[index+1];render();window.scrollTo({top:0,behavior:"smooth"});});
   document.getElementById("buildConversion").addEventListener("click",(event)=>{if(validation().some((issue)=>issue.severity==="error")){event.preventDefault();toast("Fix blocking errors before conversion.");}});
   document.getElementById("projectName").addEventListener("input",scheduleSave);
   document.getElementById("exportButton").addEventListener("click",()=>{save();const payload={...project,project:{name:document.getElementById("projectName").value}};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="gear-studio-project.gear.json";link.click();URL.revokeObjectURL(url);toast("Project exported.");});
