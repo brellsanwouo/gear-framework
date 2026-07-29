@@ -199,7 +199,7 @@ class ResearchStore:
                     """
                     CREATE TABLE IF NOT EXISTS experiment_background_responses (
                         user_id VARCHAR(255) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-                        current_role VARCHAR(40) NOT NULL,
+                        "current_role" VARCHAR(40) NOT NULL,
                         python_duration VARCHAR(40) NOT NULL,
                         python_frequency VARCHAR(40) NOT NULL,
                         mas_experience VARCHAR(40) NOT NULL,
@@ -1132,13 +1132,13 @@ def create_research_blueprint(
                 cursor.execute(
                     """
                     INSERT INTO experiment_background_responses (
-                        user_id, current_role, python_duration, python_frequency,
+                        user_id, "current_role", python_duration, python_frequency,
                         mas_experience, crewai_experience, adk_experience,
                         ai_coding_frequency, prior_gear_use, technical_english,
                         questionnaire_version
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
-                        current_role=EXCLUDED.current_role,
+                        "current_role"=EXCLUDED."current_role",
                         python_duration=EXCLUDED.python_duration,
                         python_frequency=EXCLUDED.python_frequency,
                         mas_experience=EXCLUDED.mas_experience,
