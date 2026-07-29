@@ -154,11 +154,6 @@
                 </label>
 
                 <label class="form-field">
-                    <span>How often do you currently use Python?</span>
-                    <select name="python_frequency" required data-frequency></select>
-                </label>
-
-                <label class="form-field">
                     <span>What was your experience with multi-agent systems before this experiment?</span>
                     <select name="mas_experience" required data-framework-experience></select>
                 </label>
@@ -231,10 +226,6 @@
                     <select name="reuse_extent" data-reuse-extent></select>
                 </label>
                 <label class="form-field">
-                    <span>The implementation completed in the first framework helped me implement this task in the second framework.</span>
-                    <select name="previous_solution_help" data-likert-agreement></select>
-                </label>
-                <label class="form-field">
                     <span>Moving this task to the second framework required substantial rework.</span>
                     <select name="translation_rework" data-likert-agreement></select>
                 </label>
@@ -256,33 +247,33 @@
                 <legend>Workload — 0 to 100</legend>
                 <label class="range-field">
                     <span>How mentally demanding were the tasks?</span>
-                    <div><span>Very low</span><input name="mental_demand" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
-                    <output>50</output>
+                    <div><span>Very low</span><input name="mental_demand" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Very high</span></div>
+                    <output>Not answered</output>
                 </label>
                 <label class="range-field">
                     <span>How physically demanding were the tasks?</span>
-                    <div><span>Very low</span><input name="physical_demand" type="range" min="0" max="100" step="5" value="0"><span>Very high</span></div>
-                    <output>0</output>
+                    <div><span>Very low</span><input name="physical_demand" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Very high</span></div>
+                    <output>Not answered</output>
                 </label>
                 <label class="range-field">
                     <span>How hurried or rushed did you feel?</span>
-                    <div><span>Very low</span><input name="temporal_demand" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
-                    <output>50</output>
+                    <div><span>Very low</span><input name="temporal_demand" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Very high</span></div>
+                    <output>Not answered</output>
                 </label>
                 <label class="range-field">
                     <span>How successful were you in accomplishing what you were asked to do?</span>
-                    <div><span>Perfect</span><input name="performance" type="range" min="0" max="100" step="5" value="50"><span>Failure</span></div>
-                    <output>50</output>
+                    <div><span>Perfect</span><input name="performance" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Failure</span></div>
+                    <output>Not answered</output>
                 </label>
                 <label class="range-field">
                     <span>How hard did you have to work to accomplish your level of performance?</span>
-                    <div><span>Very low</span><input name="effort" type="range" min="0" max="100" step="5" value="50"><span>Very high</span></div>
-                    <output>50</output>
+                    <div><span>Very low</span><input name="effort" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Very high</span></div>
+                    <output>Not answered</output>
                 </label>
                 <label class="range-field">
                     <span>How insecure, discouraged, irritated, stressed, or annoyed were you?</span>
-                    <div><span>Very low</span><input name="frustration" type="range" min="0" max="100" step="5" value="25"><span>Very high</span></div>
-                    <output>25</output>
+                    <div><span>Very low</span><input name="frustration" type="range" min="0" max="100" step="5" value="50" data-tlx-scale><span>Very high</span></div>
+                    <output>Not answered</output>
                 </label>
             </fieldset>
             <fieldset>
@@ -306,23 +297,21 @@
         <h1>Final questionnaire and written debriefing</h1>
         <div id="assignmentSummary" class="assignment-summary"></div>
         <p>
-            Answer before discussing the experiment with the experimenter. In this section,
-            “development method” means the method assigned to you: Gear or manual implementation.
+            Answer before discussing the experiment with the experimenter.
+            <span id="developmentEnvironmentDefinition"></span>
         </p>
         <form id="finalQuestionnaireForm" class="survey-form">
             <fieldset>
                 <legend>System Usability Scale</legend>
-                <p class="scale-help">1 = strongly disagree, 5 = strongly agree.</p>
+                <p class="scale-help">1 = strongly disagree, 5 = strongly agree. Please answer all ten items about the assigned development environment defined above.</p>
                 <div id="susItems" class="item-list"></div>
             </fieldset>
 
             <fieldset>
-                <legend>Perceived usefulness and future use</legend>
+                <legend>Usefulness and future use</legend>
                 <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
-                <label class="form-field"><span>This development method would improve my productivity when implementing a multi-agent system.</span><select name="usefulness_1" required data-likert-agreement></select></label>
-                <label class="form-field"><span>This development method would reduce the effort required to implement the same system with multiple frameworks.</span><select name="usefulness_2" required data-likert-agreement></select></label>
-                <label class="form-field"><span>This development method would be useful for maintaining framework-independent system designs.</span><select name="usefulness_3" required data-likert-agreement></select></label>
-                <label class="form-field"><span>I would consider using this development method in a future multi-agent project.</span><select name="usefulness_4" required data-likert-agreement></select></label>
+                <label class="form-field"><span>This development environment helped me complete the tasks efficiently.</span><select name="usefulness_1" required data-likert-agreement></select></label>
+                <label class="form-field"><span>I would consider using this development environment in a future multi-agent project.</span><select name="usefulness_2" required data-likert-agreement></select></label>
             </fieldset>
 
             <fieldset>
@@ -330,9 +319,21 @@
                 <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
                 <label class="form-field"><span>My first implementation helped me complete the implementation in the second framework.</span><select name="transfer_1" required data-likert-agreement></select></label>
                 <label class="form-field"><span>I was able to preserve the conceptual structure of my solution across the two frameworks.</span><select name="transfer_2" required data-likert-agreement></select></label>
-                <label class="form-field"><span>I understood which elements had to change when moving to the second framework.</span><select name="transfer_3" required data-likert-agreement></select></label>
-                <label class="form-field"><span>Moving between the frameworks required substantial framework-specific rework.</span><select name="transfer_4" required data-likert-agreement></select></label>
-                <label class="form-field"><span>The second implementation was easier because I had already solved the task in the first framework.</span><select name="transfer_5" required data-likert-agreement></select></label>
+                <label class="form-field"><span>Moving between the frameworks required substantial framework-specific rework.</span><select name="transfer_3" required data-likert-agreement></select></label>
+            </fieldset>
+
+            <fieldset id="gearSpecificFields" class="hidden">
+                <legend>Gear-specific experience</legend>
+                <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
+                <label class="form-field"><span>Gear made it easier to produce implementations for both frameworks.</span><select name="mode_specific_1" data-likert-agreement></select></label>
+                <label class="form-field"><span>The generated implementation reflected the system I configured in Gear.</span><select name="mode_specific_2" data-likert-agreement></select></label>
+            </fieldset>
+
+            <fieldset id="manualSpecificFields" class="hidden">
+                <legend>Manual-development experience</legend>
+                <p class="scale-help">1 = strongly disagree, 7 = strongly agree.</p>
+                <label class="form-field"><span>Writing framework-specific code directly gave me sufficient control over the implementation.</span><select name="mode_specific_1" data-likert-agreement></select></label>
+                <label class="form-field"><span>Reimplementing the same solution in the second framework required substantial duplicated work.</span><select name="mode_specific_2" data-likert-agreement></select></label>
             </fieldset>
 
             <fieldset>
@@ -358,19 +359,17 @@
                         <option value="not_enough_information">Not enough information to decide</option>
                     </select>
                 </label>
-                <label class="form-field"><span>What mainly explains your framework preference?</span><textarea name="preference_reason" required maxlength="4000" rows="4" placeholder="If you have no preference, explain why."></textarea></label>
+                <label class="form-field"><span>What mainly explains your framework preference?</span><textarea name="preference_reason" required maxlength="4000" rows="3" placeholder="If you have no preference, explain why."></textarea></label>
             </fieldset>
 
             <fieldset>
                 <legend>Written debriefing</legend>
-                <p class="scale-help">Answer “Nothing in particular” when a question does not apply.</p>
-                <label class="form-field"><span>Briefly describe the strategy you used to design your solutions.</span><textarea name="design_strategy" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>How did you adapt or reuse your first implementation when moving to the second framework?</span><textarea name="translation_strategy" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>What was the main difficulty you encountered during the experiment?</span><textarea name="main_difficulty" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>What most helped you complete the tasks?</span><textarea name="main_help" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>How did error messages, execution outputs, or interface feedback affect your work?</span><textarea name="feedback_effect" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>What feature, information, or support would have made the tasks easier?</span><textarea name="missing_support" required maxlength="4000" rows="4"></textarea></label>
-                <label class="form-field"><span>Is there anything else about the method, frameworks, tasks, or experiment that you would like us to know?</span><textarea name="additional_feedback" maxlength="4000" rows="4"></textarea></label>
+                <p class="scale-help">Brief answers are sufficient. Answer “Nothing in particular” when a question does not apply.</p>
+                <label class="form-field"><span>How did you adapt or reuse your first implementation when moving to the second framework?</span><textarea name="translation_strategy" required maxlength="4000" rows="3"></textarea></label>
+                <label class="form-field"><span>What was the main difficulty you encountered during the experiment?</span><textarea name="main_difficulty" required maxlength="4000" rows="3"></textarea></label>
+                <label class="form-field"><span>What most helped you complete the tasks?</span><textarea name="main_help" required maxlength="4000" rows="3"></textarea></label>
+                <label class="form-field"><span>What feature, information, or support would have made the tasks easier?</span><textarea name="missing_support" required maxlength="4000" rows="3"></textarea></label>
+                <label class="form-field"><span>Is there anything else you would like us to know?</span><textarea name="additional_feedback" maxlength="4000" rows="3"></textarea></label>
             </fieldset>
 
             <fieldset>
@@ -379,7 +378,7 @@
                     <span>Apart from errors caused by your own solution, did technical problems affect your performance during the experiment?</span>
                     <select name="technical_impact_overall" required data-technical-impact></select>
                 </label>
-                <label id="technicalIssueDescriptionField" class="form-field hidden"><span>Please briefly describe the technical problem and the tasks it affected.</span><textarea name="technical_issue_description" maxlength="4000" rows="4"></textarea></label>
+                <label id="technicalIssueDescriptionField" class="form-field hidden"><span>Please briefly describe the technical problem and the tasks it affected.</span><textarea name="technical_issue_description" maxlength="4000" rows="3"></textarea></label>
                 <label class="form-field">
                     <span>Did the experimenter provide help beyond explaining the interface, restating the instructions, or resolving a technical problem?</span>
                     <select name="experimenter_help" required>
@@ -389,7 +388,7 @@
                         <option value="unsure">Unsure</option>
                     </select>
                 </label>
-                <label id="experimenterHelpDescriptionField" class="form-field hidden"><span>Please describe the assistance you received.</span><textarea name="experimenter_help_description" maxlength="4000" rows="4"></textarea></label>
+                <label id="experimenterHelpDescriptionField" class="form-field hidden"><span>Please describe the assistance you received.</span><textarea name="experimenter_help_description" maxlength="4000" rows="3"></textarea></label>
             </fieldset>
 
             <p id="finalQuestionnaireStatus" class="form-status" role="status" aria-live="polite"></p>

@@ -201,7 +201,7 @@ class ResearchStore:
                         user_id VARCHAR(255) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
                         "current_role" VARCHAR(40) NOT NULL,
                         python_duration VARCHAR(40) NOT NULL,
-                        python_frequency VARCHAR(40) NOT NULL,
+                        python_frequency VARCHAR(40),
                         mas_experience VARCHAR(40) NOT NULL,
                         crewai_experience VARCHAR(40) NOT NULL,
                         adk_experience VARCHAR(40) NOT NULL,
@@ -267,18 +267,20 @@ class ResearchStore:
                         sus_9 SMALLINT NOT NULL, sus_10 SMALLINT NOT NULL,
                         sus_score NUMERIC(6,2) NOT NULL,
                         usefulness_1 SMALLINT NOT NULL, usefulness_2 SMALLINT NOT NULL,
-                        usefulness_3 SMALLINT NOT NULL, usefulness_4 SMALLINT NOT NULL,
+                        usefulness_3 SMALLINT, usefulness_4 SMALLINT,
                         transfer_1 SMALLINT NOT NULL, transfer_2 SMALLINT NOT NULL,
-                        transfer_3 SMALLINT NOT NULL, transfer_4 SMALLINT NOT NULL,
-                        transfer_5 SMALLINT NOT NULL,
+                        transfer_3 SMALLINT NOT NULL, transfer_4 SMALLINT,
+                        transfer_5 SMALLINT,
+                        mode_specific_1 SMALLINT,
+                        mode_specific_2 SMALLINT,
                         easier_framework VARCHAR(40) NOT NULL,
                         preferred_framework VARCHAR(40) NOT NULL,
                         preference_reason TEXT NOT NULL,
-                        design_strategy TEXT NOT NULL,
+                        design_strategy TEXT,
                         translation_strategy TEXT NOT NULL,
                         main_difficulty TEXT NOT NULL,
                         main_help TEXT NOT NULL,
-                        feedback_effect TEXT NOT NULL,
+                        feedback_effect TEXT,
                         missing_support TEXT NOT NULL,
                         additional_feedback TEXT NOT NULL DEFAULT '',
                         technical_impact_overall SMALLINT NOT NULL,
@@ -291,6 +293,28 @@ class ResearchStore:
                     )
                     """
                 )
+                # Forward-compatible migration from questionnaire v2 to the shorter v3 form.
+                cursor.execute(
+                    "ALTER TABLE experiment_background_responses "
+                    "ALTER COLUMN python_frequency DROP NOT NULL"
+                )
+                cursor.execute(
+                    "ALTER TABLE experiment_final_responses "
+                    "ADD COLUMN IF NOT EXISTS mode_specific_1 SMALLINT"
+                )
+                cursor.execute(
+                    "ALTER TABLE experiment_final_responses "
+                    "ADD COLUMN IF NOT EXISTS mode_specific_2 SMALLINT"
+                )
+                for column in (
+                    "usefulness_3", "usefulness_4", "transfer_4", "transfer_5",
+                    "design_strategy", "feedback_effect",
+                ):
+                    cursor.execute(
+                        f"ALTER TABLE experiment_final_responses "
+                        f"ALTER COLUMN {column} DROP NOT NULL"
+                    )
+
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS experiment_operator_reports (
@@ -1132,15 +1156,14 @@ def create_research_blueprint(
                 cursor.execute(
                     """
                     INSERT INTO experiment_background_responses (
-                        user_id, "current_role", python_duration, python_frequency,
+                        user_id, "current_role", python_duration,
                         mas_experience, crewai_experience, adk_experience,
                         ai_coding_frequency, prior_gear_use, technical_english,
                         questionnaire_version
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
                         "current_role"=EXCLUDED."current_role",
                         python_duration=EXCLUDED.python_duration,
-                        python_frequency=EXCLUDED.python_frequency,
                         mas_experience=EXCLUDED.mas_experience,
                         crewai_experience=EXCLUDED.crewai_experience,
                         adk_experience=EXCLUDED.adk_experience,
@@ -1152,10 +1175,10 @@ def create_research_blueprint(
                     """,
                     (
                         values["user_id"], values["current_role"], values["python_duration"],
-                        values["python_frequency"], values["mas_experience"],
-                        values["crewai_experience"], values["adk_experience"],
-                        values["ai_coding_frequency"], values["prior_gear_use"],
-                        values["technical_english"], QUESTIONNAIRE_VERSION,
+                        values["mas_experience"], values["crewai_experience"],
+                        values["adk_experience"], values["ai_coding_frequency"],
+                        values["prior_gear_use"], values["technical_english"],
+                        QUESTIONNAIRE_VERSION,
                     ),
                 )
                 connection.commit()
@@ -1292,33 +1315,53 @@ def create_research_blueprint(
 
     @blueprint.post("/api/experiment/final_questionnaire")
     def save_final_questionnaire():
-        try:
-            values = validate_final_response(request.get_json(silent=True))
-        except ValueError as error:
-            return jsonify({"error": str(error)}), 400
+        payload = request.get_json(silent=True) or {}
+        user_id = str(payload.get("user_id") or "").strip()
+
         if not tracking_enabled:
-            return jsonify({"success": True, "saved": False, "tracking": False})
+            try:
+                values = validate_final_response(
+                    payload,
+                    mode=str(payload.get("assigned_mode") or ""),
+                )
+            except ValueError as error:
+                return jsonify({"error": str(error)}), 400
+            return jsonify({
+                "success": True,
+                "saved": False,
+                "tracking": False,
+                "sus_score": values["sus_score"],
+            })
+
         columns = [
             *(f"sus_{index}" for index in range(1, 11)), "sus_score",
-            *(f"usefulness_{index}" for index in range(1, 5)),
-            *(f"transfer_{index}" for index in range(1, 6)),
+            "usefulness_1", "usefulness_2",
+            "transfer_1", "transfer_2", "transfer_3",
+            "mode_specific_1", "mode_specific_2",
             "easier_framework", "preferred_framework", "preference_reason",
-            "design_strategy", "translation_strategy", "main_difficulty",
-            "main_help", "feedback_effect", "missing_support", "additional_feedback",
+            "translation_strategy", "main_difficulty", "main_help",
+            "missing_support", "additional_feedback",
             "technical_impact_overall", "technical_issue_description",
             "experimenter_help", "experimenter_help_description",
         ]
         try:
             with closing(store.connect()) as connection:
                 cursor = connection.cursor()
-                _, ownership_error = owned_user_row(cursor, values["user_id"])
+                user_row, ownership_error = owned_user_row(cursor, user_id)
                 if ownership_error is not None:
                     cursor.close()
                     return ownership_error
+                try:
+                    values = validate_final_response(payload, mode=str(user_row[2] or ""))
+                except ValueError as error:
+                    cursor.close()
+                    return jsonify({"error": str(error)}), 400
+
                 insert_columns = ["user_id", *columns, "questionnaire_version"]
                 placeholders = ", ".join(["%s"] * len(insert_columns))
                 updates = ", ".join(
-                    f"{column}=EXCLUDED.{column}" for column in [*columns, "questionnaire_version"]
+                    f"{column}=EXCLUDED.{column}"
+                    for column in [*columns, "questionnaire_version"]
                 )
                 cursor.execute(
                     f"""

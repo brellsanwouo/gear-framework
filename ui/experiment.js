@@ -144,16 +144,16 @@ document.addEventListener("DOMContentLoaded", () => {
     ]));
 
     const susStatements = [
-        "I would like to use this development method frequently.",
-        "I found this development method unnecessarily complex.",
-        "I found this development method easy to use.",
-        "I would need assistance from a technical person to use this development method.",
-        "The different parts of this development method worked together coherently.",
-        "I found too many inconsistencies in this development method.",
-        "I think most developers would learn this development method quickly.",
-        "I found this development method cumbersome to use.",
-        "I felt confident while using this development method.",
-        "I needed to learn many things before I could work effectively with this development method."
+        "I think that I would like to use this development environment frequently.",
+        "I found this development environment unnecessarily complex.",
+        "I thought this development environment was easy to use.",
+        "I think that I would need the support of a technical person to use this development environment.",
+        "I found the various functions in this development environment were well integrated.",
+        "I thought there was too much inconsistency in this development environment.",
+        "I would imagine that most developers would learn to use this development environment very quickly.",
+        "I found this development environment very cumbersome to use.",
+        "I felt very confident using this development environment.",
+        "I needed to learn a lot of things before I could get going with this development environment."
     ];
     const susItems = document.getElementById("susItems");
     susStatements.forEach((statement, index) => {
@@ -173,12 +173,39 @@ document.addEventListener("DOMContentLoaded", () => {
         susItems.appendChild(label);
     });
 
-    document.querySelectorAll(".range-field input[type='range']").forEach((input) => {
-        const output = input.closest(".range-field").querySelector("output");
-        const update = () => { output.value = input.value; output.textContent = input.value; };
-        input.addEventListener("input", update);
-        update();
+    const tlxInputs = [...frameworkQuestionnaireForm.querySelectorAll("input[data-tlx-scale]")];
+
+    function markTlxAnswered(input) {
+        input.dataset.answered = "true";
+        const field = input.closest(".range-field");
+        const output = field.querySelector("output");
+        output.value = input.value;
+        output.textContent = input.value;
+        field.classList.remove("is-unanswered");
+    }
+
+    function resetTlxScales() {
+        tlxInputs.forEach((input) => {
+            input.value = "50";
+            input.dataset.answered = "false";
+            const field = input.closest(".range-field");
+            const output = field.querySelector("output");
+            output.value = "";
+            output.textContent = "Not answered";
+            field.classList.add("is-unanswered");
+        });
+    }
+
+    tlxInputs.forEach((input) => {
+        input.addEventListener("input", () => markTlxAnswered(input));
+        input.addEventListener("pointerdown", () => markTlxAnswered(input));
+        input.addEventListener("keydown", (event) => {
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) {
+                markTlxAnswered(input);
+            }
+        });
     });
+    resetTlxScales();
 
     function hideAllScreens() {
         screens.forEach((screen) => screen.classList.add("hidden"));
@@ -456,6 +483,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     frameworkQuestionnaireForm.addEventListener("submit", async (event) => {
         event.preventDefault();
+        const unanswered = tlxInputs.find((input) => input.dataset.answered !== "true");
+        if (unanswered) {
+            setFormStatus(
+                "frameworkQuestionnaireStatus",
+                "Please answer all six workload scales before continuing.",
+                true,
+            );
+            unanswered.focus();
+            return;
+        }
         const button = document.getElementById("submitFrameworkQuestionnaireBtn");
         button.disabled = true;
         setFormStatus("frameworkQuestionnaireStatus");
@@ -468,9 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
             storage.setItem(frameworkResponseKey(activeFrameworkQuestionnaire), "true");
             state.progress.frameworks.push(activeFrameworkQuestionnaire);
             frameworkQuestionnaireForm.reset();
-            document.querySelectorAll(".range-field input[type='range']").forEach((input) => {
-                input.dispatchEvent(new Event("input"));
-            });
+            resetTlxScales();
             button.disabled = false;
             activeFrameworkQuestionnaire = "";
             resumeFlow();
@@ -491,6 +526,27 @@ document.addEventListener("DOMContentLoaded", () => {
         return { frameworkOrder, taskOrder };
     }
 
+    function configureModeSpecificFields() {
+        const isGear = state.assignedMode === "GEAR";
+        const gearFields = document.getElementById("gearSpecificFields");
+        const manualFields = document.getElementById("manualSpecificFields");
+        [
+            [gearFields, isGear],
+            [manualFields, !isGear],
+        ].forEach(([fieldset, active]) => {
+            fieldset.classList.toggle("hidden", !active);
+            fieldset.querySelectorAll("select").forEach((select) => {
+                select.disabled = !active;
+                select.required = active;
+            });
+        });
+
+        const definition = document.getElementById("developmentEnvironmentDefinition");
+        definition.textContent = isGear
+            ? "Here, “development environment” refers to Gear Studio, including configuration, code generation, and execution."
+            : "Here, “development environment” refers to the manual code editor, execution interface, and framework-specific implementation process used in this study.";
+    }
+
     function showFinalQuestionnaire() {
         const { frameworkOrder, taskOrder } = assignmentDetails();
         document.getElementById("assignmentSummary").innerHTML = `
@@ -499,6 +555,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <strong>Framework order:</strong> ${frameworkOrder.map(frameworkLabel).join(" → ")}<br>
             <strong>Task order:</strong> ${taskOrder.join(" → ")}
         `;
+        configureModeSpecificFields();
         showScreen(finalQuestionnaireScreen);
     }
 
@@ -525,6 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             await postJson("/api/experiment/final_questionnaire", {
                 user_id: state.userId,
+                assigned_mode: state.assignedMode,
                 ...formPayload(finalQuestionnaireForm)
             });
             storage.setItem(finalResponseKey(), "true");

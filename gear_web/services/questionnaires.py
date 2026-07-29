@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 
-QUESTIONNAIRE_VERSION = "2026-07-v2"
+QUESTIONNAIRE_VERSION = "2026-07-v3"
 MAX_LONG_TEXT_LENGTH = 4000
-MAX_SHORT_TEXT_LENGTH = 1000
 
 CURRENT_ROLES = {
     "student",
@@ -48,6 +47,7 @@ DATA_QUALITY_CHOICES = {
     "exclude_primary_analysis",
     "to_review",
 }
+EXPERIMENT_MODES = {"GEAR", "MANUAL"}
 
 
 def _object(payload: Any) -> dict[str, Any]:
@@ -117,12 +117,12 @@ def _user_id(payload: dict[str, Any]) -> str:
 
 
 def validate_background_response(payload: Any) -> dict[str, Any]:
+    """Validate the concise pre-task profile used to describe important confounders."""
     source = _object(payload)
     return {
         "user_id": _user_id(source),
         "current_role": _choice(source, "current_role", CURRENT_ROLES),
         "python_duration": _choice(source, "python_duration", PYTHON_DURATIONS),
-        "python_frequency": _choice(source, "python_frequency", USAGE_FREQUENCIES),
         "mas_experience": _choice(source, "mas_experience", FRAMEWORK_EXPERIENCE_LEVELS),
         "crewai_experience": _choice(source, "crewai_experience", FRAMEWORK_EXPERIENCE_LEVELS),
         "adk_experience": _choice(source, "adk_experience", FRAMEWORK_EXPERIENCE_LEVELS),
@@ -147,13 +147,13 @@ def validate_task_response(payload: Any, *, translation: bool) -> dict[str, Any]
         "seq_ease": _integer(source, "seq_ease", 1, 7),
         "technical_impact": _integer(source, "technical_impact", 0, 3),
         "reuse_extent": None,
+        # Retained as NULL for compatibility with databases created by questionnaire v2.
         "previous_solution_help": None,
         "translation_rework": None,
     }
     if translation:
         values.update({
             "reuse_extent": _integer(source, "reuse_extent", 0, 4),
-            "previous_solution_help": _integer(source, "previous_solution_help", 1, 7),
             "translation_rework": _integer(source, "translation_rework", 1, 7),
         })
     return values
@@ -204,29 +204,41 @@ def sus_score(responses: list[int]) -> float:
     return contribution * 2.5
 
 
-def validate_final_response(payload: Any) -> dict[str, Any]:
+def validate_final_response(payload: Any, *, mode: str) -> dict[str, Any]:
+    """Validate common measures plus two mode-specific explanatory items."""
     source = _object(payload)
-    values: dict[str, Any] = {"user_id": _user_id(source)}
+    normalized_mode = str(mode or "").strip().upper()
+    if normalized_mode not in EXPERIMENT_MODES:
+        raise ValueError("A valid assigned experiment mode is required.")
+
+    values: dict[str, Any] = {
+        "user_id": _user_id(source),
+        "assigned_mode": normalized_mode,
+    }
 
     sus_responses = [_integer(source, f"sus_{index}", 1, 5) for index in range(1, 11)]
     for index, response in enumerate(sus_responses, start=1):
         values[f"sus_{index}"] = response
     values["sus_score"] = sus_score(sus_responses)
 
-    for index in range(1, 5):
+    # Two concise TAM-inspired items: perceived usefulness and future intention.
+    for index in range(1, 3):
         values[f"usefulness_{index}"] = _integer(source, f"usefulness_{index}", 1, 7)
-    for index in range(1, 6):
+
+    # Three study-specific transfer items, reported individually.
+    for index in range(1, 4):
         values[f"transfer_{index}"] = _integer(source, f"transfer_{index}", 1, 7)
+
+    values["mode_specific_1"] = _integer(source, "mode_specific_1", 1, 7)
+    values["mode_specific_2"] = _integer(source, "mode_specific_2", 1, 7)
 
     values.update({
         "easier_framework": _choice(source, "easier_framework", EASIER_FRAMEWORK_CHOICES),
         "preferred_framework": _choice(source, "preferred_framework", PREFERRED_FRAMEWORK_CHOICES),
         "preference_reason": _required_text(source, "preference_reason"),
-        "design_strategy": _required_text(source, "design_strategy"),
         "translation_strategy": _required_text(source, "translation_strategy"),
         "main_difficulty": _required_text(source, "main_difficulty"),
         "main_help": _required_text(source, "main_help"),
-        "feedback_effect": _required_text(source, "feedback_effect"),
         "missing_support": _required_text(source, "missing_support"),
         "additional_feedback": _optional_text(source, "additional_feedback"),
         "technical_impact_overall": _integer(source, "technical_impact_overall", 0, 3),

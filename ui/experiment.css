@@ -421,3 +421,12 @@ button:disabled {
         text-align: center;
     }
 }
+.range-field.is-unanswered output {
+    min-width: 7.5rem;
+    color: #fbbf24;
+    border-color: #92400e;
+}
+
+.range-field.is-unanswered input[type="range"] {
+    opacity: 0.8;
+}
