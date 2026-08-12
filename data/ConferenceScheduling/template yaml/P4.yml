@@ -1,0 +1,67 @@
+GearAgent:
+  AgentIdentity:
+    Name: ConferenceContextAgent
+    Purpose: present the conference situation and its factual information.
+    ContextDescription: >-
+      The conference runs 09:00-12:00 with a break in both rooms 10:20-10:40. Auditorium has capacity 120, projector, and video conferencing; SeminarRoom has capacity 50 and projector only. Talks are: Reliable AI Systems, Alice Martin, 40 minutes, audience 90, projector, available 09:00-12:00; Efficient Scientific Workflows, Bruno Lee, 40 minutes, audience 45, projector, available 09:40-12:00; Reproducible Experiments, Carla Diaz, 45 minutes, audience 80, video conferencing, available 10:40-12:00; Open Research Data, David Kim, 30 minutes, audience 70, projector, must finish by 10:20; Human-Centred Evaluation, Elena Rossi, 50 minutes, audience 45, projector, available 09:40-12:00; Research Software Careers, Farid Noor, 35 minutes, audience 35, no equipment requirement, available 09:00-12:00. Reliable AI Systems starts at 09:00 in Auditorium. Human-Centred Evaluation starts at 10:40. Consecutive talks in one room need a 5-minute transition unless separated by the break. Each talk occurs once; rooms and speakers cannot overlap. Report only these facts. Never formulate a problem, analyze constraints, propose a schedule, or explain another agent.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ConferenceContextTask
+    TaskDescription: State only all conference facts, including hours, break, rooms, talk attributes, availability, fixed starts, and transition time.
+    ExpectedOutput: A complete factual conference brief with no analysis or schedule.
+---
+GearAgent:
+  AgentIdentity:
+    Name: SchedulePlannerAgent
+    Purpose: build an initial conference schedule.
+    ContextDescription: Produces the initial complete programme from the factual context.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: SchedulePlannerTask
+    TaskDescription: Include every presentation exactly once and attempt to satisfy every stated constraint.
+    ExpectedOutput: An initial schedule table with Start, End, Room, Presentation, and Speaker columns.
+---
+GearAgent:
+  AgentIdentity:
+    Name: ScheduleReviewerAgent
+    Purpose: identify problems in the current schedule.
+    ContextDescription: Reviews the current schedule against the complete factual context.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ScheduleReviewerTask
+    TaskDescription: >-
+      Identify every violation precisely, naming the affected presentation, time, room, and rule. If none exist, return NO VIOLATIONS. Do not rewrite the schedule.
+    ExpectedOutput: A concise actionable review report.
+---
+GearAgent:
+  AgentIdentity:
+    Name: ScheduleRefinerAgent
+    Purpose: improve the current schedule.
+    ContextDescription: Corrects the current schedule from the review while preserving valid assignments.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ScheduleRefinerTask
+    TaskDescription: >-
+      Correct the current schedule using the review report while preserving as many valid assignments as possible. Return a complete schedule rather than a patch.
+    ExpectedOutput: A complete refined schedule table ready for the next iteration.
+---
+GearAgent:
+  AgentIdentity:
+    Name: FinalScheduleAgent
+    Purpose: produce the final conference schedule.
+    ContextDescription: Publishes the schedule produced after exactly two reviewer-refiner iterations.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: FinalScheduleTask
+    TaskDescription: Return only the final refined programme, without analysis, review notes, explanations, or alternatives.
+    ExpectedOutput: Only a Markdown table with Start, End, Room, Presentation, and Speaker columns, sorted by start time and room.

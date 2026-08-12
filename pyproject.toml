@@ -286,4 +286,29 @@ gear_sdk = ["py.typed", "runtime/*.js"]
   "data/AgentGridPlanning/images/P2.svg", "data/AgentGridPlanning/images/P3.svg",
   "data/AgentGridPlanning/images/P4.svg", "data/AgentGridPlanning/images/P5.svg",
 ]
+"share/gear-framework/data/ConferenceScheduling" = [
+  "data/ConferenceScheduling/README.md", "data/ConferenceScheduling/tasks.json",
+  "data/ConferenceScheduling/P0.md", "data/ConferenceScheduling/P1.md",
+  "data/ConferenceScheduling/P2.md", "data/ConferenceScheduling/P3.md",
+  "data/ConferenceScheduling/P4.md",
+]
+"share/gear-framework/data/ConferenceScheduling/images" = [
+  "data/ConferenceScheduling/images/P0.svg", "data/ConferenceScheduling/images/P1.svg",
+  "data/ConferenceScheduling/images/P2.svg", "data/ConferenceScheduling/images/P3.svg",
+  "data/ConferenceScheduling/images/P4.svg",
+]
+"share/gear-framework/data/ConferenceScheduling/mermaid code" = [
+  "data/ConferenceScheduling/mermaid code/P0.mmd",
+  "data/ConferenceScheduling/mermaid code/P1.mmd",
+  "data/ConferenceScheduling/mermaid code/P2.mmd",
+  "data/ConferenceScheduling/mermaid code/P3.mmd",
+  "data/ConferenceScheduling/mermaid code/P4.mmd",
+]
+"share/gear-framework/data/ConferenceScheduling/template yaml" = [
+  "data/ConferenceScheduling/template yaml/P0.yml",
+  "data/ConferenceScheduling/template yaml/P1.yml",
+  "data/ConferenceScheduling/template yaml/P2.yml",
+  "data/ConferenceScheduling/template yaml/P3.yml",
+  "data/ConferenceScheduling/template yaml/P4.yml",
+]
 "share/gear-framework/schemas" = ["schemas/project.gear.schema.json"]

@@ -1,0 +1,27 @@
+{
+  "T0": {
+    "title": "Conference scenario presentation",
+    "description": "data/ConferenceScheduling/P0.md",
+    "time_limit_seconds": 0
+  },
+  "T1": {
+    "title": "Training: simple sequential scheduling",
+    "description": "data/ConferenceScheduling/P1.md",
+    "time_limit_seconds": 0
+  },
+  "T2": {
+    "title": "Familiarization: planning and validation",
+    "description": "data/ConferenceScheduling/P2.md",
+    "time_limit_seconds": 600
+  },
+  "T3": {
+    "title": "Measured task: parallel constraint analysis",
+    "description": "data/ConferenceScheduling/P3.md",
+    "time_limit_seconds": 600
+  },
+  "T4": {
+    "title": "Measured task: iterative schedule refinement",
+    "description": "data/ConferenceScheduling/P4.md",
+    "time_limit_seconds": 600
+  }
+}

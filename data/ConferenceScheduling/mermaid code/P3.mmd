@@ -1,0 +1,9 @@
+flowchart LR
+  context[ConferenceContextAgent]
+  time[TimeConstraintAnalyzerAgent]
+  room[RoomConstraintAnalyzerAgent]
+  planner[SchedulePlannerAgent]
+  context --> time
+  context --> room
+  time --> planner
+  room --> planner

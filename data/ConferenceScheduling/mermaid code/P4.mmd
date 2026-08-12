@@ -1,0 +1,6 @@
+flowchart LR
+  context[ConferenceContextAgent] --> planner[SchedulePlannerAgent]
+  planner --> reviewer[ScheduleReviewerAgent]
+  reviewer --> refiner[ScheduleRefinerAgent]
+  refiner -->|exactly 2 iterations| reviewer
+  refiner --> final[FinalScheduleAgent]

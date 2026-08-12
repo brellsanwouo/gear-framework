@@ -1,0 +1,14 @@
+GearAgent:
+  AgentIdentity:
+    Name: ConferenceContextAgent
+    Purpose: present the conference situation and its factual information.
+    ContextDescription: >-
+      The conference runs from 09:00 to 12:00 in MainHall. Reliable AI Systems is presented by Alice Martin and lasts 40 minutes. Efficient Scientific Workflows is presented by Bruno Lee and lasts 40 minutes. Reproducible Experiments is presented by Carla Diaz and lasts 45 minutes. The presentations are announced in that order. A conference-wide break is fixed from 10:20 to 10:40. MainHall has 120 seats, a projector, and video-conferencing equipment. Report only these factual details. Never formulate a problem to solve, propose a solution, build a schedule, or explain the role of another agent.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ConferenceContextTask
+    TaskDescription: >-
+      State only the available conference hours, room, presentations, speakers, durations, fixed break, announced order, capacity, and equipment.
+    ExpectedOutput: A concise factual conference brief containing all supplied facts and no schedule.

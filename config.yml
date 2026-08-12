@@ -9,7 +9,7 @@ database:
   dbname: "gear"
 
 paths:
-  tasks_file: "data/AgentGridPlanning/tasks.json"
+  tasks_file: "data/ConferenceScheduling/tasks.json"
 
 experiment:
   training_task: "T1"

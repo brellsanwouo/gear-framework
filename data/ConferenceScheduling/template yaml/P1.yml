@@ -1,0 +1,28 @@
+GearAgent:
+  AgentIdentity:
+    Name: ConferenceContextAgent
+    Purpose: present the conference situation and its factual information.
+    ContextDescription: >-
+      The conference runs from 09:00 to 12:00 in MainHall. The fixed presentation order is Reliable AI Systems by Alice Martin, 40 minutes; Efficient Scientific Workflows by Bruno Lee, 40 minutes; Reproducible Experiments by Carla Diaz, 45 minutes. A break occupies MainHall from 10:20 to 10:40. All speakers are available throughout the conference. Report only these facts. Never formulate a problem to solve, propose a solution, build a schedule, or explain the role of another agent.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: ConferenceContextTask
+    TaskDescription: State only the conference hours, room, ordered presentations, speakers, durations, break, and availability facts.
+    ExpectedOutput: A complete factual conference brief with no schedule.
+---
+GearAgent:
+  AgentIdentity:
+    Name: SchedulePlannerAgent
+    Purpose: build a valid conference schedule.
+    ContextDescription: >-
+      Builds a programme solely from the factual brief produced by ConferenceContextAgent.
+  LLMConfiguration:
+    Provider: openai
+    Model: gpt-5.1-codex-mini
+  TaskSpecification:
+    TaskName: SchedulePlannerTask
+    TaskDescription: >-
+      Assign a start and end time to every presentation. Preserve the stated order, keep every item inside conference hours, and do not overlap the fixed break.
+    ExpectedOutput: A Markdown table with Start, End, Room, Presentation, and Speaker columns.

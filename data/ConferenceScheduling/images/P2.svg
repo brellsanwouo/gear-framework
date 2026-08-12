@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="110" viewBox="0 0 1080 110" role="img" aria-labelledby="title desc">
+  <title id="title">P2 sequential architecture</title><desc id="desc">Context, planner, then validator</desc>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#3568a8"/></marker></defs><rect width="1080" height="110" rx="12" fill="#f6f8fa"/>
+  <g font-family="Arial" font-size="15" text-anchor="middle"><rect x="25" y="30" width="270" height="50" rx="8" fill="#e8f0fe" stroke="#3568a8" stroke-width="2"/><text x="160" y="60" fill="#17365d">ConferenceContextAgent</text><rect x="405" y="30" width="270" height="50" rx="8" fill="#e9f7ef" stroke="#287a4b" stroke-width="2"/><text x="540" y="60" fill="#185c37">SchedulePlannerAgent</text><rect x="785" y="30" width="270" height="50" rx="8" fill="#fff4df" stroke="#a76a00" stroke-width="2"/><text x="920" y="60" fill="#744900">ScheduleValidatorAgent</text></g>
+  <g stroke="#3568a8" stroke-width="2" marker-end="url(#a)"><line x1="295" y1="55" x2="395" y2="55"/><line x1="675" y1="55" x2="775" y2="55"/></g>
+</svg>

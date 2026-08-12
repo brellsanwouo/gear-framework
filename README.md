@@ -348,7 +348,7 @@ Optional generated-runtime smoke scripts live in [`tests/integration/`](tests/in
 
 ## Research assets
 
-The AgentGridPlanning benchmark material is kept under [`data/AgentGridPlanning/`](data/AgentGridPlanning/). Research task assignment and protocol configuration live under [`research/agent-grid-planning/`](research/agent-grid-planning/), outside the product core.
+The AgentGridPlanning technical benchmark remains under [`data/AgentGridPlanning/`](data/AgentGridPlanning/). The participant-facing conference experiment, including prompts, templates, and task assignment, lives under [`data/ConferenceScheduling/`](data/ConferenceScheduling/); `config.yml` selects its `tasks.json` while preserving the experiment protocol.
 
 ## License
 
