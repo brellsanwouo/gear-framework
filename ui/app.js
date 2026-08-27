@@ -1682,7 +1682,7 @@ const isModulesFeature = (state, feature) =>
 const buildAgentOptionList = () => {
   return agentStates.map((agent, index) => {
     const name = findStateTitle(agent);
-    const fallback = `Agent ${index + 1}`;
+    const fallback = `Agent${index + 1}`;
     const label = name && name !== "(new agent)" ? name : fallback;
     return { value: label, label };
   });
@@ -1690,7 +1690,7 @@ const buildAgentOptionList = () => {
 
 const buildModuleOptionList = () => {
   return moduleStates.map((moduleState, index) => {
-    const fallback = `Module ${index + 1}`;
+    const fallback = `Module${index + 1}`;
     let name = findStateTitle(moduleState);
     if (!name || name === "(new module)") {
       const nameFeature = Object.values(moduleState.model.features).find(
@@ -1828,6 +1828,57 @@ const NUMBER_FEATURES = new Set([
 ]);
 
 const normalizeFeatureName = (featureName) => String(featureName || "").trim().toLowerCase();
+
+const isComponentNameFeature = (state, feature) => {
+  const name = normalizeFeatureName(feature?.name);
+  return (
+    (state?.kind === "agent" && name === "name") ||
+    (state?.kind === "module" && name === "modulename") ||
+    (state?.kind === "orchestration" && name === "workflowname")
+  );
+};
+
+const replaceReferenceValue = (value, oldName, newName) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => item === oldName ? newName : item);
+  }
+  if (value === oldName) {
+    return newName;
+  }
+  if (typeof value === "string" && value.includes(",")) {
+    return value.split(",").map((item) => item.trim() === oldName ? newName : item.trim()).join(", ");
+  }
+  return value;
+};
+
+const propagateClassicRename = (state, newName) => {
+  const cleanName = String(newName || "").trim();
+  if (!cleanName || /\s/.test(cleanName) || state.kind === "orchestration") return;
+  const peers = state.kind === "agent" ? agentStates : moduleStates;
+  if (peers.some((item) => item !== state && findStateTitle(item) === cleanName)) return;
+  const oldName = state.referencedName;
+  state.referencedName = cleanName;
+  if (!oldName || oldName === cleanName) return;
+
+  if (state.kind === "agent") {
+    const referenceFeatures = new Set(["parallelagents", "loopagents", "aggregator"]);
+    moduleStates.forEach((moduleState) => {
+      Object.values(moduleState.model.features).forEach((feature) => {
+        if (!referenceFeatures.has(normalizeFeatureName(feature.name))) return;
+        moduleState.featureValues[feature.id] = replaceReferenceValue(
+          moduleState.featureValues[feature.id], oldName, cleanName,
+        );
+      });
+      renderAgent(moduleState);
+    });
+  }
+  orchestrationStates.forEach((workflowState) => {
+    window.GearProjectReferences.renameBuilderReferences(
+      workflowState.builder, state.kind, oldName, cleanName,
+    );
+    renderAgent(workflowState);
+  });
+};
 
 const normalizePolicyList = (value) => {
   if (!value) {
@@ -1999,7 +2050,7 @@ const getMissingRequiredCount = (state) => {
       }
       return;
     }
-    if (!hasMeaningfulValue(value)) {
+    if (!hasMeaningfulValue(value) || (isComponentNameFeature(state, feature) && /\s/.test(String(value)))) {
       missing += 1;
     }
   });
@@ -2194,8 +2245,8 @@ const renderFeature = (state, featureId, parentActive) => {
     const requiresValue = featureRequiresValue(state, feature);
     const isInvalid =
       active &&
-      requiresValue &&
-      (isNumber ? parsedNumber === null : stringValue === "");
+      ((requiresValue && (isNumber ? parsedNumber === null : stringValue === "")) ||
+        (isComponentNameFeature(state, feature) && /\s/.test(stringValue)));
     if (isInvalid) {
       line.classList.add("is-invalid");
     }
@@ -2314,6 +2365,9 @@ const renderFeature = (state, featureId, parentActive) => {
         state.featureValues[feature.id] = fixedValue;
       }
       valueEl.value = state.featureValues[feature.id] ?? "";
+      if (isComponentNameFeature(state, feature) && !state.referencedName && valueEl.value && !/\s/.test(valueEl.value)) {
+        state.referencedName = String(valueEl.value).trim();
+      }
       valueEl.disabled = !active || lockedByPolicy;
       if (fixedValue) {
         valueEl.readOnly = true;
@@ -2325,13 +2379,16 @@ const renderFeature = (state, featureId, parentActive) => {
       state.featureValues[feature.id] = valueEl.value;
       const currentValue = valueEl.value;
       const currentString = String(currentValue ?? "").trim();
+      if (isComponentNameFeature(state, feature)) {
+        propagateClassicRename(state, currentString);
+      }
       const currentIsNumber = isNumberFeatureName(feature.name);
       const currentParsed = currentIsNumber ? parseNumberValue(currentValue) : null;
       const requiredNow = featureRequiresValue(state, feature);
       const invalidNow =
         isFeatureActive(state, feature.id) &&
-        requiredNow &&
-        (currentIsNumber ? currentParsed === null : currentString === "");
+        ((requiredNow && (currentIsNumber ? currentParsed === null : currentString === "")) ||
+          (isComponentNameFeature(state, feature) && /\s/.test(currentString)));
       line.classList.toggle("is-invalid", invalidNow);
       valueEl.classList.toggle("is-invalid", invalidNow);
       renderAgentSummary(state);

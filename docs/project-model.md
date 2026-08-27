@@ -14,7 +14,7 @@ agents:
       ContextDescription: A careful research assistant.
     LLMConfiguration:
       Provider: openai
-      Model: gpt-5.1-codex-mini
+      Model: gpt-4o-mini
     TaskSpecification:
       TaskName: Research
       TaskDescription: Research the requested topic.

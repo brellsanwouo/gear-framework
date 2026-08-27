@@ -11,7 +11,7 @@ Each item in the top-level `agents` array is an agent object. Do not wrap it in 
     ContextDescription: A technical writer working from verified research.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: WriteAnswer
     TaskDescription: Write the answer from the supplied research notes.
@@ -22,7 +22,7 @@ Each item in the top-level `agents` array is an agent object. Do not wrap it in 
 
 | Key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `Name` | string | yes | Unique agent name used by modules and workflow nodes. |
+| `Name` | string | yes | Unique agent name without whitespace, used by modules and workflow nodes. |
 | `Purpose` | string | yes | The agent's goal or role. |
 | `ContextDescription` | string | yes | Background, persona, and operating context. |
 
@@ -40,7 +40,7 @@ Each item in the top-level `agents` array is an agent object. Do not wrap it in 
 
 GEAR does not maintain a fixed provider or model catalogue. The connector and installed runtime must support the selected values.
 
-In the Studio these values are editable unless an administrator sets `GEAR_STUDIO_MODEL` in `.env`. A configured Studio policy overrides provider and model during Studio builds; standalone YAML and CLI conversions continue to use the values declared in the project.
+In the Studio the provider is fixed to `openai`, and the model is selected from the supported OpenAI mini list unless an administrator locks it with `GEAR_STUDIO_MODEL` in `.env`. Studio builds enforce this policy; standalone YAML and CLI conversions continue to use the values declared in the project.
 
 ### `ModelParameters`
 
@@ -61,7 +61,7 @@ Example:
 ```yaml
 LLMConfiguration:
   Provider: openai
-  Model: gpt-5.1-codex-mini
+  Model: gpt-4o-mini
   Timeout: 90
   MaxRetries: 2
   ModelParameters:

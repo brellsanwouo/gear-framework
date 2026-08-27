@@ -40,6 +40,7 @@
   },
   "$defs": {
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "componentName": { "type": "string", "minLength": 1, "pattern": "^\\S+$" },
     "projectMetadata": {
       "type": "object",
       "required": ["id", "name"],
@@ -60,7 +61,7 @@
           "required": ["Name", "Purpose", "ContextDescription"],
           "additionalProperties": false,
           "properties": {
-            "Name": { "$ref": "#/$defs/nonEmptyString" },
+            "Name": { "$ref": "#/$defs/componentName" },
             "Purpose": { "$ref": "#/$defs/nonEmptyString" },
             "ContextDescription": { "$ref": "#/$defs/nonEmptyString" }
           }
@@ -131,7 +132,7 @@
       "required": ["ModuleName", "Strategy"],
       "additionalProperties": false,
       "properties": {
-        "ModuleName": { "$ref": "#/$defs/nonEmptyString" },
+        "ModuleName": { "$ref": "#/$defs/componentName" },
         "Strategy": {
           "type": "object",
           "oneOf": [
@@ -156,7 +157,7 @@
             },
             "Loop": {
               "type": "object",
-              "required": ["TurnCount", "StopCondition", "LoopAgents"],
+              "required": ["TurnCount", "LoopAgents"],
               "additionalProperties": false,
               "properties": {
                 "TurnCount": { "type": "integer", "minimum": 1 },
@@ -178,7 +179,7 @@
       "required": ["nodes", "edges"],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
+        "name": { "$ref": "#/$defs/componentName" },
         "memory": { "type": "boolean", "default": false },
         "nodes": {
           "type": "array",

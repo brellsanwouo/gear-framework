@@ -8,6 +8,7 @@
     <script src="/ui/vendor/js-yaml.min.js"></script>
     <script src="/runtime/conversion-core.js" defer></script>
     <script src="/ui/js/workflow-order.js" defer></script>
+    <script src="/ui/js/project-references.js" defer></script>
     <script src="/ui/studio.js" defer></script>
     <link rel="stylesheet" href="/ui/overlay.css" />
     <script src="/ui/overlay.js" defer></script>
@@ -25,10 +26,10 @@
       </label>
       <div class="header-actions">
         <input id="importProject" type="file" accept=".json,.gear.json,.yml,.yaml,.gear.yml" hidden />
+        <button id="tutorialButton" class="button button--quiet" type="button">Tutorial</button>
         <button id="newProjectButton" class="button button--outline" type="button">New project</button>
         <button id="importButton" class="button button--quiet" type="button">Import</button>
         <button id="exportButton" class="button button--quiet" type="button">Export</button>
-        <a class="button button--outline" href="/classic">Classic editor</a>
       </div>
     </header>
 
@@ -70,7 +71,7 @@
               <div class="editor-heading"><div><span class="status-dot"></span><strong id="agentEditorTitle">Select an agent</strong></div><div class="editor-mode-switch"><button class="is-active" data-entity-view="form" data-kind="agent" type="button">Configuration</button><button data-entity-view="yaml" data-kind="agent" type="button">Advanced YAML</button></div></div>
               <div id="agentForm" class="config-form">
                 <section class="form-section"><div class="form-section-heading"><h3>Identity</h3><p>Agent name, role, and context.</p></div><div class="form-grid"><label><span>Name</span><input id="agentFieldName" autocomplete="off" /></label><label class="form-field--wide"><span>Purpose</span><textarea id="agentFieldPurpose" rows="2"></textarea></label><label class="form-field--wide"><span>Context</span><textarea id="agentFieldContext" rows="2"></textarea></label></div></section>
-                <section class="form-section"><div class="form-section-heading"><h3>Model</h3><p>Provider and model used by this agent.</p></div><div class="model-configuration"><div class="form-grid form-grid--two"><label><span>Provider</span><input id="agentFieldProvider" autocomplete="off" placeholder="openai" /></label><label><span>Model</span><input id="agentFieldModel" autocomplete="off" placeholder="gpt-5.1-codex-mini" /></label></div><p id="agentModelPolicy" class="model-policy">Editable for this agent</p></div></section>
+                <section class="form-section"><div class="form-section-heading"><h3>Model</h3><p>OpenAI model used by this agent.</p></div><div class="model-configuration"><div class="form-grid form-grid--two"><label><span>Provider</span><input id="agentFieldProvider" value="openai" disabled /></label><label><span>Model</span><select id="agentFieldModel"><option value="gpt-4o-mini">GPT-4o Mini</option><option value="gpt-5.4-mini">GPT-5.4 Mini</option><option value="gpt-4.1-mini">GPT-4.1 Mini</option></select></label></div><p id="agentModelPolicy" class="model-policy">OpenAI provider · select a mini model</p></div></section>
                 <section class="form-section"><div class="form-section-heading"><h3>Task</h3><p>Instruction assigned to the agent.</p></div><div class="form-grid"><label><span>Task name</span><input id="agentFieldTaskName" autocomplete="off" /></label><label class="form-field--wide"><span>Instruction</span><textarea id="agentFieldTaskDescription" rows="3"></textarea></label><label class="form-field--wide"><span>Expected output</span><textarea id="agentFieldExpectedOutput" rows="2"></textarea></label></div></section>
                 <p id="agentAdvancedNote" class="advanced-note" hidden>Advanced properties are preserved in YAML.</p>
               </div>
@@ -92,7 +93,7 @@
                 <section class="form-section"><div class="form-section-heading"><h3>Module</h3><p>Execution group identifier.</p></div><div class="form-grid"><label><span>Name</span><input id="moduleFieldName" autocomplete="off" /></label></div></section>
                 <section class="form-section"><div class="form-section-heading"><h3>Strategy</h3><p>Agent execution mode.</p></div><div class="strategy-choice"><label><input type="radio" id="moduleStrategyParallel" name="moduleStrategy" value="parallel" /><span><strong>Parallel</strong><small>Run agents simultaneously</small></span></label><label><input type="radio" id="moduleStrategyLoop" name="moduleStrategy" value="loop" /><span><strong>Loop</strong><small>Repeat agents several times</small></span></label></div></section>
                 <section class="form-section"><div class="form-section-heading"><h3>Participants</h3><p>Agents included in this module.</p></div><div id="moduleAgentPicker" class="agent-picker"></div></section>
-                <section id="moduleLoopOptions" class="form-section" hidden><div class="form-section-heading"><h3>Loop</h3><p>Iteration limit and explicit completion condition.</p></div><div class="form-grid form-grid--two"><label><span>Iteration count</span><input id="moduleFieldTurnCount" type="number" min="1" step="1" /></label><label><span>Stop condition</span><input id="moduleFieldStopCondition" autocomplete="off" placeholder="The expected result is approved." /></label></div></section>
+                <section id="moduleLoopOptions" class="form-section" hidden><div class="form-section-heading"><h3>Loop</h3><p>Configure the fixed iteration limit.</p></div><div class="form-grid"><label><span>Iteration count</span><input id="moduleFieldTurnCount" type="number" min="1" step="1" /></label></div></section>
                 <p id="moduleAdvancedNote" class="advanced-note" hidden>Advanced properties are preserved in YAML.</p>
               </div>
               <div id="moduleYamlView" class="code-editor" hidden><div id="moduleLineNumbers" class="line-numbers" aria-hidden="true"></div><textarea id="moduleEditor" wrap="off" spellcheck="false" aria-label="Module YAML configuration"></textarea></div>
@@ -135,7 +136,6 @@
         <section class="step-panel" data-step-panel="build">
           <div class="section-heading">
             <div><p class="eyebrow">Step 5</p><h1>Build and run</h1><p>Generate artifacts, review the code, then run the workflow from the Studio.</p></div>
-            <a id="buildConversion" class="button button--quiet" href="/classic?studio=1">Advanced editor</a>
           </div>
           <div class="framework-grid">
             <article class="framework-card is-selected" data-framework="crewai" aria-selected="true" tabindex="0"><div class="framework-card-heading"><div class="framework-logo framework-logo--crew"><img src="/ui/assets/crewai-logo.png" alt="CrewAI" /></div><div><h2>CrewAI</h2><p>Python script for CrewAI agents, tasks, and orchestration.</p></div><span class="framework-choice"><span>✓</span><b>Selected</b></span></div><div class="framework-actions"><button class="button button--primary" data-framework-action="code" type="button">View code</button><button class="button button--run" data-framework-action="run" type="button">Run</button><button class="button button--quiet" data-framework-action="download" type="button">Download</button></div><p class="framework-status" data-framework-status="crewai"><span></span>Not generated yet</p></article>
@@ -190,15 +190,30 @@
             <div><h2>Project settings</h2><p>The selected model is applied to every starter agent.</p></div>
             <div class="launcher-fields">
               <label><span>Project name</span><input id="starterProjectName" value="Test project" autocomplete="off" /></label>
-              <label><span>Provider</span><input id="starterProvider" value="openai" list="starterProviderOptions" autocomplete="off" /><datalist id="starterProviderOptions"><option value="openai"></option><option value="google"></option><option value="anthropic"></option></datalist></label>
-              <label><span>Model</span><input id="starterModel" value="gpt-5.1-codex-mini" autocomplete="off" /></label>
+              <label><span>Provider</span><input id="starterProvider" value="openai" disabled /></label>
+              <label><span>Model</span><select id="starterModel"><option value="gpt-4o-mini">GPT-4o Mini</option><option value="gpt-5.4-mini">GPT-5.4 Mini</option><option value="gpt-4.1-mini">GPT-4.1 Mini</option></select></label>
             </div>
-            <p id="starterModelPolicy" class="model-policy">Editable for this project</p>
+            <p id="starterModelPolicy" class="model-policy">OpenAI provider · select a mini model</p>
           </section>
         </div>
         <footer class="launcher-actions"><button id="launcherImportButton" class="button button--quiet" type="button">Import a project</button><button id="createStarterProject" class="button button--primary" type="button">Create project</button></footer>
       </div>
     </dialog>
+    <aside id="tutorialGuide" class="tutorial-guide" aria-labelledby="tutorialTitle" aria-live="polite" hidden>
+      <div class="tutorial-guide-heading">
+        <span id="tutorialProgress">Step 1 of 5</span>
+        <strong id="tutorialTitle">Meet your agents</strong>
+      </div>
+      <p id="tutorialMessage"></p>
+      <div class="tutorial-progress" aria-hidden="true"><span id="tutorialProgressBar"></span></div>
+      <div class="tutorial-actions">
+        <button id="exitTutorial" class="button button--quiet" type="button">Exit tutorial</button>
+        <div>
+          <button id="previousTutorialStep" class="button button--outline" type="button">Previous</button>
+          <button id="nextTutorialStep" class="button button--primary" type="button">Continue</button>
+        </div>
+      </div>
+    </aside>
     <div id="studioToast" class="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

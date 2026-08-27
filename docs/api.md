@@ -10,9 +10,12 @@ The same Flask application serves the API and Studio.
 {
   "name": "gear-framework",
   "version": "0.2.0",
-  "studio_version": "0.2.0"
+  "studio_version": "0.2.0",
+  "studio_revision": "a1b2c3d4e5f6"
 }
 ```
+
+`studio_revision` changes when the served Studio assets change and lets the browser present update-sensitive onboarding only once.
 
 ## Local runner
 

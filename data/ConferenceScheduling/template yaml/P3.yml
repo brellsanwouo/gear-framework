@@ -6,7 +6,7 @@ GearAgent:
       The conference runs from 09:00 to 12:00 and both rooms are closed for a break from 10:20 to 10:40. Auditorium has capacity 120, a projector, and video conferencing. SeminarRoom has capacity 50 and a projector but no video conferencing. Presentations are: Reliable AI Systems, Alice Martin, 40 minutes, audience 90, projector, available 09:00-12:00; Efficient Scientific Workflows, Bruno Lee, 40 minutes, audience 45, projector, available 09:00-12:00; Reproducible Experiments, Carla Diaz, 45 minutes, audience 80, video conferencing, available 10:40-12:00; Open Research Data, David Kim, 30 minutes, audience 70, projector, must finish by 10:20; Human-Centred Evaluation, Elena Rossi, 50 minutes, audience 45, projector, available 09:40-12:00; Research Software Careers, Farid Noor, 35 minutes, audience 35, no equipment requirement, available 09:00-12:00. Each presentation occurs once. A room and speaker can each host at most one presentation at a time. Report only these facts. Never formulate a problem, analyze constraints, propose a schedule, or explain another agent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ConferenceContextTask
     TaskDescription: >-
@@ -20,7 +20,7 @@ GearAgent:
     ContextDescription: Performs temporal analysis only from the output of ConferenceContextAgent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: TimeConstraintAnalyzerTask
     TaskDescription: >-
@@ -34,7 +34,7 @@ GearAgent:
     ContextDescription: Performs room analysis only from the output of ConferenceContextAgent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: RoomConstraintAnalyzerTask
     TaskDescription: >-
@@ -48,7 +48,7 @@ GearAgent:
     ContextDescription: Combines the independent temporal and room analyses after their parallel execution.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: SchedulePlannerTask
     TaskDescription: >-

@@ -31,7 +31,7 @@ def create_pages_blueprint(base_dir: Path, ui_dir: Path, runtime_dir: Path) -> B
 
     @blueprint.get("/classic")
     def classic_ui() -> Any:
-        return send_from_directory(ui_dir, "index.html")
+        return redirect("/studio")
 
     @blueprint.get("/ui")
     @blueprint.get("/ui/")
@@ -40,6 +40,8 @@ def create_pages_blueprint(base_dir: Path, ui_dir: Path, runtime_dir: Path) -> B
 
     @blueprint.get("/ui/<path:filename>")
     def ui_files(filename: str) -> Any:
+        if filename == "index.html":
+            return redirect("/studio")
         return send_from_directory(ui_dir, filename)
 
     @blueprint.get("/<public_dir>/<path:filename>")

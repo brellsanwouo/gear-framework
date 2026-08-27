@@ -61,8 +61,9 @@ Unknown keys are rejected in `project` and `workflow`. Keep secrets outside the 
 
 GEAR links components by name:
 
-- `agents[*].AgentIdentity.Name` must be unique;
-- `modules[*].ModuleName` must be unique;
+- `agents[*].AgentIdentity.Name` must be unique and contain no whitespace;
+- `modules[*].ModuleName` must be unique and contain no whitespace;
+- `workflow.name` must contain no whitespace when provided;
 - every module agent name must match an existing agent name;
 - an optional parallel `Aggregator` must match an existing agent name;
 - every `workflow.nodes[*].id` must be unique;

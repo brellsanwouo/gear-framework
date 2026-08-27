@@ -198,3 +198,28 @@ def test_project_schema_and_semantic_validation_are_composed():
         },
     }
     assert "contains a cycle" in "\n".join(validate_project(cyclic))
+
+
+def test_component_and_workflow_names_cannot_contain_whitespace():
+    project = load_project("examples/minimal.gear.yml").data
+
+    spaced_agent = deepcopy(project)
+    spaced_agent["agents"][0]["AgentIdentity"]["Name"] = "Example Agent"
+    assert "does not match" in "\n".join(validate_project(spaced_agent))
+
+    spaced_module = deepcopy(project)
+    spaced_module["modules"] = [{
+        "ModuleName": "Example Team",
+        "Strategy": {"Parallel": {"ParallelAgents": ["ExampleAgent"]}},
+    }]
+    assert "does not match" in "\n".join(validate_project(spaced_module))
+
+    spaced_workflow = deepcopy(project)
+    spaced_workflow["workflow"]["name"] = "Main Workflow"
+    assert "does not match" in "\n".join(validate_project(spaced_workflow))
+
+
+def test_loop_stop_condition_is_optional():
+    project = deepcopy(load_project("examples/loop-module.gear.yml").data)
+    project["modules"][0]["Strategy"]["Loop"].pop("StopCondition")
+    assert validate_project(project) == []

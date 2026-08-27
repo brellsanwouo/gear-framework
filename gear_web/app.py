@@ -25,6 +25,7 @@ from .settings import (
     RUNTIME_PUBLIC_DIR,
     STORE_PATH,
     STUDIO_MODEL_POLICY,
+    STUDIO_REVISION,
     TASKS_FILE_PATH,
     TRACKING_ENABLED,
     UI_DIR,
@@ -32,7 +33,7 @@ from .settings import (
 
 
 def create_app() -> Flask:
-    application = Flask(__name__, static_folder=str(UI_DIR), static_url_path="/ui")
+    application = Flask(__name__, static_folder=None)
     application.secret_key = os.environ.get("GEAR_SESSION_SECRET") or secrets.token_hex(32)
     application.config.update(
         SESSION_COOKIE_NAME="gear_session",
@@ -60,7 +61,7 @@ def create_app() -> Flask:
             ensure_participant(STORE_PATH)
 
     model_service = FeatureModelService(BASE_DIR, UI_DIR)
-    application.register_blueprint(create_system_blueprint(STUDIO_MODEL_POLICY))
+    application.register_blueprint(create_system_blueprint(STUDIO_MODEL_POLICY, STUDIO_REVISION))
     application.register_blueprint(create_builds_blueprint(STORE_PATH, STUDIO_MODEL_POLICY))
     application.register_blueprint(
         create_runner_blueprint(

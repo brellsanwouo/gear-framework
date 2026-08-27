@@ -56,18 +56,17 @@ GEAR installs Google ADK 2.5 with LiteLLM, which is the adapter used by generate
 gear serve
 ```
 
-Open `http://127.0.0.1:8200/`. The Studio is now the default interface; the classic editor remains available at `http://127.0.0.1:8200/classic`.
+Open `http://127.0.0.1:8200/`. The Studio is the only exposed editor; the former `/classic` route redirects to it.
 
 ### Configure the Studio model policy
 
-Provider and model fields are editable per agent by default. To enforce one model for every agent created, imported, or built through the Studio, copy `.env.example` to `.env` and set:
+The provider is fixed to OpenAI. `gpt-4o-mini` is the default; users can also choose `gpt-5.4-mini` or `gpt-4.1-mini`. To enforce one model for every agent created, imported, or built through the Studio, copy `.env.example` to `.env` and set:
 
 ```dotenv
-GEAR_STUDIO_PROVIDER=openai
-GEAR_STUDIO_MODEL=gpt-5.1-codex-mini
+GEAR_STUDIO_MODEL=gpt-4o-mini
 ```
 
-Leave `GEAR_STUDIO_MODEL` empty to keep both fields editable. Restart the Studio after changing `.env`. This policy applies to the Studio and its build endpoint; standalone YAML and CLI projects retain their own model configuration.
+Leave `GEAR_STUDIO_MODEL` empty to keep the supported model list selectable. Restart the Studio after changing `.env`. This policy applies to the Studio and its build endpoint; standalone YAML and CLI projects retain their own model configuration.
 
 To allow trusted local projects to run:
 
@@ -92,7 +91,7 @@ For a richer test project with agents and workflow already configured:
 
 ```bash
 gear templates list
-gear init test_project --template research-team --provider openai --model gpt-5.1-codex-mini
+gear init test_project --template research-team --provider openai --model gpt-4o-mini
 gear convert test_project.gear.yml --all-targets
 ```
 

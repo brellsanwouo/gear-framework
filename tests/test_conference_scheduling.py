@@ -48,6 +48,9 @@ def test_conference_templates_are_valid_yaml_streams_with_stable_context_agent()
         documents = list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
         agents = [document["GearAgent"] for document in documents]
         assert [agent["AgentIdentity"]["Name"] for agent in agents] == names
+        assert {
+            agent["LLMConfiguration"]["Model"] for agent in agents
+        } == {"gpt-4o-mini"}
         context = agents[0]
         assert context["AgentIdentity"]["Purpose"] == (
             "present the conference situation and its factual information."

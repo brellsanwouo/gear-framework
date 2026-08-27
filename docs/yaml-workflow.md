@@ -24,7 +24,7 @@ workflow:
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `name` | string | no | project ID | Human-readable workflow name. |
+| `name` | string | no | project ID | Workflow name without whitespace. |
 | `memory` | boolean | no | `false` | Enables workflow-level memory when supported. |
 | `nodes` | array | yes | — | One or more workflow nodes. |
 | `edges` | array | yes | — | Directed connections between node IDs. May be empty for one node. |

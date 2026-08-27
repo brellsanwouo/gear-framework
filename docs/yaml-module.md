@@ -16,7 +16,7 @@ modules:
 
 | Key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `ModuleName` | string | yes | Unique module name referenced by workflow module nodes. |
+| `ModuleName` | string | yes | Unique module name without whitespace, referenced by workflow module nodes. |
 | `Strategy` | object | yes | Contains exactly one supported strategy: `Parallel` or `Loop`. |
 
 Every referenced agent must exist in the top-level `agents` list. References use `AgentIdentity.Name` exactly, including case.
@@ -48,7 +48,6 @@ Every included connector preserves the parallel group and optional aggregation o
   Strategy:
     Loop:
       TurnCount: 3
-      StopCondition: The reviewer approves the draft.
       LoopAgents:
         - Writer
         - Reviewer
@@ -58,10 +57,10 @@ Every included connector preserves the parallel group and optional aggregation o
 | --- | --- | --- | --- |
 | `Strategy.Loop` | object | yes | Selects repeated execution. |
 | `TurnCount` | integer | yes | Maximum number of iterations. Use a positive value. |
-| `StopCondition` | string | yes | Human-readable early-stop condition. |
+| `StopCondition` | string | no | Legacy natural-language metadata; it is not exposed by the Studio. |
 | `LoopAgents` | unique string array | yes | One or more existing agents executed on each iteration. |
 
-Every included connector uses `TurnCount` as the executable hard limit. `StopCondition` remains human-readable conversion metadata or an instruction because the project does not supply a machine-executable predicate.
+Every included connector uses `TurnCount` as the executable hard limit. The Studio disables `StopCondition`; the schema accepts it only for compatibility with existing projects.
 
 ## Modules in a workflow
 

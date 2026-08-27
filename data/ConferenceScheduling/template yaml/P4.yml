@@ -6,7 +6,7 @@ GearAgent:
       The conference runs 09:00-12:00 with a break in both rooms 10:20-10:40. Auditorium has capacity 120, projector, and video conferencing; SeminarRoom has capacity 50 and projector only. Talks are: Reliable AI Systems, Alice Martin, 40 minutes, audience 90, projector, available 09:00-12:00; Efficient Scientific Workflows, Bruno Lee, 40 minutes, audience 45, projector, available 09:40-12:00; Reproducible Experiments, Carla Diaz, 45 minutes, audience 80, video conferencing, available 10:40-12:00; Open Research Data, David Kim, 30 minutes, audience 70, projector, must finish by 10:20; Human-Centred Evaluation, Elena Rossi, 50 minutes, audience 45, projector, available 09:40-12:00; Research Software Careers, Farid Noor, 35 minutes, audience 35, no equipment requirement, available 09:00-12:00. Reliable AI Systems starts at 09:00 in Auditorium. Human-Centred Evaluation starts at 10:40. Consecutive talks in one room need a 5-minute transition unless separated by the break. Each talk occurs once; rooms and speakers cannot overlap. Report only these facts. Never formulate a problem, analyze constraints, propose a schedule, or explain another agent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ConferenceContextTask
     TaskDescription: State only all conference facts, including hours, break, rooms, talk attributes, availability, fixed starts, and transition time.
@@ -19,7 +19,7 @@ GearAgent:
     ContextDescription: Produces the initial complete programme from the factual context.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: SchedulePlannerTask
     TaskDescription: Include every presentation exactly once and attempt to satisfy every stated constraint.
@@ -32,7 +32,7 @@ GearAgent:
     ContextDescription: Reviews the current schedule against the complete factual context.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ScheduleReviewerTask
     TaskDescription: >-
@@ -46,7 +46,7 @@ GearAgent:
     ContextDescription: Corrects the current schedule from the review while preserving valid assignments.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ScheduleRefinerTask
     TaskDescription: >-
@@ -60,7 +60,7 @@ GearAgent:
     ContextDescription: Publishes the schedule produced after exactly two reviewer-refiner iterations.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: FinalScheduleTask
     TaskDescription: Return only the final refined programme, without analysis, review notes, explanations, or alternatives.

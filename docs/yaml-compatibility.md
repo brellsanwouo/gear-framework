@@ -69,7 +69,7 @@ Every included connector accepts sequential workflows, parallel graph layers, pa
 | Semantic Kernel | Stable agent calls with explicit orchestration | `asyncio.gather`, then aggregator call | Bounded async loop |
 | Haystack | Deterministic asynchronous hand-offs | `Agent.run_async` calls with `asyncio.gather` | Bounded async loop |
 
-`TurnCount` is the executable hard limit for every loop connector. `StopCondition` is natural-language metadata or an instruction unless a future project format supplies a machine-executable predicate.
+`TurnCount` is the executable hard limit for every loop connector. `StopCondition` is disabled in the Studio and remains optional legacy metadata for imported YAML projects.
 
 ## Inspect the actual conversion
 

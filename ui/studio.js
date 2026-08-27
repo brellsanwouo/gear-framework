@@ -30,15 +30,28 @@
   let buildBusy = false;
   let runBusy = false;
   let activeRunJobId = null;
-  const DEFAULT_MODEL_POLICY = Object.freeze({ locked: false, provider: "openai", model: "gpt-5.1-codex-mini" });
-  let modelPolicy = { ...DEFAULT_MODEL_POLICY };
+  const OPENAI_MINI_MODELS = Object.freeze(["gpt-4o-mini", "gpt-5.4-mini", "gpt-4.1-mini"]);
+  const OPENAI_MODEL_LABELS = Object.freeze({ "gpt-4o-mini": "GPT-4o Mini", "gpt-5.4-mini": "GPT-5.4 Mini", "gpt-4.1-mini": "GPT-4.1 Mini" });
+  const DEFAULT_MODEL_POLICY = Object.freeze({ locked: false, provider: "openai", model: OPENAI_MINI_MODELS[0], models: OPENAI_MINI_MODELS });
+  let modelPolicy = { ...DEFAULT_MODEL_POLICY, models: [...OPENAI_MINI_MODELS] };
   let modelDefaults = { provider: DEFAULT_MODEL_POLICY.provider, model: DEFAULT_MODEL_POLICY.model };
   let starterTemplates = [];
   let selectedStarterTemplate = "minimal";
-  const PROVIDER_MODELS = { openai: "gpt-5.1-codex-mini", google: "gemini-2.5-flash", anthropic: "claude-sonnet-4-5" };
+  const PROJECT_STORAGE_KEY = "gear-studio-project-v1";
+  const LAUNCHER_REVISION_KEY = "gear-studio-launcher-revision";
+  const TUTORIAL_STORAGE_KEY = "gear-studio-tutorial-seen";
+  const tutorialSteps = Object.freeze([
+    { step: "agents", title: "Meet your agents", message: "Writer creates a first draft and Reviewer checks it. Select each agent to inspect its identity, model, and task." },
+    { step: "modules", title: "Group agents in a module", message: "DraftReviewLoop runs both agents twice. Modules let you express parallel work or a fixed loop without writing orchestration code." },
+    { step: "workflow", title: "Set the execution order", message: "The workflow is the final sequence sent to a framework. Click a component to add it, or remove and reorder nodes in the execution preview." },
+    { step: "validation", title: "Check the project", message: "GEAR checks names, references, and required fields automatically. Blocking errors must be resolved before code can be generated." },
+    { step: "build", title: "Generate framework code", message: "Choose a framework, then use View code. Running the generated workflow also requires the local runner to be enabled." },
+  ]);
+  let tutorialActive = false;
+  let tutorialStep = 0;
 
-  const defaultAgent = (index) => `GearAgent:\n  AgentIdentity:\n    Name: Agent${index}\n    Purpose: Describe this agent's objective.\n    ContextDescription: Describe the agent's working context.\n  LLMConfiguration:\n    Provider: ${modelPolicy.locked?modelPolicy.provider:modelDefaults.provider}\n    Model: ${modelPolicy.locked?modelPolicy.model:modelDefaults.model}\n  TaskSpecification:\n    TaskName: Task${index}\n    TaskDescription: Describe the task.\n    ExpectedOutput: Describe the expected output.\n`;
-  const defaultModule = (index) => `GearModule:\n  ModuleName: Module ${index}\n  Strategy:\n    Parallel:\n      ParallelAgents: []\n`;
+  const defaultAgent = (index) => `GearAgent:\n  AgentIdentity:\n    Name: Agent${index}\n    Purpose: Describe this agent's objective.\n    ContextDescription: Describe the agent's working context.\n  LLMConfiguration:\n    Provider: openai\n    Model: ${modelPolicy.locked?modelPolicy.model:modelDefaults.model}\n  TaskSpecification:\n    TaskName: Task${index}\n    TaskDescription: Describe the task.\n    ExpectedOutput: Describe the expected output.\n`;
+  const defaultModule = (index) => `GearModule:\n  ModuleName: Module${index}\n  Strategy:\n    Parallel:\n      ParallelAgents: []\n`;
   const defaultWorkflow = `GearMultiAgent:\n  WorkflowName: MainWorkflow\n  Items:\n    Agents: []\n    Modules: []\n  Edges: []\n`;
 
   const loadProject = () => ({
@@ -48,6 +61,7 @@
     workflows: [defaultWorkflow]
   });
   let project = loadProject();
+  const lastReferencedNames = { agent: [], module: [] };
 
   const parse = (text) => {
     try { return { value: window.jsyaml.load(text) || {}, error: null }; }
@@ -63,6 +77,14 @@
   const orderedWorkflowItems = (workflow = workflowData()) => window.GearWorkflowOrder?.read(workflow) || [];
   const agentName = (text, index) => agentData(text)?.AgentIdentity?.Name || `Agent ${index + 1}`;
   const moduleName = (text, index) => moduleData(text)?.ModuleName || `Module ${index + 1}`;
+  const declaredEntityName = (kind, text) => {
+    const data = kind === "agent" ? agentData(text) : moduleData(text);
+    return String(kind === "agent" ? data?.AgentIdentity?.Name || "" : data?.ModuleName || "").trim();
+  };
+  const resetReferencedNames = () => {
+    lastReferencedNames.agent = project.agents.map((text) => declaredEntityName("agent", text));
+    lastReferencedNames.module = project.modules.map((text) => declaredEntityName("module", text));
+  };
 
   const updateLineNumbers = (kind, text) => {
     const element = document.getElementById(`${kind}LineNumbers`);
@@ -73,6 +95,9 @@
 
   const hasExtraKeys = (value, allowed) => value && typeof value === "object" && Object.keys(value).some((key) => !allowed.includes(key));
   const setFieldValue = (id, value) => { const field=document.getElementById(id);if(field)field.value=value??""; };
+  const setModelOptions = (id, selectedValue) => {
+    const select=document.getElementById(id);if(!select)return;const values=[...modelPolicy.models];const selected=String(selectedValue||"");if(modelPolicy.locked&&selected&&!values.includes(selected))values.unshift(selected);select.replaceChildren();values.forEach((value)=>{const option=document.createElement("option");option.value=value;option.textContent=OPENAI_MODEL_LABELS[value]||value;select.appendChild(option);});select.value=selected&&values.includes(selected)?selected:(modelPolicy.locked?modelPolicy.model:"");
+  };
   const setEntityView = (kind, view) => {
     entityViews[kind] = view;
     document.getElementById(`${kind}Form`).hidden = view !== "form";
@@ -83,27 +108,39 @@
   const agentHasAdvancedProperties = (data) => hasExtraKeys(data,["AgentIdentity","LLMConfiguration","TaskSpecification"]) || hasExtraKeys(data?.AgentIdentity,["Name","Purpose","ContextDescription"]) || hasExtraKeys(data?.LLMConfiguration,["Provider","Model"]) || hasExtraKeys(data?.TaskSpecification,["TaskName","TaskDescription","ExpectedOutput"]);
   const moduleHasAdvancedProperties = (data) => {
     const strategy=data?.Strategy || {};const active=strategy.Parallel || strategy.Loop || {};
-    const allowedActive=strategy.Parallel?["ParallelAgents"]:["LoopAgents","TurnCount","StopCondition"];
+    const allowedActive=strategy.Parallel?["ParallelAgents"]:["LoopAgents","TurnCount"];
     return hasExtraKeys(data,["ModuleName","Strategy"]) || hasExtraKeys(strategy,["Parallel","Loop"]) || hasExtraKeys(active,allowedActive);
   };
 
   const populateAgentForm = (text, enabled) => {
     const parsed=parse(text);const data=parsed.error?{}:agentData(text);const form=document.getElementById("agentForm");
-    setFieldValue("agentFieldName",data?.AgentIdentity?.Name);setFieldValue("agentFieldPurpose",data?.AgentIdentity?.Purpose);setFieldValue("agentFieldContext",data?.AgentIdentity?.ContextDescription);setFieldValue("agentFieldProvider",data?.LLMConfiguration?.Provider ?? (modelPolicy.locked?modelPolicy.provider:modelDefaults.provider));setFieldValue("agentFieldModel",data?.LLMConfiguration?.Model ?? (modelPolicy.locked?modelPolicy.model:modelDefaults.model));setFieldValue("agentFieldTaskName",data?.TaskSpecification?.TaskName);setFieldValue("agentFieldTaskDescription",data?.TaskSpecification?.TaskDescription);setFieldValue("agentFieldExpectedOutput",data?.TaskSpecification?.ExpectedOutput);
-    const unavailable=!enabled||Boolean(parsed.error);form.classList.toggle("is-disabled",unavailable);form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=unavailable;});document.getElementById("agentFieldProvider").disabled=unavailable||modelPolicy.locked;document.getElementById("agentFieldModel").disabled=unavailable||modelPolicy.locked;const policy=document.getElementById("agentModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`Locked by .env · ${modelPolicy.provider}/${modelPolicy.model}`:"Editable for this agent";document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
+    setFieldValue("agentFieldName",data?.AgentIdentity?.Name);setFieldValue("agentFieldPurpose",data?.AgentIdentity?.Purpose);setFieldValue("agentFieldContext",data?.AgentIdentity?.ContextDescription);setFieldValue("agentFieldProvider","openai");setModelOptions("agentFieldModel",data?.LLMConfiguration?.Model ?? (modelPolicy.locked?modelPolicy.model:modelDefaults.model));setFieldValue("agentFieldTaskName",data?.TaskSpecification?.TaskName);setFieldValue("agentFieldTaskDescription",data?.TaskSpecification?.TaskDescription);setFieldValue("agentFieldExpectedOutput",data?.TaskSpecification?.ExpectedOutput);
+    const unavailable=!enabled||Boolean(parsed.error);form.classList.toggle("is-disabled",unavailable);form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=unavailable;});document.getElementById("agentFieldProvider").disabled=true;document.getElementById("agentFieldModel").disabled=unavailable||modelPolicy.locked;const policy=document.getElementById("agentModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`OpenAI model locked by .env · ${modelPolicy.model}`:"OpenAI provider · select a mini model";document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
   };
 
   const populateModuleForm = (text, enabled) => {
     const parsed=parse(text);const data=parsed.error?{}:moduleData(text);const parallel=Boolean(data?.Strategy?.Parallel);const loop=Boolean(data?.Strategy?.Loop);const form=document.getElementById("moduleForm");
-    setFieldValue("moduleFieldName",data?.ModuleName);document.getElementById("moduleStrategyParallel").checked=parallel||!loop;document.getElementById("moduleStrategyLoop").checked=loop;setFieldValue("moduleFieldTurnCount",data?.Strategy?.Loop?.TurnCount ?? 1);setFieldValue("moduleFieldStopCondition",data?.Strategy?.Loop?.StopCondition);document.getElementById("moduleLoopOptions").hidden=!loop;
+    setFieldValue("moduleFieldName",data?.ModuleName);document.getElementById("moduleStrategyParallel").checked=parallel||!loop;document.getElementById("moduleStrategyLoop").checked=loop;setFieldValue("moduleFieldTurnCount",data?.Strategy?.Loop?.TurnCount ?? 1);document.getElementById("moduleLoopOptions").hidden=!loop;
     const rawSelectedAgents=parallel?data?.Strategy?.Parallel?.ParallelAgents:loop?data?.Strategy?.Loop?.LoopAgents:[];const selectedAgents=Array.isArray(rawSelectedAgents)?rawSelectedAgents:[];const picker=document.getElementById("moduleAgentPicker");picker.replaceChildren();
     if(!project.agents.length){const empty=document.createElement("p");empty.className="agent-picker-empty";empty.textContent="Create an agent first.";picker.appendChild(empty);}project.agents.forEach((agent,index)=>{const name=agentName(agent,index);const label=document.createElement("label");label.className="agent-option";const input=document.createElement("input");input.type="checkbox";input.value=name;input.checked=selectedAgents.includes(name);input.disabled=!enabled||Boolean(parsed.error);const span=document.createElement("span");span.textContent=name;label.append(input,span);picker.appendChild(label);});
     form.classList.toggle("is-disabled",!enabled||Boolean(parsed.error));form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=!enabled||Boolean(parsed.error);});document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
   };
 
   const dumpDocument = (source) => window.jsyaml.dump(source,{noRefs:true,lineWidth:-1,sortKeys:false});
+  const propagateEntityRename = (kind, index, newName) => {
+    const cleanName=String(newName||"").trim();if(!cleanName||/\s/.test(cleanName))return;
+    const duplicate=project[`${kind}s`].some((text,itemIndex)=>itemIndex!==index&&declaredEntityName(kind,text)===cleanName);if(duplicate)return;
+    const oldName=lastReferencedNames[kind][index];lastReferencedNames[kind][index]=cleanName;
+    if(!oldName||oldName===cleanName)return;
+    const parsedModules=project.modules.map((text)=>{const parsed=parse(text);return parsed.error?null:{source:parsed.value,data:root(parsed.value,["GearModule"]),text};});
+    const parsedWorkflow=parse(project.workflows[0]||defaultWorkflow);const workflow=parsedWorkflow.error?null:root(parsedWorkflow.value,["GearMultiAgent","GearWorkflow"]);
+    if(kind==="agent")window.GearProjectReferences.renameAgentReferences(parsedModules.map((item)=>item?.data).filter(Boolean),workflow,oldName,cleanName);
+    else window.GearProjectReferences.renameWorkflowReferences(workflow,"module",oldName,cleanName);
+    if(kind==="agent")parsedModules.forEach((item,moduleIndex)=>{if(item)project.modules[moduleIndex]=dumpDocument(item.source);});
+    if(workflow)project.workflows[0]=dumpDocument(parsedWorkflow.value);
+  };
   const applyAgentModelPolicy = (text) => {
-    if(!modelPolicy.locked)return text;const parsed=parse(text);if(parsed.error)return text;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;const current=data.LLMConfiguration||{};if(current.Provider===modelPolicy.provider&&current.Model===modelPolicy.model)return text;data.LLMConfiguration={...current,Provider:modelPolicy.provider,Model:modelPolicy.model};return dumpDocument(source);
+    const parsed=parse(text);if(parsed.error)return text;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;const current=data.LLMConfiguration||{};const currentModel=String(current.Model||"");const model=modelPolicy.locked?modelPolicy.model:modelPolicy.models.includes(currentModel)?currentModel:modelPolicy.model;if(current.Provider==="openai"&&current.Model===model)return text;data.LLMConfiguration={...current,Provider:"openai",Model:model};return dumpDocument(source);
   };
   const refreshEditedEntity = (kind, text, index) => {
     const editor=document.getElementById(`${kind}Editor`);editor.value=text;updateLineNumbers(kind,text);const name=kind==="agent"?agentName(text,index):moduleName(text,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected){selected.querySelector("strong").textContent=name;const data=kind==="agent"?agentData(text):moduleData(text);selected.querySelector("small").textContent=kind==="agent"?(data?.TaskSpecification?.TaskName||"Task required"):(data?.Strategy?.Parallel?"Parallel":data?.Strategy?.Loop?"Loop":"Strategy required");}document.getElementById(`${kind}EditorError`).textContent=parse(text).error||"";scheduleSave();renderHealth(validation());
@@ -111,21 +148,25 @@
 
   const updateAgentFromForm = () => {
     if(!project.agents.length)return;const parsed=parse(project.agents[selectedAgent]);if(parsed.error)return;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;
-    data.AgentIdentity={...(data.AgentIdentity||{}),Name:document.getElementById("agentFieldName").value,Purpose:document.getElementById("agentFieldPurpose").value,ContextDescription:document.getElementById("agentFieldContext").value};data.LLMConfiguration={...(data.LLMConfiguration||{}),Provider:modelPolicy.locked?modelPolicy.provider:document.getElementById("agentFieldProvider").value.trim(),Model:modelPolicy.locked?modelPolicy.model:document.getElementById("agentFieldModel").value.trim()};data.TaskSpecification={...(data.TaskSpecification||{}),TaskName:document.getElementById("agentFieldTaskName").value,TaskDescription:document.getElementById("agentFieldTaskDescription").value,ExpectedOutput:document.getElementById("agentFieldExpectedOutput").value};
-    const text=dumpDocument(source);project.agents[selectedAgent]=text;refreshEditedEntity("agent",text,selectedAgent);document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
+    data.AgentIdentity={...(data.AgentIdentity||{}),Name:document.getElementById("agentFieldName").value,Purpose:document.getElementById("agentFieldPurpose").value,ContextDescription:document.getElementById("agentFieldContext").value};data.LLMConfiguration={...(data.LLMConfiguration||{}),Provider:"openai",Model:modelPolicy.locked?modelPolicy.model:document.getElementById("agentFieldModel").value};data.TaskSpecification={...(data.TaskSpecification||{}),TaskName:document.getElementById("agentFieldTaskName").value,TaskDescription:document.getElementById("agentFieldTaskDescription").value,ExpectedOutput:document.getElementById("agentFieldExpectedOutput").value};
+    const text=dumpDocument(source);project.agents[selectedAgent]=text;propagateEntityRename("agent",selectedAgent,data.AgentIdentity.Name);refreshEditedEntity("agent",text,selectedAgent);document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
   };
 
   const updateModuleFromForm = () => {
     if(!project.modules.length)return;const parsed=parse(project.modules[selectedModule]);if(parsed.error)return;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearModule&&typeof source.GearModule==="object"?source.GearModule:source;const strategy=document.getElementById("moduleStrategyLoop").checked?"Loop":"Parallel";const selected=[...document.querySelectorAll("#moduleAgentPicker input:checked")].map((input)=>input.value);data.ModuleName=document.getElementById("moduleFieldName").value;data.Strategy=data.Strategy&&typeof data.Strategy==="object"?data.Strategy:{};
-    if(strategy==="Parallel"){data.Strategy.Parallel={...(data.Strategy.Parallel||{}),ParallelAgents:selected};delete data.Strategy.Loop;}else{const turnCount=Number.parseInt(document.getElementById("moduleFieldTurnCount").value,10);const stopCondition=document.getElementById("moduleFieldStopCondition").value.trim();data.Strategy.Loop={...(data.Strategy.Loop||{}),LoopAgents:selected,StopCondition:stopCondition};if(Number.isFinite(turnCount))data.Strategy.Loop.TurnCount=turnCount;else delete data.Strategy.Loop.TurnCount;delete data.Strategy.Parallel;}
-    const text=dumpDocument(source);project.modules[selectedModule]=text;refreshEditedEntity("module",text,selectedModule);document.getElementById("moduleLoopOptions").hidden=strategy!=="Loop";document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
+    if(strategy==="Parallel"){data.Strategy.Parallel={...(data.Strategy.Parallel||{}),ParallelAgents:selected};delete data.Strategy.Loop;}else{const turnCount=Number.parseInt(document.getElementById("moduleFieldTurnCount").value,10);data.Strategy.Loop={...(data.Strategy.Loop||{}),LoopAgents:selected};delete data.Strategy.Loop.StopCondition;if(Number.isFinite(turnCount))data.Strategy.Loop.TurnCount=turnCount;else delete data.Strategy.Loop.TurnCount;delete data.Strategy.Parallel;}
+    const text=dumpDocument(source);project.modules[selectedModule]=text;propagateEntityRename("module",selectedModule,data.ModuleName);refreshEditedEntity("module",text,selectedModule);document.getElementById("moduleLoopOptions").hidden=strategy!=="Loop";document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
   };
 
-  const save = () => {
-    // Experiment projects remain in memory only. They are persisted in task_logs
-    // when the participant confirms the task, never in browser localStorage.
-    invalidateBuild();
+  const persistProject = () => {
+    if(experimentActive)return;
+    try{window.localStorage.setItem(PROJECT_STORAGE_KEY,JSON.stringify({project,projectName:document.getElementById("projectName").value,currentStep,selectedAgent,selectedModule,tutorial:{active:tutorialActive,step:tutorialStep}}));}catch(error){console.warn("Project autosave is unavailable.",error);}
   };
+  const restoreProject = () => {
+    if(experimentActive)return false;
+    try{const saved=JSON.parse(window.localStorage.getItem(PROJECT_STORAGE_KEY)||"null");if(!saved?.project||!Array.isArray(saved.project.agents)||!Array.isArray(saved.project.modules)||!Array.isArray(saved.project.workflows))return false;project={schema_version:saved.project.schema_version||"1.0",agents:saved.project.agents,modules:saved.project.modules,workflows:saved.project.workflows.length?saved.project.workflows:[defaultWorkflow]};document.getElementById("projectName").value=String(saved.projectName||"My multi-agent system");currentStep=steps.includes(saved.currentStep)?saved.currentStep:"agents";selectedAgent=Math.max(0,Math.min(Number(saved.selectedAgent)||0,Math.max(0,project.agents.length-1)));selectedModule=Math.max(0,Math.min(Number(saved.selectedModule)||0,Math.max(0,project.modules.length-1)));tutorialActive=Boolean(saved.tutorial?.active);tutorialStep=Math.max(0,Math.min(Number(saved.tutorial?.step)||0,tutorialSteps.length-1));resetReferencedNames();return true;}catch(error){console.warn("Saved project could not be restored.",error);return false;}
+  };
+  const save = () => {persistProject();invalidateBuild();};
   const invalidateBuild = () => {Object.keys(successfulRunsByTarget).forEach((target)=>{successfulRunsByTarget[target]=false;});if(!Object.values(buildsByTarget).some(Boolean)||buildBusy){refreshFrameworkControls();refreshStepLinks();return;}Object.keys(buildsByTarget).forEach((target)=>{buildsByTarget[target]=null;setFrameworkStatus(target,"","Project changed · regenerate code");});lastBuild=null;document.getElementById("buildOutputCard").hidden=true;refreshFrameworkControls();refreshStepLinks();};
   const scheduleSave = () => { invalidateBuild();clearTimeout(saveTimer); saveTimer = setTimeout(save, 180); };
   const toast = (message) => {
@@ -179,17 +220,21 @@
 
   const loadGearVersion = async () => {
     const gear=document.getElementById("gearVersion");const studio=document.getElementById("studioVersion");
-    try{const response=await fetch("/api/version");if(!response.ok)throw new Error("Version unavailable");const payload=await response.json();gear.textContent=`v${payload.version}`;studio.textContent=`v${payload.studio_version||payload.version}`;}
-    catch(error){gear.textContent="unavailable";studio.textContent="unavailable";}
+    try{const response=await fetch("/api/version");if(!response.ok)throw new Error("Version unavailable");const payload=await response.json();gear.textContent=`v${payload.version}`;studio.textContent=`v${payload.studio_version||payload.version}`;return String(payload.studio_revision||payload.studio_version||payload.version);}
+    catch(error){gear.textContent="unavailable";studio.textContent="unavailable";return "unavailable";}
+  };
+  const shouldPresentProjectLauncher = (revision) => {
+    if(experimentActive)return false;
+    try{const previous=window.localStorage.getItem(LAUNCHER_REVISION_KEY);window.localStorage.setItem(LAUNCHER_REVISION_KEY,String(revision));return previous!==String(revision);}catch(error){return true;}
   };
   const loadStudioConfig = async () => {
     try {
       const response=await fetch("/api/studio/config");if(!response.ok)throw new Error("Studio configuration unavailable");const config=(await response.json())?.model||{};
-      modelPolicy={locked:Boolean(config.locked),provider:String(config.provider||DEFAULT_MODEL_POLICY.provider).trim()||DEFAULT_MODEL_POLICY.provider,model:String(config.model||DEFAULT_MODEL_POLICY.model).trim()||DEFAULT_MODEL_POLICY.model};
-      modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};
+      const models=Array.isArray(config.models)?config.models.map(String).filter(Boolean):[...OPENAI_MINI_MODELS];modelPolicy={locked:Boolean(config.locked),provider:"openai",model:String(config.model||DEFAULT_MODEL_POLICY.model).trim()||DEFAULT_MODEL_POLICY.model,models};if(modelPolicy.locked&&!modelPolicy.models.includes(modelPolicy.model))modelPolicy.models.unshift(modelPolicy.model);
     } catch(error) {
-      modelPolicy={...DEFAULT_MODEL_POLICY};modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};console.warn("Studio model policy unavailable; model fields remain editable.",error);
+      modelPolicy={...DEFAULT_MODEL_POLICY,models:[...OPENAI_MINI_MODELS]};console.warn("Studio model policy unavailable; using the default OpenAI mini models.",error);
     }
+    setModelOptions("agentFieldModel",modelPolicy.model);setModelOptions("starterModel",modelPolicy.model);modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};
   };
   const hasProjectContent = () => Boolean(project.agents.length || project.modules.length || orderedWorkflowItems().length);
   const projectSlug = (value) => String(value||"project").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"project";
@@ -198,23 +243,55 @@
     const nodes=source.workflow.nodes;const nodesById=new Map(nodes.map((node)=>[String(node.id),node]));const sequence=nodes.map((node)=>({kind:node.type==="module"?"module":"agent",name:String(node.ref)}));const workflow={WorkflowName:source.workflow.name||"MainWorkflow",Memory:Boolean(source.workflow.memory),Items:{Agents:sequence.filter((item)=>item.kind==="agent").map((item)=>item.name),Modules:sequence.filter((item)=>item.kind==="module").map((item)=>item.name)},Edges:(source.workflow.edges||[]).map((edge)=>({From:String(nodesById.get(String(edge.from))?.ref||edge.from),To:String(nodesById.get(String(edge.to))?.ref||edge.to)}))};
     return {schema_version:"1.0",agents:source.agents.map((agent)=>dumpDocument({GearAgent:agent})),modules:(source.modules||[]).map((module)=>dumpDocument({GearModule:module})),workflows:[dumpDocument({GearMultiAgent:workflow})]};
   };
+  const createTutorialProject = (model) => stableProjectToStudio({
+    agents: [
+      {
+        AgentIdentity: { Name: "Writer", Purpose: "Create a clear first draft.", ContextDescription: "A concise writer working from the user request." },
+        LLMConfiguration: { Provider: "openai", Model: model },
+        TaskSpecification: { TaskName: "WriteDraft", TaskDescription: "Write a concise draft that answers the request.", ExpectedOutput: "A complete first draft." },
+      },
+      {
+        AgentIdentity: { Name: "Reviewer", Purpose: "Review and improve the draft.", ContextDescription: "A careful reviewer focused on clarity and correctness." },
+        LLMConfiguration: { Provider: "openai", Model: model },
+        TaskSpecification: { TaskName: "ReviewDraft", TaskDescription: "Review the draft and return a corrected version.", ExpectedOutput: "A corrected final draft." },
+      },
+    ],
+    modules: [{ ModuleName: "DraftReviewLoop", Strategy: { Loop: { TurnCount: 2, LoopAgents: ["Writer", "Reviewer"] } } }],
+    workflow: { name: "TutorialWorkflow", memory: false, nodes: [{ id: "draft-review", ref: "DraftReviewLoop", type: "module" }], edges: [] },
+  });
+  const tutorialWasSeen = () => {
+    if(experimentActive)return true;try{return window.localStorage.getItem(TUTORIAL_STORAGE_KEY)==="true";}catch(error){return false;}
+  };
+  const rememberTutorial = () => {
+    if(experimentActive)return;try{window.localStorage.setItem(TUTORIAL_STORAGE_KEY,"true");}catch(error){console.warn("Tutorial preference could not be saved.",error);}
+  };
+  const renderTutorialGuide = () => {
+    const guide=document.getElementById("tutorialGuide");guide.hidden=!tutorialActive;document.body.classList.toggle("tutorial-is-active",tutorialActive);if(!tutorialActive)return;
+    const visibleStep=tutorialSteps.findIndex((item)=>item.step===currentStep);if(visibleStep>=0)tutorialStep=visibleStep;const item=tutorialSteps[tutorialStep];document.getElementById("tutorialProgress").textContent=`Step ${tutorialStep+1} of ${tutorialSteps.length}`;document.getElementById("tutorialTitle").textContent=item.title;document.getElementById("tutorialMessage").textContent=item.message;document.getElementById("tutorialProgressBar").style.width=`${((tutorialStep+1)/tutorialSteps.length)*100}%`;document.getElementById("previousTutorialStep").disabled=tutorialStep===0;document.getElementById("nextTutorialStep").textContent=tutorialStep===tutorialSteps.length-1?"Finish tutorial":"Continue";
+  };
+  const showTutorialStep = (index) => {
+    tutorialStep=Math.max(0,Math.min(tutorialSteps.length-1,index));currentStep=tutorialSteps[tutorialStep].step;persistProject();render();window.scrollTo({top:0,behavior:"smooth"});
+  };
+  const finishTutorial = (completed) => {
+    tutorialActive=false;rememberTutorial();persistProject();if(document.querySelector('.starter-card[data-template="minimal"]'))selectStarterTemplate("minimal");renderTutorialGuide();toast(completed?"Tutorial completed. Keep editing this project or start your own.":"Tutorial closed. You can restart it from the header.");
+  };
   const updateModelDefaultsFromProject = () => {
-    if(modelPolicy.locked){modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};return;}const first=project.agents.length?agentData(project.agents[0]):null;modelDefaults={provider:String(first?.LLMConfiguration?.Provider||modelDefaults.provider),model:String(first?.LLMConfiguration?.Model||modelDefaults.model)};
+    if(modelPolicy.locked){modelDefaults={provider:"openai",model:modelPolicy.model};return;}const first=project.agents.length?agentData(project.agents[0]):null;const candidate=String(first?.LLMConfiguration?.Model||"");modelDefaults={provider:"openai",model:modelPolicy.models.includes(candidate)?candidate:modelPolicy.model};
   };
   const selectStarterTemplate = (templateId) => {
-    selectedStarterTemplate=templateId;document.querySelectorAll(".starter-card").forEach((card)=>{const selected=card.dataset.template===templateId;card.classList.toggle("is-selected",selected);card.setAttribute("aria-pressed",String(selected));});
+    selectedStarterTemplate=templateId;document.querySelectorAll(".starter-card").forEach((card)=>{const selected=card.dataset.template===templateId;card.classList.toggle("is-selected",selected);card.setAttribute("aria-pressed",String(selected));});document.getElementById("createStarterProject").textContent=templateId==="tutorial"?"Start tutorial":"Create project";
   };
   const renderStarterTemplates = () => {
-    const grid=document.getElementById("starterTemplateGrid");grid.replaceChildren();const values=[{id:"blank",name:"Blank project",description:"Start with an empty workflow.",agents:0,modules:0},...starterTemplates];values.forEach((template)=>{const card=document.createElement("button");card.type="button";card.className="starter-card";card.dataset.template=template.id;card.setAttribute("aria-pressed","false");card.innerHTML='<span class="starter-card-icon"></span><span><strong></strong><small></small><em></em></span>';card.querySelector(".starter-card-icon").textContent=template.id==="blank"?"＋":String(template.agents);card.querySelector("strong").textContent=template.name;card.querySelector("small").textContent=template.description;card.querySelector("em").textContent=`${template.agents} agent${template.agents===1?"":"s"} · ${template.modules} module${template.modules===1?"":"s"}`;card.addEventListener("click",()=>selectStarterTemplate(template.id));grid.appendChild(card);});selectStarterTemplate(selectedStarterTemplate);
+    const grid=document.getElementById("starterTemplateGrid");grid.replaceChildren();const tutorialTemplates=experimentActive?[]:[{id:"tutorial",name:"Guided tutorial",description:"Learn the Studio with a ready-to-use project.",agents:2,modules:1}];const values=[...tutorialTemplates,{id:"blank",name:"Blank project",description:"Start with an empty workflow.",agents:0,modules:0},...starterTemplates];values.forEach((template)=>{const card=document.createElement("button");card.type="button";card.className="starter-card";card.dataset.template=template.id;card.setAttribute("aria-pressed","false");card.innerHTML='<span class="starter-card-icon"></span><span><strong></strong><small></small><em></em></span>';card.querySelector(".starter-card-icon").textContent=template.id==="tutorial"?"?":template.id==="blank"?"＋":String(template.agents);card.querySelector("strong").textContent=template.name;card.querySelector("small").textContent=template.description;card.querySelector("em").textContent=template.id==="tutorial"?"5 guided steps":`${template.agents} agent${template.agents===1?"":"s"} · ${template.modules} module${template.modules===1?"":"s"}`;card.addEventListener("click",()=>selectStarterTemplate(template.id));grid.appendChild(card);});selectStarterTemplate(selectedStarterTemplate);
   };
   const loadStarterTemplates = async () => {
-    try{const response=await fetch("/api/studio/templates");if(!response.ok)throw new Error("Starter projects unavailable");starterTemplates=(await response.json()).templates||[];}catch(error){starterTemplates=[{id:"minimal",name:"Minimal",description:"One general-purpose agent.",agents:1,modules:0}];console.warn(error);}renderStarterTemplates();
+    try{const response=await fetch("/api/studio/templates");if(!response.ok)throw new Error("Starter projects unavailable");starterTemplates=(await response.json()).templates||[];}catch(error){starterTemplates=[{id:"minimal",name:"Minimal",description:"One general-purpose agent.",agents:1,modules:0}];console.warn(error);}if(!tutorialWasSeen())selectedStarterTemplate="tutorial";renderStarterTemplates();
   };
   const openProjectLauncher = () => {
-    const launcher=document.getElementById("projectLauncher");const resumable=hasProjectContent();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=document.getElementById("starterProvider");const model=document.getElementById("starterModel");provider.value=modelPolicy.locked?modelPolicy.provider:modelDefaults.provider;model.value=modelPolicy.locked?modelPolicy.model:modelDefaults.model;provider.disabled=modelPolicy.locked;model.disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`Locked by .env · ${modelPolicy.provider}/${modelPolicy.model}`:"Editable for this project";document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
+    const launcher=document.getElementById("projectLauncher");const resumable=hasProjectContent();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=document.getElementById("starterProvider");const model=document.getElementById("starterModel");provider.value="openai";provider.disabled=true;setModelOptions("starterModel",modelPolicy.locked?modelPolicy.model:modelDefaults.model);model.disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`OpenAI model locked by .env · ${modelPolicy.model}`:"OpenAI provider · select a mini model";document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
   };
   const createStarterProject = async () => {
-    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}if(hasProjectContent()&&!confirm("Replace the current in-memory project? Export it first if you want to keep a copy."))return;const provider=modelPolicy.locked?modelPolicy.provider:document.getElementById("starterProvider").value;const model=modelPolicy.locked?modelPolicy.model:document.getElementById("starterModel").value.trim();if(!provider||!model){toast("Select a provider and model.");return;}try{if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),provider,model});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}modelDefaults={provider,model};selectedAgent=0;selectedModule=0;currentStep="agents";document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(`${name} created.`);}catch(error){toast(error.message);}
+    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}if(hasProjectContent()&&!confirm("Replace the current in-memory project? Export it first if you want to keep a copy."))return;const provider="openai";const model=modelPolicy.locked?modelPolicy.model:document.getElementById("starterModel").value;if(!modelPolicy.models.includes(model)){toast("Select an available OpenAI mini model.");return;}const startingTutorial=selectedStarterTemplate==="tutorial";try{if(startingTutorial)project=createTutorialProject(model);else if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),model});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}resetReferencedNames();modelDefaults={provider,model};selectedAgent=0;selectedModule=0;currentStep="agents";tutorialActive=startingTutorial;tutorialStep=0;document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(startingTutorial?"Tutorial ready. Follow the guide to explore the Studio.":`${name} created.`);}catch(error){toast(error.message);}
   };
   const loadExperimentContext = async () => {
     if(!experimentActive)return;
@@ -248,7 +325,7 @@
       if(payload.submission){
         const imported=JSON.parse(payload.submission);
         if(!imported||!Array.isArray(imported.agents))throw new Error("The saved Gear project is invalid.");
-        project={schema_version:imported.schema_version||"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]};
+        project={schema_version:imported.schema_version||"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]};resetReferencedNames();
         selectedAgent=0;selectedModule=0;currentStep="agents";
         toast(`Previous ${frameworkLabel(payload.source_framework)} solution loaded for translation.`);
       }
@@ -278,13 +355,15 @@
     project.agents.forEach((text,index)=>{
       const parsed=parse(text);const data=agentData(text);parsedAgents.push(data);const area=agentName(text,index);const base={area,step:"agents",entityKind:"agent",entityIndex:index};
       if(parsed.error){syntaxValid=false;add({...base,severity:"error",code:"GEAR-AGENT-YAML",path:`agents[${index}]`,message:parsed.error,view:"yaml"});return;}
-      if(!String(data?.AgentIdentity?.Name||"").trim())add({...base,code:"GEAR-AGENT-NAME",path:`agents[${index}].AgentIdentity.Name`,message:"Agent name is required.",fieldId:"agentFieldName"});
+      const declaredName=String(data?.AgentIdentity?.Name||"").trim();if(!declaredName)add({...base,code:"GEAR-AGENT-NAME",path:`agents[${index}].AgentIdentity.Name`,message:"Agent name is required.",fieldId:"agentFieldName"});else if(/\s/.test(declaredName))add({...base,code:"GEAR-AGENT-NAME-WHITESPACE",path:`agents[${index}].AgentIdentity.Name`,message:"Agent names cannot contain spaces.",fieldId:"agentFieldName"});
       if(!String(data?.AgentIdentity?.Purpose||"").trim())add({...base,code:"GEAR-AGENT-PURPOSE",path:`agents[${index}].AgentIdentity.Purpose`,message:"Agent purpose is required.",fieldId:"agentFieldPurpose"});
       if(!String(data?.AgentIdentity?.ContextDescription||"").trim())add({...base,code:"GEAR-AGENT-CONTEXT",path:`agents[${index}].AgentIdentity.ContextDescription`,message:"Agent context is required.",fieldId:"agentFieldContext"});
       const provider=String(data?.LLMConfiguration?.Provider||"").trim();const model=String(data?.LLMConfiguration?.Model||"").trim();
       if(!provider)add({...base,code:"GEAR-AGENT-PROVIDER",path:`agents[${index}].LLMConfiguration.Provider`,message:"Model provider is required.",fieldId:"agentFieldProvider"});
+      else if(provider!=="openai")add({...base,code:"GEAR-AGENT-PROVIDER-POLICY",path:`agents[${index}].LLMConfiguration.Provider`,message:"The Studio provider is fixed to OpenAI.",fieldId:"agentFieldProvider"});
       if(!model)add({...base,code:"GEAR-AGENT-MODEL",path:`agents[${index}].LLMConfiguration.Model`,message:"Model name is required.",fieldId:"agentFieldModel"});
-      if(modelPolicy.locked&&(provider!==modelPolicy.provider||model!==modelPolicy.model))add({...base,code:"GEAR-AGENT-MODEL-POLICY",path:`agents[${index}].LLMConfiguration.Model`,message:`The server locks agents to ${modelPolicy.provider}/${modelPolicy.model}.`,fieldId:"agentFieldModel"});
+      else if(!modelPolicy.models.includes(model))add({...base,code:"GEAR-AGENT-MODEL-CHOICE",path:`agents[${index}].LLMConfiguration.Model`,message:"Select an available OpenAI mini model.",fieldId:"agentFieldModel"});
+      if(modelPolicy.locked&&model!==modelPolicy.model)add({...base,code:"GEAR-AGENT-MODEL-POLICY",path:`agents[${index}].LLMConfiguration.Model`,message:`The server locks agents to openai/${modelPolicy.model}.`,fieldId:"agentFieldModel"});
       if(!String(data?.TaskSpecification?.TaskName||"").trim())add({...base,code:"GEAR-AGENT-TASK-NAME",path:`agents[${index}].TaskSpecification.TaskName`,message:"Task name is required.",fieldId:"agentFieldTaskName"});
       if(!String(data?.TaskSpecification?.TaskDescription||"").trim())add({...base,code:"GEAR-AGENT-TASK-DESCRIPTION",path:`agents[${index}].TaskSpecification.TaskDescription`,message:"Task instruction is required.",fieldId:"agentFieldTaskDescription"});
       if(!String(data?.TaskSpecification?.ExpectedOutput||"").trim())add({...base,code:"GEAR-AGENT-EXPECTED-OUTPUT",path:`agents[${index}].TaskSpecification.ExpectedOutput`,message:"Expected output is required.",fieldId:"agentFieldExpectedOutput"});
@@ -294,16 +373,16 @@
     project.modules.forEach((text,index)=>{
       const parsed=parse(text);const data=moduleData(text);parsedModules.push(data);const area=moduleName(text,index);const base={area,step:"modules",entityKind:"module",entityIndex:index};
       if(parsed.error){syntaxValid=false;add({...base,code:"GEAR-MODULE-YAML",path:`modules[${index}]`,message:parsed.error,view:"yaml"});return;}
-      if(!String(data?.ModuleName||"").trim())add({...base,code:"GEAR-MODULE-NAME",path:`modules[${index}].ModuleName`,message:"Module name is required.",fieldId:"moduleFieldName"});
+      const declaredName=String(data?.ModuleName||"").trim();if(!declaredName)add({...base,code:"GEAR-MODULE-NAME",path:`modules[${index}].ModuleName`,message:"Module name is required.",fieldId:"moduleFieldName"});else if(/\s/.test(declaredName))add({...base,code:"GEAR-MODULE-NAME-WHITESPACE",path:`modules[${index}].ModuleName`,message:"Module names cannot contain spaces.",fieldId:"moduleFieldName"});
       const hasParallel=Boolean(data?.Strategy?.Parallel);const hasLoop=Boolean(data?.Strategy?.Loop);
       if(hasParallel===hasLoop)add({...base,code:"GEAR-MODULE-STRATEGY",path:`modules[${index}].Strategy`,message:hasParallel?"A module cannot use Parallel and Loop at the same time.":"Select a Parallel or Loop strategy.",fieldId:"moduleStrategyParallel"});
       const participants=hasParallel?data.Strategy.Parallel.ParallelAgents:hasLoop?data.Strategy.Loop.LoopAgents:[];const participantList=Array.isArray(participants)?participants:[];
       if((hasParallel||hasLoop)&&!participantList.length)add({...base,code:"GEAR-MODULE-EMPTY",path:`modules[${index}].Strategy`,message:"Select at least one participating agent.",fieldId:"moduleAgentPicker"});
       participantList.filter((name)=>!agents.includes(name)).forEach((name)=>add({...base,code:"GEAR-MODULE-UNKNOWN-AGENT",path:`modules[${index}].Strategy`,message:`Agent “${name}” does not exist in the project.`,fieldId:"moduleAgentPicker"}));
-      if(hasLoop){const count=Number(data.Strategy.Loop.TurnCount);if(!Number.isInteger(count)||count<1)add({...base,code:"GEAR-MODULE-TURN-COUNT",path:`modules[${index}].Strategy.Loop.TurnCount`,message:"Iteration count must be an integer greater than or equal to 1.",fieldId:"moduleFieldTurnCount"});if(!String(data.Strategy.Loop.StopCondition||"").trim())add({...base,code:"GEAR-MODULE-STOP-CONDITION",path:`modules[${index}].Strategy.Loop.StopCondition`,message:"Loop stop condition is required.",fieldId:"moduleFieldStopCondition"});}
+      if(hasLoop){const count=Number(data.Strategy.Loop.TurnCount);if(!Number.isInteger(count)||count<1)add({...base,code:"GEAR-MODULE-TURN-COUNT",path:`modules[${index}].Strategy.Loop.TurnCount`,message:"Iteration count must be an integer greater than or equal to 1.",fieldId:"moduleFieldTurnCount"});}
     });
     const duplicates=(values,kind,step)=>values.forEach((value,index)=>{if(value&&values.indexOf(value)!==index)add({severity:"error",area:value,code:`GEAR-${kind.toUpperCase()}-DUPLICATE`,path:`${kind}s[${index}]`,message:`Identifier “${value}” is used more than once.`,step,entityKind:kind,entityIndex:index});});duplicates(agents,"agent","agents");duplicates(modules,"module","modules");
-    if(!workflowParsed.error){if(!String(workflow?.WorkflowName||"").trim())add({severity:"warning",area:"Workflow",code:"GEAR-WORKFLOW-NAME",path:"workflow.WorkflowName",message:"Add a workflow name.",step:"workflow",view:"yaml"});refsAgents.filter((name)=>!agents.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-AGENT",path:"workflow.Items.Agents",message:`Agent “${name}” does not exist in the project.`,step:"workflow"}));refsModules.filter((name)=>!modules.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-MODULE",path:"workflow.Items.Modules",message:`Module “${name}” does not exist in the project.`,step:"workflow"}));if(!refsAgents.length&&!refsModules.length)add({severity:"error",area:"Workflow",code:"GEAR-WORKFLOW-EMPTY",path:"workflow.Items",message:"Add at least one agent or module to the workflow.",step:"workflow"});}
+    if(!workflowParsed.error){const workflowName=String(workflow?.WorkflowName||"").trim();if(!workflowName)add({severity:"warning",area:"Workflow",code:"GEAR-WORKFLOW-NAME",path:"workflow.WorkflowName",message:"Add a workflow name.",step:"workflow",view:"yaml"});else if(/\s/.test(workflowName))add({area:"Workflow",code:"GEAR-WORKFLOW-NAME-WHITESPACE",path:"workflow.WorkflowName",message:"Workflow names cannot contain spaces.",step:"workflow",view:"yaml"});refsAgents.filter((name)=>!agents.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-AGENT",path:"workflow.Items.Agents",message:`Agent “${name}” does not exist in the project.`,step:"workflow"}));refsModules.filter((name)=>!modules.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-MODULE",path:"workflow.Items.Modules",message:`Module “${name}” does not exist in the project.`,step:"workflow"}));if(!refsAgents.length&&!refsModules.length)add({severity:"error",area:"Workflow",code:"GEAR-WORKFLOW-EMPTY",path:"workflow.Items",message:"Add at least one agent or module to the workflow.",step:"workflow"});}
     if(syntaxValid&&window.GearConversionCore?.buildGearIR){const ir=window.GearConversionCore.buildGearIR({gearAgents:parsedAgents,gearModules:parsedModules,workflowYaml:workflow});const supported=new Set(["GEAR-WORKFLOW-CYCLE","GEAR-WORKFLOW-UNKNOWN-EDGE","GEAR-WORKFLOW-AMBIGUOUS-EDGE","GEAR-WORKFLOW-DEFAULT-ORDER","GEAR-MODULE-UNKNOWN-AGGREGATOR"]);ir.diagnostics.filter((item)=>supported.has(item.code)).forEach((item)=>{const messages={"GEAR-WORKFLOW-CYCLE":"The workflow contains a cycle outside a Loop module.","GEAR-WORKFLOW-UNKNOWN-EDGE":"A workflow edge references an unknown step.","GEAR-WORKFLOW-AMBIGUOUS-EDGE":"A workflow edge is ambiguous; use a unique step identifier.","GEAR-WORKFLOW-DEFAULT-ORDER":"No explicit edges: the displayed order will run sequentially.","GEAR-MODULE-UNKNOWN-AGGREGATOR":"A module references an unknown aggregator agent."};add({severity:item.severity,area:item.code.startsWith("GEAR-MODULE")?"Modules":"Workflow",code:item.code,path:item.path,message:messages[item.code]||item.message,step:item.code.startsWith("GEAR-MODULE")?"modules":"workflow",view:"yaml"});});}
     refsModules.filter((name)=>modules.includes(name)).forEach((name)=>add({severity:"warning",area:name,code:"GEAR-CREWAI-MODULE-ADAPTATION",path:"workflow.Items.Modules",message:"CrewAI will adapt this module; parallel or loop semantics may be partially lost.",step:"build",target:"crewai"}));
     return issues;
@@ -356,8 +435,8 @@
     const select = () => { if (kind === "agent") selectedAgent=index; else selectedModule=index; render(); };
     card.addEventListener("click", select); card.addEventListener("keydown", (event) => { if(event.key === "Enter") select(); });
     const [duplicate, remove] = card.querySelectorAll("button");
-    duplicate.addEventListener("click", (event) => { event.stopPropagation(); project[`${kind}s`].splice(index+1,0,text); kind === "agent" ? selectedAgent=index+1 : selectedModule=index+1; save(); render(); });
-    remove.addEventListener("click", (event) => { event.stopPropagation(); if (!confirm(`Delete ${name}?`)) return; project[`${kind}s`].splice(index,1); kind === "agent" ? selectedAgent=Math.max(0,index-1) : selectedModule=Math.max(0,index-1); save(); render(); });
+    duplicate.addEventListener("click", (event) => { event.stopPropagation(); project[`${kind}s`].splice(index+1,0,text);lastReferencedNames[kind].splice(index+1,0,""); kind === "agent" ? selectedAgent=index+1 : selectedModule=index+1; save(); render(); });
+    remove.addEventListener("click", (event) => { event.stopPropagation(); if (!confirm(`Delete ${name}?`)) return; project[`${kind}s`].splice(index,1);lastReferencedNames[kind].splice(index,1); kind === "agent" ? selectedAgent=Math.max(0,index-1) : selectedModule=Math.max(0,index-1); save(); render(); });
     return card;
   };
 
@@ -459,23 +538,25 @@
   const render = () => {
     document.querySelectorAll("[data-step-panel]").forEach((panel)=>panel.classList.toggle("is-active",panel.dataset.stepPanel===currentStep));document.querySelectorAll("[data-step-link]").forEach((link)=>link.classList.toggle("is-active",link.dataset.stepLink===currentStep));
     renderEntities("agent");renderEntities("module");renderWorkflow();const issues=renderValidation();renderHealth(issues);if(currentStep==="build")renderHistory();
-    const index=steps.indexOf(currentStep);const blocked=issues.some((issue)=>issue.severity==="error");const currentBlockers=blockingIssuesForStep(currentStep);const next=document.getElementById("nextStep");
-    if(index===steps.length-1){
-      if(experimentActive&&!buildsByTarget[experimentFramework])next.textContent=`Generate ${frameworkLabel(experimentFramework)} code`;
-      else if(experimentActive&&!successfulRunsByTarget[experimentFramework])next.textContent=`Run ${frameworkLabel(experimentFramework)} workflow`;
-      else next.textContent=experimentActive?"Ready to finish":`View ${frameworkLabel(buildTarget)} code`;
+    const index=steps.indexOf(currentStep);const lastStep=index===steps.length-1;const currentBlockers=blockingIssuesForStep(currentStep);const next=document.getElementById("nextStep");
+    next.hidden=lastStep&&!experimentActive;
+    if(lastStep&&experimentActive){
+      if(!buildsByTarget[experimentFramework])next.textContent=`Generate ${frameworkLabel(experimentFramework)} code`;
+      else if(!successfulRunsByTarget[experimentFramework])next.textContent=`Run ${frameworkLabel(experimentFramework)} workflow`;
+      else next.textContent="Ready to finish";
     }else next.textContent="Next step →";
     next.disabled=experimentActive&&index===steps.length-1&&Boolean(successfulRunsByTarget[experimentFramework]);
     next.title=currentBlockers.length?currentBlockers[0].message:experimentActive&&index===steps.length-1&&successfulRunsByTarget[experimentFramework]?"Use Confirm & Finish to complete the task.":"";
+    renderTutorialGuide();
     refreshStepLinks();
-    const conversion=document.getElementById("buildConversion");conversion.classList.toggle("is-disabled",blocked);conversion.setAttribute("aria-disabled",String(blocked));conversion.title=blocked?"Fix blocking errors before conversion.":"";refreshFrameworkControls();
+    refreshFrameworkControls();
   };
 
-  document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{const access=canOpenStep(button.dataset.stepLink);if(!access.ready){toast(access.message);return;}currentStep=button.dataset.stepLink;render();window.scrollTo({top:0,behavior:"smooth"});}));
-  document.querySelectorAll("[data-add]").forEach((button)=>button.addEventListener("click",()=>{const kind=button.dataset.add;const values=project[`${kind}s`];values.push(kind==="agent"?defaultAgent(values.length+1):defaultModule(values.length+1));kind==="agent"?selectedAgent=values.length-1:selectedModule=values.length-1;save();render();}));
+  document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{const access=canOpenStep(button.dataset.stepLink);if(!access.ready){toast(access.message);return;}currentStep=button.dataset.stepLink;persistProject();render();window.scrollTo({top:0,behavior:"smooth"});}));
+  document.querySelectorAll("[data-add]").forEach((button)=>button.addEventListener("click",()=>{const kind=button.dataset.add;const values=project[`${kind}s`];const text=kind==="agent"?defaultAgent(values.length+1):defaultModule(values.length+1);values.push(text);lastReferencedNames[kind].push(declaredEntityName(kind,text));kind==="agent"?selectedAgent=values.length-1:selectedModule=values.length-1;save();render();}));
   document.querySelectorAll("[data-entity-view]").forEach((button)=>button.addEventListener("click",()=>setEntityView(button.dataset.kind,button.dataset.entityView)));
   document.getElementById("agentForm").addEventListener("input",updateAgentFromForm);document.getElementById("moduleForm").addEventListener("input",updateModuleFromForm);
-  ["agent","module"].forEach((kind)=>document.getElementById(`${kind}Editor`).addEventListener("input",(event)=>{const index=kind==="agent"?selectedAgent:selectedModule;project[`${kind}s`][index]=event.target.value;const parsed=parse(event.target.value);document.getElementById(`${kind}EditorError`).textContent=parsed.error || "";updateLineNumbers(kind,event.target.value);const name=kind==="agent"?agentName(event.target.value,index):moduleName(event.target.value,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected)selected.querySelector("strong").textContent=name;if(kind==="agent")populateAgentForm(event.target.value,true);else populateModuleForm(event.target.value,true);scheduleSave();renderHealth(validation());}));
+  ["agent","module"].forEach((kind)=>document.getElementById(`${kind}Editor`).addEventListener("input",(event)=>{const index=kind==="agent"?selectedAgent:selectedModule;project[`${kind}s`][index]=event.target.value;const parsed=parse(event.target.value);if(!parsed.error)propagateEntityRename(kind,index,declaredEntityName(kind,event.target.value));document.getElementById(`${kind}EditorError`).textContent=parsed.error || "";updateLineNumbers(kind,event.target.value);const name=kind==="agent"?agentName(event.target.value,index):moduleName(event.target.value,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected)selected.querySelector("strong").textContent=name;if(kind==="agent")populateAgentForm(event.target.value,true);else populateModuleForm(event.target.value,true);scheduleSave();renderHealth(validation());}));
   document.getElementById("workflowEditor").addEventListener("input",(event)=>{project.workflows[0]=event.target.value;document.getElementById("workflowEditorError").textContent=parse(event.target.value).error || "";updateLineNumbers("workflow",event.target.value);scheduleSave();renderWorkflow();renderHealth(validation());});
   ["agent","module","workflow"].forEach((kind)=>{const editor=document.getElementById(`${kind}Editor`);const lines=document.getElementById(`${kind}LineNumbers`);editor.addEventListener("scroll",()=>{lines.scrollTop=editor.scrollTop;});editor.addEventListener("keydown",(event)=>{if(event.key!=="Tab")return;event.preventDefault();const start=editor.selectionStart;editor.setRangeText("  ",start,editor.selectionEnd,"end");editor.dispatchEvent(new Event("input",{bubbles:true}));});});
   document.querySelectorAll("[data-validation-severity]").forEach((button)=>button.addEventListener("click",()=>{validationSeverity=button.dataset.validationSeverity;renderValidation();}));document.getElementById("validationTarget").addEventListener("change",(event)=>{validationTarget=event.target.value;renderValidation();});document.getElementById("refreshStudioHistory").addEventListener("click",renderHistory);
@@ -484,13 +565,17 @@
   document.querySelectorAll("[data-build-output]").forEach((button)=>button.addEventListener("click",()=>setBuildOutput(button.dataset.buildOutput)));document.getElementById("copyArtifact").addEventListener("click",async()=>{const value=lastBuild?.outputs?.orchestration;if(typeof value!=="string")return;await navigator.clipboard.writeText(value);toast("Python code copied.");});document.getElementById("runExecution").addEventListener("click",()=>runStudioBuild(buildTarget));document.getElementById("clearExecutionConsole").addEventListener("click",()=>{document.querySelector("#executionConsole code").textContent="Console cleared.";document.getElementById("executionConsole").classList.remove("has-error");document.getElementById("executionMeta").textContent="No output displayed.";});document.getElementById("closeBuildOutput").addEventListener("click",()=>{document.getElementById("buildOutputCard").hidden=true;});document.getElementById("toggleStudioHistory").addEventListener("click",(event)=>{const content=document.getElementById("studioHistoryContent");const expanded=content.hidden;content.hidden=!expanded;event.currentTarget.setAttribute("aria-expanded",String(expanded));event.currentTarget.lastElementChild.textContent=expanded?"Hide":"Show";if(expanded)renderHistory();});
   document.getElementById("openValidation").addEventListener("click",()=>{currentStep="validation";render();});
   document.getElementById("toggleWorkflowSource").addEventListener("click",(event)=>{const grid=document.querySelector(".workflow-grid");const hidden=grid.classList.toggle("source-hidden");event.currentTarget.textContent=hidden?"Show YAML":"Hide YAML";event.currentTarget.setAttribute("aria-expanded",String(!hidden));});
-  document.getElementById("nextStep").addEventListener("click",async()=>{const index=steps.indexOf(currentStep);const requirement=stepRequirement(currentStep);if(index===steps.length-1){const errors=blockingIssuesForStep("build");if(errors.length){toast("Fix blocking errors before building.");return;}if(experimentActive){if(!buildsByTarget[experimentFramework]){selectFramework(experimentFramework);await createStudioBuild(experimentFramework);return;}if(!successfulRunsByTarget[experimentFramework]){selectFramework(experimentFramework);await runStudioBuild(experimentFramework);return;}toast("The workflow is ready. Use Confirm & Finish to complete the task.");return;}createStudioBuild();return;}if(!requirement.ready){toast(requirement.message);return;}currentStep=steps[index+1];render();window.scrollTo({top:0,behavior:"smooth"});});
-  document.getElementById("buildConversion").addEventListener("click",(event)=>{if(validation().some((issue)=>issue.severity==="error")){event.preventDefault();toast("Fix blocking errors before conversion.");}});
+  document.getElementById("nextStep").addEventListener("click",async()=>{const index=steps.indexOf(currentStep);const requirement=stepRequirement(currentStep);if(index===steps.length-1){const errors=blockingIssuesForStep("build");if(errors.length){toast("Fix blocking errors before building.");return;}if(experimentActive){if(!buildsByTarget[experimentFramework]){selectFramework(experimentFramework);await createStudioBuild(experimentFramework);return;}if(!successfulRunsByTarget[experimentFramework]){selectFramework(experimentFramework);await runStudioBuild(experimentFramework);return;}toast("The workflow is ready. Use Confirm & Finish to complete the task.");return;}createStudioBuild();return;}if(!requirement.ready){toast(requirement.message);return;}currentStep=steps[index+1];persistProject();render();window.scrollTo({top:0,behavior:"smooth"});});
   document.getElementById("projectName").addEventListener("input",scheduleSave);
+  document.getElementById("tutorialButton").addEventListener("click",()=>{openProjectLauncher();selectStarterTemplate("tutorial");});
+  document.getElementById("exitTutorial").addEventListener("click",()=>finishTutorial(false));
+  document.getElementById("previousTutorialStep").addEventListener("click",()=>showTutorialStep(tutorialStep-1));
+  document.getElementById("nextTutorialStep").addEventListener("click",()=>{if(tutorialStep===tutorialSteps.length-1)finishTutorial(true);else showTutorialStep(tutorialStep+1);});
   document.getElementById("exportButton").addEventListener("click",()=>{save();const payload={...project,project:{name:document.getElementById("projectName").value}};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="gear-studio-project.gear.json";link.click();URL.revokeObjectURL(url);toast("Project exported.");});
-  document.getElementById("importButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("importProject").addEventListener("change",async(event)=>{const file=event.target.files?.[0];if(!file)return;if(hasProjectContent()&&!confirm("Replace the current in-memory project with this import?")){event.target.value="";return;}try{const text=await file.text();let imported;try{imported=JSON.parse(text);}catch(error){imported=window.jsyaml.load(text);}if(!imported||!Array.isArray(imported.agents))throw new Error("Invalid project format");project=imported.agents.every((agent)=>typeof agent==="string")?{schema_version:"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]}:stableProjectToStudio(imported);document.getElementById("projectName").value=imported.project?.name||file.name.replace(/\.gear\.(yml|yaml|json)$/i,"");selectedAgent=0;selectedModule=0;currentStep="agents";updateModelDefaultsFromProject();save();render();if(document.getElementById("projectLauncher").open)document.getElementById("projectLauncher").close();toast("Project imported.");}catch(error){toast(error.message);}finally{event.target.value="";}});
-  document.getElementById("newProjectButton").addEventListener("click",openProjectLauncher);document.getElementById("closeProjectLauncher").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("continueCurrentProject").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("launcherImportButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("createStarterProject").addEventListener("click",createStarterProject);document.getElementById("starterProvider").addEventListener("change",(event)=>{if(PROVIDER_MODELS[event.target.value])document.getElementById("starterModel").value=PROVIDER_MODELS[event.target.value];});
+  document.getElementById("importButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("importProject").addEventListener("change",async(event)=>{const file=event.target.files?.[0];if(!file)return;if(hasProjectContent()&&!confirm("Replace the current in-memory project with this import?")){event.target.value="";return;}try{const text=await file.text();let imported;try{imported=JSON.parse(text);}catch(error){imported=window.jsyaml.load(text);}if(!imported||!Array.isArray(imported.agents))throw new Error("Invalid project format");project=imported.agents.every((agent)=>typeof agent==="string")?{schema_version:"1.0",agents:imported.agents,modules:imported.modules||[],workflows:imported.workflows||[defaultWorkflow]}:stableProjectToStudio(imported);resetReferencedNames();document.getElementById("projectName").value=imported.project?.name||file.name.replace(/\.gear\.(yml|yaml|json)$/i,"");selectedAgent=0;selectedModule=0;currentStep="agents";updateModelDefaultsFromProject();save();render();if(document.getElementById("projectLauncher").open)document.getElementById("projectLauncher").close();toast("Project imported.");}catch(error){toast(error.message);}finally{event.target.value="";}});
+  document.getElementById("newProjectButton").addEventListener("click",openProjectLauncher);document.getElementById("closeProjectLauncher").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("continueCurrentProject").addEventListener("click",()=>document.getElementById("projectLauncher").close());document.getElementById("launcherImportButton").addEventListener("click",()=>document.getElementById("importProject").click());document.getElementById("createStarterProject").addEventListener("click",createStarterProject);
+  window.addEventListener("beforeunload",persistProject);
 
-  const initialize=async()=>{await Promise.all([loadStudioConfig(),loadStarterTemplates()]);await loadExperimentContext();updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();loadGearVersion();if(!experimentActive)openProjectLauncher();};
+  const initialize=async()=>{document.getElementById("tutorialButton").hidden=experimentActive;const [, ,revision]=await Promise.all([loadStudioConfig(),loadStarterTemplates(),loadGearVersion()]);await loadExperimentContext();if(!experimentActive)restoreProject();updateModelDefaultsFromProject();render();renderBuildArtifacts();loadRunnerStatus();if(shouldPresentProjectLauncher(revision))openProjectLauncher();};
   initialize();
 })();

@@ -55,7 +55,7 @@ Create a ready-to-convert project non-interactively:
 
 ```bash
 gear init test_project --template research-team \
-  --provider openai --model gpt-5.1-codex-mini
+  --provider openai --model gpt-4o-mini
 gear validate test_project.gear.yml
 gear convert test_project.gear.yml --all-targets
 ```

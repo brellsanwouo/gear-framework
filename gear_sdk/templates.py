@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 
 DEFAULT_PROVIDER = "openai"
-DEFAULT_MODEL = "gpt-5.1-codex-mini"
+DEFAULT_MODEL = "gpt-4o-mini"
 
 PROVIDER_PRESETS: dict[str, str] = {
     "openai": DEFAULT_MODEL,

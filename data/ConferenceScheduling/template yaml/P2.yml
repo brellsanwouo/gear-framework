@@ -6,7 +6,7 @@ GearAgent:
       The conference runs from 09:00 to 12:00 in MainHall. The fixed order is Reliable AI Systems by Alice Martin, 40 minutes; Efficient Scientific Workflows by Bruno Lee, 40 minutes; Reproducible Experiments by Carla Diaz, 45 minutes; Open Research Data by David Kim, 30 minutes. A break occupies MainHall from 10:20 to 10:40. Carla Diaz is available from 10:40 onward; all other speakers are available throughout the conference. Report only these facts. Never formulate a problem to solve, propose a solution, build a schedule, or explain the role of another agent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ConferenceContextTask
     TaskDescription: State only the conference hours, room, ordered presentations, speakers, durations, break, and speaker availabilities.
@@ -19,7 +19,7 @@ GearAgent:
     ContextDescription: Builds a programme solely from the factual brief produced by ConferenceContextAgent.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: SchedulePlannerTask
     TaskDescription: >-
@@ -33,7 +33,7 @@ GearAgent:
     ContextDescription: Validates the proposed schedule against the factual brief.
   LLMConfiguration:
     Provider: openai
-    Model: gpt-5.1-codex-mini
+    Model: gpt-4o-mini
   TaskSpecification:
     TaskName: ScheduleValidatorTask
     TaskDescription: >-

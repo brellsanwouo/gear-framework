@@ -51,7 +51,6 @@ modules:
     Strategy:
       Loop:
         TurnCount: 3
-        StopCondition: The reviewer approves the draft.
         LoopAgents: [Writer, Reviewer]
 ```
 

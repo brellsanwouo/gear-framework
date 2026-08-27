@@ -26,16 +26,20 @@ def _load_studio_document(value, root_name: str) -> dict:
 
 def _studio_project(payload: dict, model_policy: dict | None = None) -> GearProject:
     agents = [_load_studio_document(value, "GearAgent") for value in payload.get("agents", [])]
-    if model_policy and model_policy.get("locked"):
-        provider = str(model_policy.get("provider") or "openai")
-        model = str(model_policy.get("model") or "").strip()
+    if model_policy:
+        provider = "openai"
+        locked_model = str(model_policy.get("model") or "").strip() if model_policy.get("locked") else ""
+        allowed_models = set(model_policy.get("models") or [])
         for agent in agents:
             configuration = agent.get("LLMConfiguration")
             if not isinstance(configuration, dict):
                 configuration = {}
                 agent["LLMConfiguration"] = configuration
             configuration["Provider"] = provider
-            configuration["Model"] = model
+            if locked_model:
+                configuration["Model"] = locked_model
+            elif allowed_models and str(configuration.get("Model") or "").strip() not in allowed_models:
+                raise ValueError("Every Studio agent must use an available OpenAI mini model.")
     modules = [_load_studio_document(value, "GearModule") for value in payload.get("modules", [])]
     workflow_source = payload.get("workflow")
     if workflow_source is None:
