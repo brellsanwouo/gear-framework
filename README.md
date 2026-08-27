@@ -32,7 +32,7 @@ pip install -e ".[execution]"
 gear serve
 ```
 
-Open <http://127.0.0.1:8200/>.
+Open <http://localhost:8200/>.
 
 The Studio uses OpenAI and defaults to `gpt-4o-mini`. It also offers `gpt-5.4-mini` and `gpt-4.1-mini`. Set `GEAR_STUDIO_MODEL` in `.env` to lock one model.
 
