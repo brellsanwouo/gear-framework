@@ -17,6 +17,7 @@ node_modules/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/.vitepress/.temp/
+docs/screenshots/
 
 # Ignore research artifacts
 research/

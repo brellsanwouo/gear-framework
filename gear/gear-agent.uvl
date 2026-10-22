@@ -52,8 +52,7 @@ features
 						CachingControl {abstract}
 
 constraints
-	openai => gpt_5_1_codex_mini
-	openai => APIKey
+	OtherProvider => OtherModel
 	ollama => BaseURL
 	ollama => OtherModel
 	ollama => !APIKey

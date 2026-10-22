@@ -13,6 +13,10 @@ from gear_sdk.project import GearProject, ProjectValidationError
 from gear_sdk.store import BuildStore
 from gear_sdk.conversion import CONNECTOR_DIR
 from .services.participants import current_participant
+from .services.studio_llm import validate_studio_llm
+from .services.studio_module import validate_studio_module
+from .services.studio_workflow import validate_studio_workflow
+from .services.studio_agent import validate_studio_agent
 
 
 def _load_studio_document(value, root_name: str) -> dict:
@@ -26,21 +30,22 @@ def _load_studio_document(value, root_name: str) -> dict:
 
 def _studio_project(payload: dict, model_policy: dict | None = None) -> GearProject:
     agents = [_load_studio_document(value, "GearAgent") for value in payload.get("agents", [])]
-    if model_policy:
-        provider = "openai"
-        locked_model = str(model_policy.get("model") or "").strip() if model_policy.get("locked") else ""
-        allowed_models = set(model_policy.get("models") or [])
-        for agent in agents:
-            configuration = agent.get("LLMConfiguration")
-            if not isinstance(configuration, dict):
-                configuration = {}
-                agent["LLMConfiguration"] = configuration
-            configuration["Provider"] = provider
-            if locked_model:
-                configuration["Model"] = locked_model
-            elif allowed_models and str(configuration.get("Model") or "").strip() not in allowed_models:
-                raise ValueError("Every Studio agent must use an available OpenAI mini model.")
+    locked_model = str(model_policy.get("model") or "").strip() if model_policy and model_policy.get("locked") else ""
+    for agent in agents:
+        configuration = agent.get("LLMConfiguration")
+        if not isinstance(configuration, dict):
+            configuration = {}
+            agent["LLMConfiguration"] = configuration
+        if locked_model:
+            configuration["Provider"] = str(model_policy.get("provider") or "openai")
+            configuration["Model"] = locked_model
+            configuration.pop("BaseURL", None)
+            configuration.pop("APIKey", None)
+        validate_studio_llm(configuration, model_policy or {})
+        validate_studio_agent(agent)
     modules = [_load_studio_document(value, "GearModule") for value in payload.get("modules", [])]
+    for module in modules:
+        validate_studio_module(module)
     workflow_source = payload.get("workflow")
     if workflow_source is None:
         workflows = payload.get("workflows", [])
@@ -48,6 +53,7 @@ def _studio_project(payload: dict, model_policy: dict | None = None) -> GearProj
     workflow = _load_studio_document(workflow_source, "GearMultiAgent")
     if "GearWorkflow" in workflow and isinstance(workflow["GearWorkflow"], dict):
         workflow = workflow["GearWorkflow"]
+    validate_studio_workflow(workflow)
 
     items = workflow.get("Items") if isinstance(workflow.get("Items"), dict) else {}
     requested_sequence = payload.get("workflow_sequence")

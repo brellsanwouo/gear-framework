@@ -34,7 +34,7 @@ gear serve
 
 Open <http://localhost:8200/>.
 
-The Studio uses OpenAI and defaults to `gpt-4o-mini`. It also offers `gpt-5.4-mini` and `gpt-4.1-mini`. Set `GEAR_STUDIO_MODEL` in `.env` to lock one model.
+The Studio defaults to OpenAI `gpt-4o-mini`. You can select Ollama or another provider and model for a project or agent; Ollama also requires a Base URL. OpenAI also offers `gpt-5.4-mini` and `gpt-4.1-mini`. Set `GEAR_STUDIO_MODEL` in `.env` to lock Studio agents to OpenAI and one model.
 
 ## CLI
 

@@ -60,13 +60,13 @@ Open `http://localhost:8200/`. The Studio is the only exposed editor; the former
 
 ### Configure the Studio model policy
 
-The provider is fixed to OpenAI. `gpt-4o-mini` is the default; users can also choose `gpt-5.4-mini` or `gpt-4.1-mini`. To enforce one model for every agent created, imported, or built through the Studio, copy `.env.example` to `.env` and set:
+The Studio defaults to OpenAI `gpt-4o-mini`, but users can enter another provider and model. For OpenAI, they can also choose `gpt-5.4-mini` or `gpt-4.1-mini`. To enforce OpenAI and one model for every agent created, imported, or built through the Studio, copy `.env.example` to `.env` and set:
 
 ```dotenv
 GEAR_STUDIO_MODEL=gpt-4o-mini
 ```
 
-Leave `GEAR_STUDIO_MODEL` empty to keep the supported model list selectable. Restart the Studio after changing `.env`. This policy applies to the Studio and its build endpoint; standalone YAML and CLI projects retain their own model configuration.
+Leave `GEAR_STUDIO_MODEL` empty to keep the provider editable and the supported OpenAI model list selectable. Ollama also requires a Base URL reachable from the Studio server and an installed model; hosted providers need credentials in the server environment to run. Restart the Studio after changing `.env`. This policy applies to the Studio and its build endpoint; standalone YAML and CLI projects retain their own model configuration.
 
 To allow trusted local projects to run:
 

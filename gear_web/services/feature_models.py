@@ -30,19 +30,26 @@ class FeatureModelService:
         except KeyError as error:
             raise ValueError("Unknown feature model type.") from error
 
-    def analyze(self, model_type: str, selected_features: list[str]) -> dict[str, Any]:
+    def analyze(self, model_type: str, selected_features: list[str], excluded_features: list[str] | None = None) -> dict[str, Any]:
         model_path = self.model_path(model_type)
         model = FLAMAFeatureModel(str(model_path))
         known = {feature.name for feature in model.fm_model.get_features()}
-        unknown = sorted(set(selected_features) - known)
+        excluded_features = excluded_features or []
+        selected = set(selected_features)
+        excluded = set(excluded_features)
+        unknown = sorted((selected | excluded) - known)
         if unknown:
             raise ValueError(f"Unknown features: {', '.join(unknown)}")
+        overlap = sorted(selected & excluded)
+        if overlap:
+            raise ValueError(f"Features cannot be both selected and excluded: {', '.join(overlap)}")
 
         model_text = model_path.read_text(encoding="utf-8").rstrip() + "\n"
-        if selected_features:
+        if selected or excluded:
             if "\nconstraints" not in model_text:
                 model_text += "\nconstraints\n"
-            model_text += "".join(f"\t{name}\n" for name in selected_features)
+            model_text += "".join(f"\t{name}\n" for name in sorted(selected))
+            model_text += "".join(f"\t!{name}\n" for name in sorted(excluded))
 
         temporary_path = ""
         try:
@@ -66,10 +73,10 @@ class FeatureModelService:
             raise ValueError("Unknown feature model type.") from error
         path = self.image_dir / metadata["image"]
         if not path.exists():
-            raise FileNotFoundError(f"Missing FeatureIDE image: {path.relative_to(self.base_dir)}")
+            raise FileNotFoundError(f"Missing feature model image: {path.relative_to(self.base_dir)}")
         return {
             "fm_type": model_type,
             "source": metadata["source"],
-            "renderer": "featureide-pregenerated-png",
+            "renderer": "graphviz-pregenerated-png",
             "image": f"/ui/assets/feature-models/{metadata['image']}?v={path.stat().st_mtime_ns}",
         }

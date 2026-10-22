@@ -47,6 +47,28 @@ def test_crewai_and_adk_generate_current_module_orchestration(tmp_path):
         assert 'if __name__ == "__main__":' in source
 
 
+def test_sdk_module_strategy_report_and_uvl_validation(tmp_path):
+    for choice, path in (
+        ("Parallel", "Strategy.Parallel.ParallelAgents"),
+        ("Loop", "Strategy.Loop.LoopAgents"),
+    ):
+        project = load_project(f"examples/{choice.lower()}-module.gear.yml")
+        build = convert(project, "crewai", tmp_path / choice)
+        assert build.report["valid"] is True
+        assert any(item["source"] == path and item["consumed"] for item in build.report["properties"])
+
+    project = deepcopy(load_project("examples/parallel-module.gear.yml").data)
+    module = project["modules"][0]
+    parallel = module["Strategy"]["Parallel"]
+    for strategy, state in (
+        ({}, "neither is present"),
+        ({"Parallel": parallel, "Loop": {"TurnCount": 2, "LoopAgents": parallel["ParallelAgents"]}}, "both are present"),
+    ):
+        module["Strategy"] = strategy
+        errors = validate_project(project)
+        assert any("GEAR-MODULE-STRATEGY" in error and state in error for error in errors)
+
+
 def test_cli_validate_and_convert(tmp_path):
     assert main(["validate", "examples/minimal.gear.yml"]) == 0
     assert (

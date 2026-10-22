@@ -142,15 +142,17 @@
     duplicateIds(modules, "module");
 
     const agentIds = new Set(agents.map((agent) => agent.id));
-    modules.forEach((module) => {
+    modules.forEach((module, index) => {
       const selected = requestedModuleRefs.has(module.id);
-      if (!module.strategy) {
+      const hasParallel = module.source?.Strategy?.Parallel !== null && typeof module.source?.Strategy?.Parallel === "object" && !Array.isArray(module.source.Strategy.Parallel);
+      const hasLoop = module.source?.Strategy?.Loop !== null && typeof module.source?.Strategy?.Loop === "object" && !Array.isArray(module.source.Strategy.Loop);
+      if (hasParallel === hasLoop) {
         diagnostics.push(
           diagnostic(
             "GEAR-MODULE-STRATEGY",
-            selected ? "error" : "warning",
-            `Module ${module.name} has no supported strategy${selected ? "" : " and was ignored because it is not used by the workflow"}.`,
-            module.name,
+            "error",
+            `UVL constraint Strategy (alternative): exactly one of Parallel or Loop is required; ${hasParallel ? "both are present" : "neither is present"} in module ${module.name}.`,
+            `modules[${index}].Strategy`,
           ),
         );
       }

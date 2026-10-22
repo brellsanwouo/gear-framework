@@ -49,7 +49,16 @@ def _format_schema_path(parts: Any) -> str:
 
 def _schema_errors(data: Any) -> list[str]:
     errors = sorted(_project_validator().iter_errors(data), key=lambda error: list(error.absolute_path))
-    return [f"{_format_schema_path(error.absolute_path)}: {error.message}" for error in errors]
+    output = []
+    for error in errors:
+        path = _format_schema_path(error.absolute_path)
+        if error.validator == "oneOf" and error.absolute_path and error.absolute_path[-1] == "Strategy" and isinstance(error.instance, dict):
+            both = "Parallel" in error.instance and "Loop" in error.instance
+            state = "both are present" if both else "neither is present"
+            output.append(f"{path}: [GEAR-MODULE-STRATEGY] UVL constraint Strategy (alternative): exactly one of Parallel or Loop is required; {state}.")
+        else:
+            output.append(f"{path}: {error.message}")
+    return output
 
 
 def _has_cycle(node_ids: set[str], edges: list[dict[str, Any]]) -> bool:

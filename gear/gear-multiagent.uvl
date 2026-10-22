@@ -3,7 +3,7 @@ features
 		mandatory
 			WorkflowName {abstract}
 			Items {abstract}
-				alternative
+				or
 					Agents {abstract}
 					Modules {abstract}
 		optional

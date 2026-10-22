@@ -11,6 +11,7 @@ from gear_web.blueprints.system import create_system_blueprint
 from gear_web.settings import _studio_model_policy, _studio_revision
 
 from gear_sdk.runner import RunResult
+from gear_sdk.conversion import convert
 
 
 def test_studio_revision_changes_with_served_assets(tmp_path):
@@ -72,12 +73,13 @@ def test_web_routes_and_build_history(tmp_path, monkeypatch):
     }
     starter = client.get(
         "/api/studio/templates/research-team",
-        query_string={"project_id": "studio-demo", "provider": "google", "model": "gpt-4o-mini"},
+        query_string={"project_id": "studio-demo", "provider": "google", "model": "gemini-2.5-flash"},
     ).get_json()
     assert starter["project"]["id"] == "studio-demo"
     assert len(starter["agents"]) == 5
-    expected_model = studio_config["model"]["model"] if studio_config["model"]["locked"] else "gpt-4o-mini"
-    assert {agent["LLMConfiguration"]["Provider"] for agent in starter["agents"]} == {"openai"}
+    expected_model = studio_config["model"]["model"] if studio_config["model"]["locked"] else "gemini-2.5-flash"
+    expected_provider = studio_config["model"]["provider"] if studio_config["model"]["locked"] else "google"
+    assert {agent["LLMConfiguration"]["Provider"] for agent in starter["agents"]} == {expected_provider}
     assert {agent["LLMConfiguration"]["Model"] for agent in starter["agents"]} == {expected_model}
     assert client.get("/api/studio/templates/unknown").status_code == 404
     assert client.get("/.env").status_code == 404
@@ -285,7 +287,7 @@ def test_studio_project_enforces_locked_model_policy():
             "project_id": "locked-model",
             "agents": [{
                 "AgentIdentity": {"Name": "Writer", "Purpose": "Write", "ContextDescription": "Writer"},
-                "LLMConfiguration": {"Provider": "custom", "Model": "user-choice"},
+                "LLMConfiguration": {"Provider": "custom", "Model": "user-choice", "BaseURL": "https://example.invalid/v1", "APIKey": "old-provider-secret"},
                 "TaskSpecification": {"TaskName": "Write", "TaskDescription": "Write", "ExpectedOutput": "Text"},
             }],
             "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Writer"], "Modules": []}},
@@ -298,13 +300,13 @@ def test_studio_project_enforces_locked_model_policy():
     }
 
 
-def test_studio_project_always_enforces_openai_provider():
+def test_studio_project_preserves_selected_provider_and_model():
     project = _studio_project(
         {
             "project_id": "openai-provider",
             "agents": [{
                 "AgentIdentity": {"Name": "Writer", "Purpose": "Write", "ContextDescription": "Writer"},
-                "LLMConfiguration": {"Provider": "google", "Model": "gpt-4o-mini"},
+                "LLMConfiguration": {"Provider": "google", "Model": "gemini-2.5-flash"},
                 "TaskSpecification": {"TaskName": "Write", "TaskDescription": "Write", "ExpectedOutput": "Text"},
             }],
             "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Writer"], "Modules": []}},
@@ -312,9 +314,32 @@ def test_studio_project_always_enforces_openai_provider():
         {"locked": False, "provider": "openai", "model": "gpt-5.4-mini", "models": ["gpt-5.4-mini", "gpt-4o-mini"]},
     )
     assert project.data["agents"][0]["LLMConfiguration"] == {
-        "Provider": "openai",
-        "Model": "gpt-4o-mini",
+        "Provider": "google",
+        "Model": "gemini-2.5-flash",
     }
+
+
+def test_studio_project_rejects_conflicting_module_strategies():
+    with pytest.raises(ValueError, match="gear/gear-module.uvl"):
+        _studio_project({
+            "project_id": "invalid-module",
+            "agents": [],
+            "modules": [{"ModuleName": "Review", "Strategy": {
+                "Parallel": {"ParallelAgents": []},
+                "Loop": {"TurnCount": 2, "LoopAgents": []},
+            }}],
+            "workflow": {"WorkflowName": "Main", "Items": {"Agents": [], "Modules": ["Review"]}},
+        })
+
+
+def test_studio_project_rejects_workflow_without_items_using_uvl():
+    with pytest.raises(ValueError, match="gear/gear-multiagent.uvl"):
+        _studio_project({
+            "project_id": "empty-workflow",
+            "agents": [],
+            "modules": [],
+            "workflow": {"WorkflowName": "Main", "Items": {"Agents": [], "Modules": []}},
+        })
 
 
 def test_studio_project_rejects_models_outside_openai_mini_list():
@@ -335,3 +360,69 @@ def test_studio_project_rejects_models_outside_openai_mini_list():
     }
     with pytest.raises(ValueError, match="available OpenAI mini model"):
         _studio_project(payload, policy)
+
+
+def test_ollama_configuration_reaches_crewai_and_adk_builds():
+    configuration = {"Provider": "ollama", "Model": "llama3.2:latest", "BaseURL": "http://127.0.0.1:11434"}
+    payload = {
+        "project_id": "ollama-project",
+        "agents": [{
+            "AgentIdentity": {"Name": "Writer", "Purpose": "Write", "ContextDescription": "Writer"},
+            "LLMConfiguration": configuration,
+            "TaskSpecification": {"TaskName": "Write", "TaskDescription": "Write", "ExpectedOutput": "Text"},
+        }],
+        "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Writer"], "Modules": []}},
+    }
+    policy = {"locked": False, "provider": "openai", "model": "gpt-4o-mini", "models": ["gpt-4o-mini"]}
+    project = _studio_project(payload, policy)
+    assert project.data["agents"][0]["LLMConfiguration"] == configuration
+    for target in ("crewai", "adk"):
+        code = convert(project, target).outputs["orchestration"]
+        assert "ollama/llama3.2:latest" in code
+        assert "http://127.0.0.1:11434" in code
+
+    del configuration["BaseURL"]
+    with pytest.raises(ValueError, match="Ollama agents require BaseURL"):
+        _studio_project(payload, policy)
+    configuration["BaseURL"] = "http://127.0.0.1:11434"
+    configuration["APIKey"] = "should-not-be-used"
+    with pytest.raises(ValueError, match="cannot set APIKey"):
+        _studio_project(payload, policy)
+
+
+def test_other_provider_keeps_custom_model_and_endpoint():
+    configuration = {
+        "Provider": "my-provider", "Model": "my-model:latest", "BaseURL": "https://models.example.invalid/v1",
+    }
+    project = _studio_project({
+        "project_id": "custom-provider",
+        "agents": [{
+            "AgentIdentity": {"Name": "Writer", "Purpose": "Write", "ContextDescription": "Writer"},
+            "LLMConfiguration": configuration,
+            "TaskSpecification": {"TaskName": "Write", "TaskDescription": "Write", "ExpectedOutput": "Text"},
+        }],
+        "workflow": {"WorkflowName": "Main", "Items": {"Agents": ["Writer"], "Modules": []}},
+    }, {"locked": False, "provider": "openai", "model": "gpt-4o-mini", "models": ["gpt-4o-mini"]})
+    assert project.data["agents"][0]["LLMConfiguration"] == configuration
+    code = convert(project, "crewai").outputs["orchestration"]
+    assert "my-provider/my-model:latest" in code
+    assert "https://models.example.invalid/v1" in code
+
+
+def test_studio_template_uses_ollama_base_url_and_rejects_missing_url():
+    app = Flask(__name__)
+    policy = {"locked": False, "provider": "openai", "model": "gpt-4o-mini", "models": ["gpt-4o-mini"]}
+    app.register_blueprint(create_system_blueprint(policy, "revision-test"))
+    client = app.test_client()
+    response = client.get("/api/studio/templates/minimal", query_string={
+        "provider": "ollama", "model": "llama3.2", "base_url": "http://127.0.0.1:11434",
+    })
+    assert response.status_code == 200
+    assert response.get_json()["agents"][0]["LLMConfiguration"] == {
+        "Provider": "ollama", "Model": "llama3.2", "BaseURL": "http://127.0.0.1:11434",
+    }
+    missing = client.get("/api/studio/templates/minimal", query_string={
+        "provider": "ollama", "model": "llama3.2",
+    })
+    assert missing.status_code == 400
+    assert "BaseURL" in missing.get_json()["error"]

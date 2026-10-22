@@ -94,6 +94,21 @@ test("uses the same fallback module name as the workflow builder", () => {
   assert.equal(ir.diagnostics.some((item) => item.code === "GEAR-WORKFLOW-UNKNOWN-REF"), false);
 });
 
+test("reports the UVL alternative strategy violation for both and neither choice", () => {
+  for (const [strategy, state] of [
+    [{}, "neither is present"],
+    [{ Parallel: { ParallelAgents: ["Worker"] }, Loop: { TurnCount: 2, LoopAgents: ["Worker"] } }, "both are present"],
+  ]) {
+    const ir = buildGearIR({ gearAgents: [agent("Worker")], gearModules: [{ ModuleName: "Team", Strategy: strategy }] });
+    const report = createConversionReport({ frameworkId: "example", gearIR: ir });
+    const issue = report.diagnostics.find((item) => item.code === "GEAR-MODULE-STRATEGY");
+    assert.equal(report.valid, false);
+    assert.equal(issue.severity, "error");
+    assert.equal(issue.path, "modules[0].Strategy");
+    assert.match(issue.message, new RegExp(state));
+  }
+});
+
 test("adds MLflow observability to every generated Python orchestration", () => {
   const frameworks = [
     "crewai", "adk", "langgraph", "openai-agents", "microsoft-agent-framework",

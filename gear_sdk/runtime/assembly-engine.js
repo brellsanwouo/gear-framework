@@ -79,16 +79,18 @@
     }
 
     if (modelText.includes("/")) return modelText;
+    const provText = String(provider || "").trim();
     if (modelText.includes(":")) {
-      const [prov, rest] = modelText.split(":", 2);
-      if (prov && rest) {
+      const separator = modelText.indexOf(":");
+      const prov = modelText.slice(0, separator);
+      const rest = modelText.slice(separator + 1);
+      if (prov && rest && (!provText || prov.toLowerCase() === provText.toLowerCase())) {
         if (prov.toLowerCase() === "openai" && isOpenAIResponsesModel(rest)) {
           return `openai/responses/${rest}`;
         }
         return `${prov}/${rest}`;
       }
     }
-    const provText = String(provider || "").trim();
     if (provText) {
       if (provText.toLowerCase() === "openai" && isOpenAIResponsesModel(modelText)) {
         return `openai/responses/${modelText}`;

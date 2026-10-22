@@ -19,6 +19,9 @@
   const entityViews = { agent: "form", module: "form" };
   let validationSeverity = "all";
   let validationTarget = "all";
+  const featureModelResults = new Map();
+  const pendingFeatureModelChecks = new Set();
+  const failedFeatureModelChecks = new Set();
   let buildTarget = "crewai";
   let lastBuild = null;
   const frameworkLabels = { crewai: "CrewAI", adk: "Google ADK", langgraph: "LangGraph", "openai-agents": "OpenAI Agents SDK", "microsoft-agent-framework": "Microsoft Agent Framework", strands: "Strands Agents", "pydantic-ai": "PydanticAI", autogen: "Microsoft AutoGen", "semantic-kernel": "Semantic Kernel", haystack: "Haystack" };
@@ -32,9 +35,11 @@
   let activeRunJobId = null;
   const OPENAI_MINI_MODELS = Object.freeze(["gpt-4o-mini", "gpt-5.4-mini", "gpt-4.1-mini"]);
   const OPENAI_MODEL_LABELS = Object.freeze({ "gpt-4o-mini": "GPT-4o Mini", "gpt-5.4-mini": "GPT-5.4 Mini", "gpt-4.1-mini": "GPT-4.1 Mini" });
+  const PROVIDER_MODEL_PRESETS = Object.freeze({ openai: "gpt-4o-mini", google: "gemini-2.5-flash", anthropic: "claude-sonnet-4-5", ollama: "llama3.2" });
+  const PROVIDER_CHOICES = new Set(["openai", "ollama", "google", "anthropic"]);
   const DEFAULT_MODEL_POLICY = Object.freeze({ locked: false, provider: "openai", model: OPENAI_MINI_MODELS[0], models: OPENAI_MINI_MODELS });
   let modelPolicy = { ...DEFAULT_MODEL_POLICY, models: [...OPENAI_MINI_MODELS] };
-  let modelDefaults = { provider: DEFAULT_MODEL_POLICY.provider, model: DEFAULT_MODEL_POLICY.model };
+  let modelDefaults = { provider: DEFAULT_MODEL_POLICY.provider, model: DEFAULT_MODEL_POLICY.model, baseURL: "" };
   let starterTemplates = [];
   let selectedStarterTemplate = "minimal";
   const PROJECT_STORAGE_KEY = "gear-studio-project-v1";
@@ -50,7 +55,7 @@
   let tutorialActive = false;
   let tutorialStep = 0;
 
-  const defaultAgent = (index) => `GearAgent:\n  AgentIdentity:\n    Name: Agent${index}\n    Purpose: Describe this agent's objective.\n    ContextDescription: Describe the agent's working context.\n  LLMConfiguration:\n    Provider: openai\n    Model: ${modelPolicy.locked?modelPolicy.model:modelDefaults.model}\n  TaskSpecification:\n    TaskName: Task${index}\n    TaskDescription: Describe the task.\n    ExpectedOutput: Describe the expected output.\n`;
+  const defaultAgent = (index) => `GearAgent:\n  AgentIdentity:\n    Name: Agent${index}\n    Purpose: Describe this agent's objective.\n    ContextDescription: Describe the agent's working context.\n  LLMConfiguration:\n    Provider: ${JSON.stringify(modelDefaults.provider)}\n    Model: ${JSON.stringify(modelPolicy.locked?modelPolicy.model:modelDefaults.model)}\n${!modelPolicy.locked&&modelDefaults.baseURL?`    BaseURL: ${JSON.stringify(modelDefaults.baseURL)}\n`:""}  TaskSpecification:\n    TaskName: Task${index}\n    TaskDescription: Describe the task.\n    ExpectedOutput: Describe the expected output.\n`;
   const defaultModule = (index) => `GearModule:\n  ModuleName: Module${index}\n  Strategy:\n    Parallel:\n      ParallelAgents: []\n`;
   const defaultWorkflow = `GearMultiAgent:\n  WorkflowName: MainWorkflow\n  Items:\n    Agents: []\n    Modules: []\n  Edges: []\n`;
 
@@ -71,9 +76,17 @@
     for (const name of names) if (value?.[name] && typeof value[name] === "object") return value[name];
     return value || {};
   };
+  const featureDocument = (value) => value&&typeof value==="object"&&!Array.isArray(value)?value:{};
   const agentData = (text) => root(parse(text).value, ["GearAgent"]);
+  const agentFeatureKey = (text) => `agent:${JSON.stringify(featureDocument(agentData(text)))}`;
   const moduleData = (text) => root(parse(text).value, ["GearModule"]);
+  const moduleStrategySummary = (data) => {
+    const parallel=Boolean(data?.Strategy?.Parallel),loop=Boolean(data?.Strategy?.Loop);
+    return parallel&&loop?"Parallel + Loop":parallel?"Parallel":loop?"Loop":"Strategy required";
+  };
+  const moduleFeatureKey = (text) => `module:${JSON.stringify(featureDocument(moduleData(text)))}`;
   const workflowData = () => root(parse(project.workflows[0] || defaultWorkflow).value, ["GearMultiAgent", "GearWorkflow"]);
+  const workflowFeatureKey = () => `workflow:${JSON.stringify(featureDocument(workflowData()))}`;
   const orderedWorkflowItems = (workflow = workflowData()) => window.GearWorkflowOrder?.read(workflow) || [];
   const agentName = (text, index) => agentData(text)?.AgentIdentity?.Name || `Agent ${index + 1}`;
   const moduleName = (text, index) => moduleData(text)?.ModuleName || `Module ${index + 1}`;
@@ -98,6 +111,31 @@
   const setModelOptions = (id, selectedValue) => {
     const select=document.getElementById(id);if(!select)return;const values=[...modelPolicy.models];const selected=String(selectedValue||"");if(modelPolicy.locked&&selected&&!values.includes(selected))values.unshift(selected);select.replaceChildren();values.forEach((value)=>{const option=document.createElement("option");option.value=value;option.textContent=OPENAI_MODEL_LABELS[value]||value;select.appendChild(option);});select.value=selected&&values.includes(selected)?selected:(modelPolicy.locked?modelPolicy.model:"");
   };
+  const setProviderModelFields = (prefix, provider, model, baseURL = "") => {
+    const choice=PROVIDER_CHOICES.has(provider)?provider:"__other__";
+    document.getElementById(`${prefix}Provider`).value=choice;
+    const providerOther=document.getElementById(`${prefix}ProviderOther`);
+    providerOther.value=choice==="__other__"?provider:"";
+    const group=prefix==="agentField"?"agent":"starter";
+    document.getElementById(`${group}ProviderOtherLabel`).hidden=choice!=="__other__";
+    providerOther.disabled=modelPolicy.locked||choice!=="__other__";
+    const isOpenAI = provider === "openai";
+    const select=document.getElementById(`${prefix}Model`);const custom=document.getElementById(`${prefix}CustomModel`);
+    select.hidden=!isOpenAI;custom.hidden=isOpenAI;
+    if(isOpenAI)setModelOptions(`${prefix}Model`,model);
+    else custom.value=model||"";
+    select.disabled=modelPolicy.locked||!isOpenAI;
+    custom.disabled=modelPolicy.locked||isOpenAI;
+    const baseURLField=document.getElementById(`${prefix}BaseURL`);
+    document.getElementById(`${group}BaseURLLabel`).hidden=isOpenAI;
+    baseURLField.value=isOpenAI?"":baseURL;
+    baseURLField.disabled=modelPolicy.locked||isOpenAI;
+    document.getElementById(`${group}CredentialHint`).textContent=provider==="ollama"?"Ollama needs a Base URL reachable from the Studio server. No API key is used.":provider==="openai"?"Set OPENAI_API_KEY in the server environment to run this agent.":"Set any required provider credentials in the server environment; Base URL is optional.";
+  };
+  const selectedProvider = (prefix) => {const choice=document.getElementById(`${prefix}Provider`).value;return choice==="__other__"?document.getElementById(`${prefix}ProviderOther`).value.trim().toLowerCase():choice;};
+  const selectedModel = (prefix, provider) => provider==="openai"?document.getElementById(`${prefix}Model`).value:document.getElementById(`${prefix}CustomModel`).value.trim();
+  const providerPolicyText = (provider) => modelPolicy.locked?`${modelPolicy.provider}/${modelPolicy.model} locked by .env`:provider==="openai"?"Choose an OpenAI mini model":provider==="ollama"?"Enter an installed Ollama model and its Base URL":provider?"Enter a model name for this provider":"Enter the provider name and model";
+  const validBaseURL = (value) => {try{const url=new URL(value);return ["http:","https:"].includes(url.protocol)&&Boolean(url.hostname);}catch(error){return false;}};
   const setEntityView = (kind, view) => {
     entityViews[kind] = view;
     document.getElementById(`${kind}Form`).hidden = view !== "form";
@@ -107,21 +145,23 @@
 
   const agentHasAdvancedProperties = (data) => hasExtraKeys(data,["AgentIdentity","LLMConfiguration","TaskSpecification"]) || hasExtraKeys(data?.AgentIdentity,["Name","Purpose","ContextDescription"]) || hasExtraKeys(data?.LLMConfiguration,["Provider","Model"]) || hasExtraKeys(data?.TaskSpecification,["TaskName","TaskDescription","ExpectedOutput"]);
   const moduleHasAdvancedProperties = (data) => {
-    const strategy=data?.Strategy || {};const active=strategy.Parallel || strategy.Loop || {};
-    const allowedActive=strategy.Parallel?["ParallelAgents"]:["LoopAgents","TurnCount"];
-    return hasExtraKeys(data,["ModuleName","Strategy"]) || hasExtraKeys(strategy,["Parallel","Loop"]) || hasExtraKeys(active,allowedActive);
+    const strategy=data?.Strategy || {};
+    return hasExtraKeys(data,["ModuleName","Strategy"]) || hasExtraKeys(strategy,["Parallel","Loop"]) || hasExtraKeys(strategy.Parallel,["ParallelAgents"]) || hasExtraKeys(strategy.Loop,["LoopAgents","TurnCount"]);
   };
 
   const populateAgentForm = (text, enabled) => {
     const parsed=parse(text);const data=parsed.error?{}:agentData(text);const form=document.getElementById("agentForm");
-    setFieldValue("agentFieldName",data?.AgentIdentity?.Name);setFieldValue("agentFieldPurpose",data?.AgentIdentity?.Purpose);setFieldValue("agentFieldContext",data?.AgentIdentity?.ContextDescription);setFieldValue("agentFieldProvider","openai");setModelOptions("agentFieldModel",data?.LLMConfiguration?.Model ?? (modelPolicy.locked?modelPolicy.model:modelDefaults.model));setFieldValue("agentFieldTaskName",data?.TaskSpecification?.TaskName);setFieldValue("agentFieldTaskDescription",data?.TaskSpecification?.TaskDescription);setFieldValue("agentFieldExpectedOutput",data?.TaskSpecification?.ExpectedOutput);
-    const unavailable=!enabled||Boolean(parsed.error);form.classList.toggle("is-disabled",unavailable);form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=unavailable;});document.getElementById("agentFieldProvider").disabled=true;document.getElementById("agentFieldModel").disabled=unavailable||modelPolicy.locked;const policy=document.getElementById("agentModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`OpenAI model locked by .env · ${modelPolicy.model}`:"OpenAI provider · select a mini model";document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
+    const provider=modelPolicy.locked?modelPolicy.provider:String(data?.LLMConfiguration?.Provider??modelDefaults.provider);
+    const model=modelPolicy.locked?modelPolicy.model:String(data?.LLMConfiguration?.Model??modelDefaults.model);
+    const baseURL=modelPolicy.locked?"":String(data?.LLMConfiguration?.BaseURL??"");
+    setFieldValue("agentFieldName",data?.AgentIdentity?.Name);setFieldValue("agentFieldPurpose",data?.AgentIdentity?.Purpose);setFieldValue("agentFieldContext",data?.AgentIdentity?.ContextDescription);setProviderModelFields("agentField",provider,model,baseURL);setFieldValue("agentFieldTaskName",data?.TaskSpecification?.TaskName);setFieldValue("agentFieldTaskDescription",data?.TaskSpecification?.TaskDescription);setFieldValue("agentFieldExpectedOutput",data?.TaskSpecification?.ExpectedOutput);
+    const unavailable=!enabled||Boolean(parsed.error);form.classList.toggle("is-disabled",unavailable);form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=unavailable;});document.getElementById("agentFieldProvider").disabled=unavailable||modelPolicy.locked;document.getElementById("agentFieldProviderOther").disabled=unavailable||modelPolicy.locked||PROVIDER_CHOICES.has(provider);document.getElementById("agentFieldModel").disabled=unavailable||modelPolicy.locked||provider!=="openai";document.getElementById("agentFieldCustomModel").disabled=unavailable||modelPolicy.locked||provider==="openai";document.getElementById("agentFieldBaseURL").disabled=unavailable||modelPolicy.locked||provider==="openai";const policy=document.getElementById("agentModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=providerPolicyText(provider);document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
   };
 
   const populateModuleForm = (text, enabled) => {
     const parsed=parse(text);const data=parsed.error?{}:moduleData(text);const parallel=Boolean(data?.Strategy?.Parallel);const loop=Boolean(data?.Strategy?.Loop);const form=document.getElementById("moduleForm");
-    setFieldValue("moduleFieldName",data?.ModuleName);document.getElementById("moduleStrategyParallel").checked=parallel||!loop;document.getElementById("moduleStrategyLoop").checked=loop;setFieldValue("moduleFieldTurnCount",data?.Strategy?.Loop?.TurnCount ?? 1);document.getElementById("moduleLoopOptions").hidden=!loop;
-    const rawSelectedAgents=parallel?data?.Strategy?.Parallel?.ParallelAgents:loop?data?.Strategy?.Loop?.LoopAgents:[];const selectedAgents=Array.isArray(rawSelectedAgents)?rawSelectedAgents:[];const picker=document.getElementById("moduleAgentPicker");picker.replaceChildren();
+    setFieldValue("moduleFieldName",data?.ModuleName);document.getElementById("moduleStrategyParallel").checked=parallel;document.getElementById("moduleStrategyLoop").checked=loop;setFieldValue("moduleFieldTurnCount",data?.Strategy?.Loop?.TurnCount ?? 1);document.getElementById("moduleLoopOptions").hidden=!loop;
+    const selectedAgents=[...new Set([...(Array.isArray(data?.Strategy?.Parallel?.ParallelAgents)?data.Strategy.Parallel.ParallelAgents:[]),...(Array.isArray(data?.Strategy?.Loop?.LoopAgents)?data.Strategy.Loop.LoopAgents:[])])];const picker=document.getElementById("moduleAgentPicker");picker.replaceChildren();
     if(!project.agents.length){const empty=document.createElement("p");empty.className="agent-picker-empty";empty.textContent="Create an agent first.";picker.appendChild(empty);}project.agents.forEach((agent,index)=>{const name=agentName(agent,index);const label=document.createElement("label");label.className="agent-option";const input=document.createElement("input");input.type="checkbox";input.value=name;input.checked=selectedAgents.includes(name);input.disabled=!enabled||Boolean(parsed.error);const span=document.createElement("span");span.textContent=name;label.append(input,span);picker.appendChild(label);});
     form.classList.toggle("is-disabled",!enabled||Boolean(parsed.error));form.querySelectorAll("input,textarea").forEach((field)=>{field.disabled=!enabled||Boolean(parsed.error);});document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
   };
@@ -140,22 +180,26 @@
     if(workflow)project.workflows[0]=dumpDocument(parsedWorkflow.value);
   };
   const applyAgentModelPolicy = (text) => {
-    const parsed=parse(text);if(parsed.error)return text;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;const current=data.LLMConfiguration||{};const currentModel=String(current.Model||"");const model=modelPolicy.locked?modelPolicy.model:modelPolicy.models.includes(currentModel)?currentModel:modelPolicy.model;if(current.Provider==="openai"&&current.Model===model)return text;data.LLMConfiguration={...current,Provider:"openai",Model:model};return dumpDocument(source);
+    const parsed=parse(text);if(parsed.error)return text;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;const current=data.LLMConfiguration||{};
+    if(modelPolicy.locked){if(current.Provider===modelPolicy.provider&&current.Model===modelPolicy.model&&!current.BaseURL&&!("APIKey" in current))return text;data.LLMConfiguration={...current,Provider:modelPolicy.provider,Model:modelPolicy.model};delete data.LLMConfiguration.BaseURL;delete data.LLMConfiguration.APIKey;return dumpDocument(source);}
+    return text;
   };
   const refreshEditedEntity = (kind, text, index) => {
-    const editor=document.getElementById(`${kind}Editor`);editor.value=text;updateLineNumbers(kind,text);const name=kind==="agent"?agentName(text,index):moduleName(text,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected){selected.querySelector("strong").textContent=name;const data=kind==="agent"?agentData(text):moduleData(text);selected.querySelector("small").textContent=kind==="agent"?(data?.TaskSpecification?.TaskName||"Task required"):(data?.Strategy?.Parallel?"Parallel":data?.Strategy?.Loop?"Loop":"Strategy required");}document.getElementById(`${kind}EditorError`).textContent=parse(text).error||"";scheduleSave();renderHealth(validation());
+    const editor=document.getElementById(`${kind}Editor`);editor.value=text;updateLineNumbers(kind,text);const name=kind==="agent"?agentName(text,index):moduleName(text,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected){selected.querySelector("strong").textContent=name;const data=kind==="agent"?agentData(text):moduleData(text);selected.querySelector("small").textContent=kind==="agent"?(data?.TaskSpecification?.TaskName||"Task required"):moduleStrategySummary(data);}document.getElementById(`${kind}EditorError`).textContent=parse(text).error||"";scheduleSave();renderHealth(validation());
   };
 
   const updateAgentFromForm = () => {
     if(!project.agents.length)return;const parsed=parse(project.agents[selectedAgent]);if(parsed.error)return;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearAgent&&typeof source.GearAgent==="object"?source.GearAgent:source;
-    data.AgentIdentity={...(data.AgentIdentity||{}),Name:document.getElementById("agentFieldName").value,Purpose:document.getElementById("agentFieldPurpose").value,ContextDescription:document.getElementById("agentFieldContext").value};data.LLMConfiguration={...(data.LLMConfiguration||{}),Provider:"openai",Model:modelPolicy.locked?modelPolicy.model:document.getElementById("agentFieldModel").value};data.TaskSpecification={...(data.TaskSpecification||{}),TaskName:document.getElementById("agentFieldTaskName").value,TaskDescription:document.getElementById("agentFieldTaskDescription").value,ExpectedOutput:document.getElementById("agentFieldExpectedOutput").value};
+    const provider=modelPolicy.locked?modelPolicy.provider:selectedProvider("agentField");
+    data.AgentIdentity={...(data.AgentIdentity||{}),Name:document.getElementById("agentFieldName").value,Purpose:document.getElementById("agentFieldPurpose").value,ContextDescription:document.getElementById("agentFieldContext").value};data.LLMConfiguration={...(data.LLMConfiguration||{}),Provider:provider,Model:modelPolicy.locked?modelPolicy.model:selectedModel("agentField",provider)};const baseURL=provider==="openai"?"":document.getElementById("agentFieldBaseURL").value.trim();if(baseURL)data.LLMConfiguration.BaseURL=baseURL;else delete data.LLMConfiguration.BaseURL;if(modelPolicy.locked||provider==="ollama")delete data.LLMConfiguration.APIKey;data.TaskSpecification={...(data.TaskSpecification||{}),TaskName:document.getElementById("agentFieldTaskName").value,TaskDescription:document.getElementById("agentFieldTaskDescription").value,ExpectedOutput:document.getElementById("agentFieldExpectedOutput").value};
     const text=dumpDocument(source);project.agents[selectedAgent]=text;propagateEntityRename("agent",selectedAgent,data.AgentIdentity.Name);refreshEditedEntity("agent",text,selectedAgent);document.getElementById("agentAdvancedNote").hidden=!agentHasAdvancedProperties(data);
   };
 
   const updateModuleFromForm = () => {
-    if(!project.modules.length)return;const parsed=parse(project.modules[selectedModule]);if(parsed.error)return;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearModule&&typeof source.GearModule==="object"?source.GearModule:source;const strategy=document.getElementById("moduleStrategyLoop").checked?"Loop":"Parallel";const selected=[...document.querySelectorAll("#moduleAgentPicker input:checked")].map((input)=>input.value);data.ModuleName=document.getElementById("moduleFieldName").value;data.Strategy=data.Strategy&&typeof data.Strategy==="object"?data.Strategy:{};
-    if(strategy==="Parallel"){data.Strategy.Parallel={...(data.Strategy.Parallel||{}),ParallelAgents:selected};delete data.Strategy.Loop;}else{const turnCount=Number.parseInt(document.getElementById("moduleFieldTurnCount").value,10);data.Strategy.Loop={...(data.Strategy.Loop||{}),LoopAgents:selected};delete data.Strategy.Loop.StopCondition;if(Number.isFinite(turnCount))data.Strategy.Loop.TurnCount=turnCount;else delete data.Strategy.Loop.TurnCount;delete data.Strategy.Parallel;}
-    const text=dumpDocument(source);project.modules[selectedModule]=text;propagateEntityRename("module",selectedModule,data.ModuleName);refreshEditedEntity("module",text,selectedModule);document.getElementById("moduleLoopOptions").hidden=strategy!=="Loop";document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
+    if(!project.modules.length)return;const parsed=parse(project.modules[selectedModule]);if(parsed.error)return;const source=parsed.value&&typeof parsed.value==="object"?parsed.value:{};const data=source.GearModule&&typeof source.GearModule==="object"?source.GearModule:source;const parallel=document.getElementById("moduleStrategyParallel").checked;const loop=document.getElementById("moduleStrategyLoop").checked;const selected=[...document.querySelectorAll("#moduleAgentPicker input:checked")].map((input)=>input.value);data.ModuleName=document.getElementById("moduleFieldName").value;data.Strategy=data.Strategy&&typeof data.Strategy==="object"?data.Strategy:{};
+    if(parallel)data.Strategy.Parallel={...(data.Strategy.Parallel||{}),ParallelAgents:selected};else delete data.Strategy.Parallel;
+    if(loop){const turnCount=Number.parseInt(document.getElementById("moduleFieldTurnCount").value,10);data.Strategy.Loop={...(data.Strategy.Loop||{}),LoopAgents:selected};if(Number.isFinite(turnCount))data.Strategy.Loop.TurnCount=turnCount;else delete data.Strategy.Loop.TurnCount;}else delete data.Strategy.Loop;
+    const text=dumpDocument(source);project.modules[selectedModule]=text;propagateEntityRename("module",selectedModule,data.ModuleName);refreshEditedEntity("module",text,selectedModule);document.getElementById("moduleLoopOptions").hidden=!loop;document.getElementById("moduleAdvancedNote").hidden=!moduleHasAdvancedProperties(data);
   };
 
   const persistProject = () => {
@@ -230,11 +274,11 @@
   const loadStudioConfig = async () => {
     try {
       const response=await fetch("/api/studio/config");if(!response.ok)throw new Error("Studio configuration unavailable");const config=(await response.json())?.model||{};
-      const models=Array.isArray(config.models)?config.models.map(String).filter(Boolean):[...OPENAI_MINI_MODELS];modelPolicy={locked:Boolean(config.locked),provider:"openai",model:String(config.model||DEFAULT_MODEL_POLICY.model).trim()||DEFAULT_MODEL_POLICY.model,models};if(modelPolicy.locked&&!modelPolicy.models.includes(modelPolicy.model))modelPolicy.models.unshift(modelPolicy.model);
+      const models=Array.isArray(config.models)?config.models.map(String).filter(Boolean):[...OPENAI_MINI_MODELS];modelPolicy={locked:Boolean(config.locked),provider:String(config.provider||"openai"),model:String(config.model||DEFAULT_MODEL_POLICY.model).trim()||DEFAULT_MODEL_POLICY.model,models};if(modelPolicy.locked&&!modelPolicy.models.includes(modelPolicy.model))modelPolicy.models.unshift(modelPolicy.model);
     } catch(error) {
       modelPolicy={...DEFAULT_MODEL_POLICY,models:[...OPENAI_MINI_MODELS]};console.warn("Studio model policy unavailable; using the default OpenAI mini models.",error);
     }
-    setModelOptions("agentFieldModel",modelPolicy.model);setModelOptions("starterModel",modelPolicy.model);modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model};
+    setProviderModelFields("agentField",modelPolicy.provider,modelPolicy.model);setProviderModelFields("starter",modelPolicy.provider,modelPolicy.model);modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model,baseURL:""};
   };
   const hasProjectContent = () => Boolean(project.agents.length || project.modules.length || orderedWorkflowItems().length);
   const projectSlug = (value) => String(value||"project").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"project";
@@ -243,16 +287,16 @@
     const nodes=source.workflow.nodes;const nodesById=new Map(nodes.map((node)=>[String(node.id),node]));const sequence=nodes.map((node)=>({kind:node.type==="module"?"module":"agent",name:String(node.ref)}));const workflow={WorkflowName:source.workflow.name||"MainWorkflow",Memory:Boolean(source.workflow.memory),Items:{Agents:sequence.filter((item)=>item.kind==="agent").map((item)=>item.name),Modules:sequence.filter((item)=>item.kind==="module").map((item)=>item.name)},Edges:(source.workflow.edges||[]).map((edge)=>({From:String(nodesById.get(String(edge.from))?.ref||edge.from),To:String(nodesById.get(String(edge.to))?.ref||edge.to)}))};
     return {schema_version:"1.0",agents:source.agents.map((agent)=>dumpDocument({GearAgent:agent})),modules:(source.modules||[]).map((module)=>dumpDocument({GearModule:module})),workflows:[dumpDocument({GearMultiAgent:workflow})]};
   };
-  const createTutorialProject = (model) => stableProjectToStudio({
+  const createTutorialProject = (provider, model, baseURL) => stableProjectToStudio({
     agents: [
       {
         AgentIdentity: { Name: "Writer", Purpose: "Create a clear first draft.", ContextDescription: "A concise writer working from the user request." },
-        LLMConfiguration: { Provider: "openai", Model: model },
+        LLMConfiguration: { Provider: provider, Model: model, ...(baseURL?{BaseURL:baseURL}:{}) },
         TaskSpecification: { TaskName: "WriteDraft", TaskDescription: "Write a concise draft that answers the request.", ExpectedOutput: "A complete first draft." },
       },
       {
         AgentIdentity: { Name: "Reviewer", Purpose: "Review and improve the draft.", ContextDescription: "A careful reviewer focused on clarity and correctness." },
-        LLMConfiguration: { Provider: "openai", Model: model },
+        LLMConfiguration: { Provider: provider, Model: model, ...(baseURL?{BaseURL:baseURL}:{}) },
         TaskSpecification: { TaskName: "ReviewDraft", TaskDescription: "Review the draft and return a corrected version.", ExpectedOutput: "A corrected final draft." },
       },
     ],
@@ -276,7 +320,7 @@
     tutorialActive=false;rememberTutorial();persistProject();if(document.querySelector('.starter-card[data-template="minimal"]'))selectStarterTemplate("minimal");renderTutorialGuide();toast(completed?"Tutorial completed. Keep editing this project or start your own.":"Tutorial closed. You can restart it from the header.");
   };
   const updateModelDefaultsFromProject = () => {
-    if(modelPolicy.locked){modelDefaults={provider:"openai",model:modelPolicy.model};return;}const first=project.agents.length?agentData(project.agents[0]):null;const candidate=String(first?.LLMConfiguration?.Model||"");modelDefaults={provider:"openai",model:modelPolicy.models.includes(candidate)?candidate:modelPolicy.model};
+    if(modelPolicy.locked){modelDefaults={provider:modelPolicy.provider,model:modelPolicy.model,baseURL:""};return;}const first=project.agents.length?agentData(project.agents[0]):null;const provider=String(first?.LLMConfiguration?.Provider||modelPolicy.provider);const candidate=String(first?.LLMConfiguration?.Model||"");modelDefaults={provider,model:provider==="openai"?(modelPolicy.models.includes(candidate)?candidate:modelPolicy.model):(candidate||PROVIDER_MODEL_PRESETS[provider]||""),baseURL:provider==="openai"?"":String(first?.LLMConfiguration?.BaseURL||"")};
   };
   const selectStarterTemplate = (templateId) => {
     selectedStarterTemplate=templateId;document.querySelectorAll(".starter-card").forEach((card)=>{const selected=card.dataset.template===templateId;card.classList.toggle("is-selected",selected);card.setAttribute("aria-pressed",String(selected));});document.getElementById("createStarterProject").textContent=templateId==="tutorial"?"Start tutorial":"Create project";
@@ -288,10 +332,10 @@
     try{const response=await fetch("/api/studio/templates");if(!response.ok)throw new Error("Starter projects unavailable");starterTemplates=(await response.json()).templates||[];}catch(error){starterTemplates=[{id:"minimal",name:"Minimal",description:"One general-purpose agent.",agents:1,modules:0}];console.warn(error);}if(!tutorialWasSeen())selectedStarterTemplate="tutorial";renderStarterTemplates();
   };
   const openProjectLauncher = () => {
-    const launcher=document.getElementById("projectLauncher");const resumable=hasProjectContent();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=document.getElementById("starterProvider");const model=document.getElementById("starterModel");provider.value="openai";provider.disabled=true;setModelOptions("starterModel",modelPolicy.locked?modelPolicy.model:modelDefaults.model);model.disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=modelPolicy.locked?`OpenAI model locked by .env · ${modelPolicy.model}`:"OpenAI provider · select a mini model";document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
+    const launcher=document.getElementById("projectLauncher");const resumable=hasProjectContent();const resume=document.getElementById("continueCurrentProject");resume.hidden=!resumable;document.getElementById("currentProjectSummary").textContent=`${document.getElementById("projectName").value} · ${project.agents.length} agent${project.agents.length===1?"":"s"}`;const provider=modelPolicy.locked?modelPolicy.provider:modelDefaults.provider;setProviderModelFields("starter",provider,modelPolicy.locked?modelPolicy.model:modelDefaults.model,modelDefaults.baseURL);document.getElementById("starterProvider").disabled=modelPolicy.locked;const policy=document.getElementById("starterModelPolicy");policy.classList.toggle("is-locked",modelPolicy.locked);policy.textContent=providerPolicyText(provider);document.getElementById("starterProjectName").value=resumable?"New project":"Test project";if(!launcher.open)launcher.showModal();
   };
   const createStarterProject = async () => {
-    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}if(hasProjectContent()&&!confirm("Replace the current in-memory project? Export it first if you want to keep a copy."))return;const provider="openai";const model=modelPolicy.locked?modelPolicy.model:document.getElementById("starterModel").value;if(!modelPolicy.models.includes(model)){toast("Select an available OpenAI mini model.");return;}const startingTutorial=selectedStarterTemplate==="tutorial";try{if(startingTutorial)project=createTutorialProject(model);else if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),model});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}resetReferencedNames();modelDefaults={provider,model};selectedAgent=0;selectedModule=0;currentStep="agents";tutorialActive=startingTutorial;tutorialStep=0;document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(startingTutorial?"Tutorial ready. Follow the guide to explore the Studio.":`${name} created.`);}catch(error){toast(error.message);}
+    const name=document.getElementById("starterProjectName").value.trim();if(!name){toast("Enter a project name.");document.getElementById("starterProjectName").focus();return;}const provider=modelPolicy.locked?modelPolicy.provider:selectedProvider("starter");const model=modelPolicy.locked?modelPolicy.model:selectedModel("starter",provider);const baseURL=modelPolicy.locked||provider==="openai"?"":document.getElementById("starterBaseURL").value.trim();if(!provider||!model){toast("Enter a provider and model.");return;}if(provider==="openai"&&!modelPolicy.models.includes(model)){toast("Select an available OpenAI mini model.");return;}if(provider==="ollama"&&!baseURL){toast("Enter the Ollama Base URL.");return;}if(baseURL&&!validBaseURL(baseURL)){toast("Base URL must be an absolute HTTP or HTTPS URL.");return;}if(hasProjectContent()&&!confirm("Replace the current in-memory project? Export it first if you want to keep a copy."))return;const startingTutorial=selectedStarterTemplate==="tutorial";try{if(startingTutorial)project=createTutorialProject(provider,model,baseURL);else if(selectedStarterTemplate==="blank")project={schema_version:"1.0",agents:[],modules:[],workflows:[defaultWorkflow]};else{const query=new URLSearchParams({project_id:projectSlug(name),provider,model,...(baseURL?{base_url:baseURL}:{})});const response=await fetch(`/api/studio/templates/${encodeURIComponent(selectedStarterTemplate)}?${query}`);const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Unable to create the project");project=stableProjectToStudio(payload);}resetReferencedNames();modelDefaults={provider,model,baseURL};selectedAgent=0;selectedModule=0;currentStep="agents";tutorialActive=startingTutorial;tutorialStep=0;document.getElementById("projectName").value=name;save();render();document.getElementById("projectLauncher").close();toast(startingTutorial?"Tutorial ready. Follow the guide to explore the Studio.":`${name} created.`);}catch(error){toast(error.message);}
   };
   const loadExperimentContext = async () => {
     if(!experimentActive)return;
@@ -355,37 +399,115 @@
     project.agents.forEach((text,index)=>{
       const parsed=parse(text);const data=agentData(text);parsedAgents.push(data);const area=agentName(text,index);const base={area,step:"agents",entityKind:"agent",entityIndex:index};
       if(parsed.error){syntaxValid=false;add({...base,severity:"error",code:"GEAR-AGENT-YAML",path:`agents[${index}]`,message:parsed.error,view:"yaml"});return;}
-      const declaredName=String(data?.AgentIdentity?.Name||"").trim();if(!declaredName)add({...base,code:"GEAR-AGENT-NAME",path:`agents[${index}].AgentIdentity.Name`,message:"Agent name is required.",fieldId:"agentFieldName"});else if(/\s/.test(declaredName))add({...base,code:"GEAR-AGENT-NAME-WHITESPACE",path:`agents[${index}].AgentIdentity.Name`,message:"Agent names cannot contain spaces.",fieldId:"agentFieldName"});
-      if(!String(data?.AgentIdentity?.Purpose||"").trim())add({...base,code:"GEAR-AGENT-PURPOSE",path:`agents[${index}].AgentIdentity.Purpose`,message:"Agent purpose is required.",fieldId:"agentFieldPurpose"});
-      if(!String(data?.AgentIdentity?.ContextDescription||"").trim())add({...base,code:"GEAR-AGENT-CONTEXT",path:`agents[${index}].AgentIdentity.ContextDescription`,message:"Agent context is required.",fieldId:"agentFieldContext"});
+      const declaredName=String(data?.AgentIdentity?.Name||"").trim();if(!declaredName)add({...base,code:"GEAR-AGENT-NAME",path:`agents[${index}].AgentIdentity.Name`,message:"UVL mandatory feature AgentIdentity.Name is missing: enter an agent name.",fieldId:"agentFieldName",uvl:true});else if(/\s/.test(declaredName))add({...base,code:"GEAR-AGENT-NAME-WHITESPACE",path:`agents[${index}].AgentIdentity.Name`,message:"Agent names cannot contain spaces.",fieldId:"agentFieldName"});
+      if(!String(data?.AgentIdentity?.Purpose||"").trim())add({...base,code:"GEAR-AGENT-PURPOSE",path:`agents[${index}].AgentIdentity.Purpose`,message:"UVL mandatory feature AgentIdentity.Purpose is missing: enter an agent purpose.",fieldId:"agentFieldPurpose",uvl:true});
+      if(!String(data?.AgentIdentity?.ContextDescription||"").trim())add({...base,code:"GEAR-AGENT-CONTEXT",path:`agents[${index}].AgentIdentity.ContextDescription`,message:"UVL mandatory feature AgentIdentity.ContextDescription is missing: enter the agent context.",fieldId:"agentFieldContext",uvl:true});
       const provider=String(data?.LLMConfiguration?.Provider||"").trim();const model=String(data?.LLMConfiguration?.Model||"").trim();
-      if(!provider)add({...base,code:"GEAR-AGENT-PROVIDER",path:`agents[${index}].LLMConfiguration.Provider`,message:"Model provider is required.",fieldId:"agentFieldProvider"});
-      else if(provider!=="openai")add({...base,code:"GEAR-AGENT-PROVIDER-POLICY",path:`agents[${index}].LLMConfiguration.Provider`,message:"The Studio provider is fixed to OpenAI.",fieldId:"agentFieldProvider"});
-      if(!model)add({...base,code:"GEAR-AGENT-MODEL",path:`agents[${index}].LLMConfiguration.Model`,message:"Model name is required.",fieldId:"agentFieldModel"});
-      else if(!modelPolicy.models.includes(model))add({...base,code:"GEAR-AGENT-MODEL-CHOICE",path:`agents[${index}].LLMConfiguration.Model`,message:"Select an available OpenAI mini model.",fieldId:"agentFieldModel"});
-      if(modelPolicy.locked&&model!==modelPolicy.model)add({...base,code:"GEAR-AGENT-MODEL-POLICY",path:`agents[${index}].LLMConfiguration.Model`,message:`The server locks agents to openai/${modelPolicy.model}.`,fieldId:"agentFieldModel"});
-      if(!String(data?.TaskSpecification?.TaskName||"").trim())add({...base,code:"GEAR-AGENT-TASK-NAME",path:`agents[${index}].TaskSpecification.TaskName`,message:"Task name is required.",fieldId:"agentFieldTaskName"});
-      if(!String(data?.TaskSpecification?.TaskDescription||"").trim())add({...base,code:"GEAR-AGENT-TASK-DESCRIPTION",path:`agents[${index}].TaskSpecification.TaskDescription`,message:"Task instruction is required.",fieldId:"agentFieldTaskDescription"});
-      if(!String(data?.TaskSpecification?.ExpectedOutput||"").trim())add({...base,code:"GEAR-AGENT-EXPECTED-OUTPUT",path:`agents[${index}].TaskSpecification.ExpectedOutput`,message:"Expected output is required.",fieldId:"agentFieldExpectedOutput"});
+      const baseURL=String(data?.LLMConfiguration?.BaseURL||"").trim();
+      if(!provider)add({...base,code:"GEAR-AGENT-PROVIDER",path:`agents[${index}].LLMConfiguration.Provider`,message:"UVL mandatory feature LLMConfiguration.Provider is missing: select a provider.",fieldId:"agentFieldProviderOther",uvl:true});
+      else if(modelPolicy.locked&&provider!==modelPolicy.provider)add({...base,code:"GEAR-AGENT-PROVIDER-POLICY",path:`agents[${index}].LLMConfiguration.Provider`,message:`The server locks agents to ${modelPolicy.provider}/${modelPolicy.model}.`,fieldId:"agentFieldProvider"});
+      if(!model)add({...base,code:"GEAR-AGENT-MODEL",path:`agents[${index}].LLMConfiguration.Model`,message:"UVL mandatory feature LLMConfiguration.Model is missing: enter a model name.",fieldId:provider==="openai"?"agentFieldModel":"agentFieldCustomModel",uvl:true});
+      else if(provider==="openai"&&!modelPolicy.models.includes(model))add({...base,code:"GEAR-AGENT-MODEL-CHOICE",path:`agents[${index}].LLMConfiguration.Model`,message:"Select an available OpenAI mini model.",fieldId:"agentFieldModel"});
+      if(modelPolicy.locked&&model!==modelPolicy.model)add({...base,code:"GEAR-AGENT-MODEL-POLICY",path:`agents[${index}].LLMConfiguration.Model`,message:`The server locks agents to ${modelPolicy.provider}/${modelPolicy.model}.`,fieldId:"agentFieldModel"});
+      if(provider==="ollama"&&!baseURL)add({...base,code:"GEAR-AGENT-OLLAMA-BASE-URL",path:`agents[${index}].LLMConfiguration.BaseURL`,message:"UVL constraint ollama => BaseURL: enter a Base URL reachable from the Studio server.",fieldId:"agentFieldBaseURL",uvl:true});
+      else if(baseURL&&!validBaseURL(baseURL))add({...base,code:"GEAR-AGENT-BASE-URL",path:`agents[${index}].LLMConfiguration.BaseURL`,message:"Base URL must be an absolute HTTP or HTTPS URL.",fieldId:"agentFieldBaseURL"});
+      if(provider==="openai"&&baseURL)add({...base,code:"GEAR-AGENT-OPENAI-BASE-URL",path:`agents[${index}].LLMConfiguration.BaseURL`,message:"UVL constraint BaseURL => ollama | OtherProvider: OpenAI cannot set BaseURL.",view:"yaml",uvl:true});
+      if(["ollama"].includes(provider)&&model==="gpt-5.1-codex-mini")add({...base,code:"GEAR-AGENT-OLLAMA-MODEL-BRANCH",path:`agents[${index}].LLMConfiguration.Model`,message:"UVL constraint ollama => OtherModel: select an Ollama model, not gpt-5.1-codex-mini.",fieldId:"agentFieldCustomModel",uvl:true});
+      if(provider&&!["openai","ollama"].includes(provider)&&model==="gpt-5.1-codex-mini")add({...base,code:"GEAR-AGENT-OTHER-MODEL-BRANCH",path:`agents[${index}].LLMConfiguration.Model`,message:"UVL constraint OtherProvider => OtherModel: select a model for this provider, not gpt-5.1-codex-mini.",fieldId:"agentFieldCustomModel",uvl:true});
+      if(provider==="ollama"&&data?.LLMConfiguration&&"APIKey" in data.LLMConfiguration)add({...base,code:"GEAR-AGENT-OLLAMA-API-KEY",path:`agents[${index}].LLMConfiguration.APIKey`,message:"UVL constraints ollama => !APIKey and APIKey => openai | OtherProvider: remove APIKey from the YAML.",view:"yaml",uvl:true});
+      const parameterNames=["Temperature","MaxTokens","TopP","StopSequences","AdditionalParams","TopK","FrequencyPenalty","PresencePenalty","Seed"];
+      const parameters=data?.LLMConfiguration?.ModelParameters;
+      if(data?.LLMConfiguration&&"ModelParameters" in data.LLMConfiguration&&(!parameters||typeof parameters!=="object"||!parameterNames.some((name)=>Object.hasOwn(parameters,name))))add({...base,code:"GEAR-AGENT-MODEL-PARAMETERS-EMPTY",path:`agents[${index}].LLMConfiguration.ModelParameters`,message:"UVL constraint ModelParameters: include at least one model parameter, or remove ModelParameters.",view:"yaml",uvl:true});
+      const executionNames=["DelegationControl","CodeExecutionControl","AsyncExecutionControl","HumanInteractionControl","VerbosityControl","CachingControl"];
+      const execution=data?.ExecutionControl;
+      if(data&&"ExecutionControl" in data&&(!execution||typeof execution!=="object"||!executionNames.some((name)=>Object.hasOwn(execution,name))))add({...base,code:"GEAR-AGENT-EXECUTION-CONTROL-EMPTY",path:`agents[${index}].ExecutionControl`,message:"UVL constraint ExecutionControl: include at least one control, or remove ExecutionControl.",view:"yaml",uvl:true});
+      if(!String(data?.TaskSpecification?.TaskName||"").trim())add({...base,code:"GEAR-AGENT-TASK-NAME",path:`agents[${index}].TaskSpecification.TaskName`,message:"UVL mandatory feature TaskSpecification.TaskName is missing: enter a task name.",fieldId:"agentFieldTaskName",uvl:true});
+      if(!String(data?.TaskSpecification?.TaskDescription||"").trim())add({...base,code:"GEAR-AGENT-TASK-DESCRIPTION",path:`agents[${index}].TaskSpecification.TaskDescription`,message:"UVL mandatory feature TaskSpecification.TaskDescription is missing: enter a task instruction.",fieldId:"agentFieldTaskDescription",uvl:true});
+      if(!String(data?.TaskSpecification?.ExpectedOutput||"").trim())add({...base,code:"GEAR-AGENT-EXPECTED-OUTPUT",path:`agents[${index}].TaskSpecification.ExpectedOutput`,message:"UVL mandatory feature TaskSpecification.ExpectedOutput is missing: enter the expected output.",fieldId:"agentFieldExpectedOutput",uvl:true});
     });
     const workflowParsed=parse(project.workflows[0]||"");const workflow=workflowData();if(workflowParsed.error){syntaxValid=false;add({severity:"error",area:"Workflow",code:"GEAR-WORKFLOW-YAML",path:"workflow",message:workflowParsed.error,step:"workflow",view:"yaml"});}
     const refsAgents=Array.isArray(workflow?.Items?.Agents)?workflow.Items.Agents:[];const refsModules=Array.isArray(workflow?.Items?.Modules)?workflow.Items.Modules:[];const usedModules=new Set(refsModules);
     project.modules.forEach((text,index)=>{
       const parsed=parse(text);const data=moduleData(text);parsedModules.push(data);const area=moduleName(text,index);const base={area,step:"modules",entityKind:"module",entityIndex:index};
       if(parsed.error){syntaxValid=false;add({...base,code:"GEAR-MODULE-YAML",path:`modules[${index}]`,message:parsed.error,view:"yaml"});return;}
-      const declaredName=String(data?.ModuleName||"").trim();if(!declaredName)add({...base,code:"GEAR-MODULE-NAME",path:`modules[${index}].ModuleName`,message:"Module name is required.",fieldId:"moduleFieldName"});else if(/\s/.test(declaredName))add({...base,code:"GEAR-MODULE-NAME-WHITESPACE",path:`modules[${index}].ModuleName`,message:"Module names cannot contain spaces.",fieldId:"moduleFieldName"});
+      const declaredName=String(data?.ModuleName||"").trim();if(!declaredName)add({...base,code:"GEAR-MODULE-NAME",path:`modules[${index}].ModuleName`,message:"UVL mandatory feature ModuleName is missing: enter a module name.",fieldId:"moduleFieldName",uvl:true});else if(/\s/.test(declaredName))add({...base,code:"GEAR-MODULE-NAME-WHITESPACE",path:`modules[${index}].ModuleName`,message:"Module names cannot contain spaces.",fieldId:"moduleFieldName"});
       const hasParallel=Boolean(data?.Strategy?.Parallel);const hasLoop=Boolean(data?.Strategy?.Loop);
-      if(hasParallel===hasLoop)add({...base,code:"GEAR-MODULE-STRATEGY",path:`modules[${index}].Strategy`,message:hasParallel?"A module cannot use Parallel and Loop at the same time.":"Select a Parallel or Loop strategy.",fieldId:"moduleStrategyParallel"});
+      if(hasParallel===hasLoop)add({...base,code:"GEAR-MODULE-STRATEGY",path:`modules[${index}].Strategy`,message:hasParallel?"UVL constraint Strategy (alternative): exactly one of Parallel or Loop is required; both are present.":"UVL constraint Strategy (alternative): exactly one of Parallel or Loop is required; neither is present.",fieldId:"moduleStrategyParallel",uvl:true});
       const participants=hasParallel?data.Strategy.Parallel.ParallelAgents:hasLoop?data.Strategy.Loop.LoopAgents:[];const participantList=Array.isArray(participants)?participants:[];
-      if((hasParallel||hasLoop)&&!participantList.length)add({...base,code:"GEAR-MODULE-EMPTY",path:`modules[${index}].Strategy`,message:"Select at least one participating agent.",fieldId:"moduleAgentPicker"});
+      if((hasParallel||hasLoop)&&!participantList.length)add({...base,code:"GEAR-MODULE-EMPTY",path:`modules[${index}].Strategy`,message:`UVL mandatory feature ${hasParallel?"Parallel.ParallelAgents":"Loop.LoopAgents"} is missing: select at least one participating agent.`,fieldId:"moduleAgentPicker",uvl:true});
       participantList.filter((name)=>!agents.includes(name)).forEach((name)=>add({...base,code:"GEAR-MODULE-UNKNOWN-AGENT",path:`modules[${index}].Strategy`,message:`Agent “${name}” does not exist in the project.`,fieldId:"moduleAgentPicker"}));
-      if(hasLoop){const count=Number(data.Strategy.Loop.TurnCount);if(!Number.isInteger(count)||count<1)add({...base,code:"GEAR-MODULE-TURN-COUNT",path:`modules[${index}].Strategy.Loop.TurnCount`,message:"Iteration count must be an integer greater than or equal to 1.",fieldId:"moduleFieldTurnCount"});}
+      if(hasLoop){const hasTurnCount=Object.hasOwn(data.Strategy.Loop,"TurnCount");const count=Number(data.Strategy.Loop.TurnCount);if(!hasTurnCount)add({...base,code:"GEAR-MODULE-TURN-COUNT",path:`modules[${index}].Strategy.Loop.TurnCount`,message:"UVL mandatory feature Loop.TurnCount is missing: enter an iteration count.",fieldId:"moduleFieldTurnCount",uvl:true});else if(!Number.isInteger(count)||count<1)add({...base,code:"GEAR-MODULE-TURN-COUNT",path:`modules[${index}].Strategy.Loop.TurnCount`,message:"Iteration count must be an integer greater than or equal to 1.",fieldId:"moduleFieldTurnCount"});}
     });
     const duplicates=(values,kind,step)=>values.forEach((value,index)=>{if(value&&values.indexOf(value)!==index)add({severity:"error",area:value,code:`GEAR-${kind.toUpperCase()}-DUPLICATE`,path:`${kind}s[${index}]`,message:`Identifier “${value}” is used more than once.`,step,entityKind:kind,entityIndex:index});});duplicates(agents,"agent","agents");duplicates(modules,"module","modules");
-    if(!workflowParsed.error){const workflowName=String(workflow?.WorkflowName||"").trim();if(!workflowName)add({severity:"warning",area:"Workflow",code:"GEAR-WORKFLOW-NAME",path:"workflow.WorkflowName",message:"Add a workflow name.",step:"workflow",view:"yaml"});else if(/\s/.test(workflowName))add({area:"Workflow",code:"GEAR-WORKFLOW-NAME-WHITESPACE",path:"workflow.WorkflowName",message:"Workflow names cannot contain spaces.",step:"workflow",view:"yaml"});refsAgents.filter((name)=>!agents.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-AGENT",path:"workflow.Items.Agents",message:`Agent “${name}” does not exist in the project.`,step:"workflow"}));refsModules.filter((name)=>!modules.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-MODULE",path:"workflow.Items.Modules",message:`Module “${name}” does not exist in the project.`,step:"workflow"}));if(!refsAgents.length&&!refsModules.length)add({severity:"error",area:"Workflow",code:"GEAR-WORKFLOW-EMPTY",path:"workflow.Items",message:"Add at least one agent or module to the workflow.",step:"workflow"});}
+    if(!workflowParsed.error){const workflowName=String(workflow?.WorkflowName||"").trim();if(!workflowName)add({area:"Workflow",code:"GEAR-WORKFLOW-NAME",path:"workflow.WorkflowName",message:"UVL mandatory feature WorkflowName is missing: enter a workflow name.",step:"workflow",view:"yaml",uvl:true});else if(/\s/.test(workflowName))add({area:"Workflow",code:"GEAR-WORKFLOW-NAME-WHITESPACE",path:"workflow.WorkflowName",message:"Workflow names cannot contain spaces.",step:"workflow",view:"yaml"});refsAgents.filter((name)=>!agents.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-AGENT",path:"workflow.Items.Agents",message:`Agent “${name}” does not exist in the project.`,step:"workflow"}));refsModules.filter((name)=>!modules.includes(name)).forEach((name)=>add({area:"Workflow",code:"GEAR-WORKFLOW-UNKNOWN-MODULE",path:"workflow.Items.Modules",message:`Module “${name}” does not exist in the project.`,step:"workflow"}));if(!refsAgents.length&&!refsModules.length)add({severity:"error",area:"Workflow",code:"GEAR-WORKFLOW-EMPTY",path:"workflow.Items",message:"UVL constraint Items (or): at least one of Agents or Modules is required; both are allowed.",step:"workflow",uvl:true});}
     if(syntaxValid&&window.GearConversionCore?.buildGearIR){const ir=window.GearConversionCore.buildGearIR({gearAgents:parsedAgents,gearModules:parsedModules,workflowYaml:workflow});const supported=new Set(["GEAR-WORKFLOW-CYCLE","GEAR-WORKFLOW-UNKNOWN-EDGE","GEAR-WORKFLOW-AMBIGUOUS-EDGE","GEAR-WORKFLOW-DEFAULT-ORDER","GEAR-MODULE-UNKNOWN-AGGREGATOR"]);ir.diagnostics.filter((item)=>supported.has(item.code)).forEach((item)=>{const messages={"GEAR-WORKFLOW-CYCLE":"The workflow contains a cycle outside a Loop module.","GEAR-WORKFLOW-UNKNOWN-EDGE":"A workflow edge references an unknown step.","GEAR-WORKFLOW-AMBIGUOUS-EDGE":"A workflow edge is ambiguous; use a unique step identifier.","GEAR-WORKFLOW-DEFAULT-ORDER":"No explicit edges: the displayed order will run sequentially.","GEAR-MODULE-UNKNOWN-AGGREGATOR":"A module references an unknown aggregator agent."};add({severity:item.severity,area:item.code.startsWith("GEAR-MODULE")?"Modules":"Workflow",code:item.code,path:item.path,message:messages[item.code]||item.message,step:item.code.startsWith("GEAR-MODULE")?"modules":"workflow",view:"yaml"});});}
     refsModules.filter((name)=>modules.includes(name)).forEach((name)=>add({severity:"warning",area:name,code:"GEAR-CREWAI-MODULE-ADAPTATION",path:"workflow.Items.Modules",message:"CrewAI will adapt this module; parallel or loop semantics may be partially lost.",step:"build",target:"crewai"}));
+    project.agents.forEach((text,index)=>{
+      if(parse(text).error||featureModelResults.get(agentFeatureKey(text))!==false||issues.some((issue)=>issue.uvl&&issue.entityKind==="agent"&&issue.entityIndex===index))return;
+      add({area:agentName(text,index),code:"GEAR-AGENT-UVL-CONSTRAINT",path:`agents[${index}]`,message:"Agent configuration violates gear-agent.uvl; inspect its required features and constraints in Advanced YAML.",step:"agents",entityKind:"agent",entityIndex:index,view:"yaml",uvl:true});
+    });
+    project.modules.forEach((text,index)=>{
+      if(parse(text).error||featureModelResults.get(moduleFeatureKey(text))!==false||issues.some((issue)=>issue.uvl&&issue.entityKind==="module"&&issue.entityIndex===index))return;
+      add({area:moduleName(text,index),code:"GEAR-MODULE-UVL-CONSTRAINT",path:`modules[${index}]`,message:"Module configuration violates gear-module.uvl; inspect its required features and strategy in Advanced YAML.",step:"modules",entityKind:"module",entityIndex:index,view:"yaml",uvl:true});
+    });
+    if(!workflowParsed.error&&featureModelResults.get(workflowFeatureKey())===false&&!issues.some((issue)=>issue.uvl&&issue.step==="workflow"))add({area:"Workflow",code:"GEAR-WORKFLOW-UVL-CONSTRAINT",path:"workflow",message:"Workflow configuration violates gear-multiagent.uvl; inspect its required features in YAML.",step:"workflow",view:"yaml",uvl:true});
     return issues;
+  };
+
+  const updateFeatureModelStatus = () => {
+    const status=document.getElementById("uvlValidationStatus");
+    status.title="Checks the agent, module, and workflow UVL feature models.";
+    const agentKeys=project.agents.filter((text)=>!parse(text).error).map(agentFeatureKey);
+    const moduleKeys=project.modules.filter((text)=>!parse(text).error).map(moduleFeatureKey);
+    const workflowKeys=parse(project.workflows[0]||defaultWorkflow).error?[]:[workflowFeatureKey()];
+    const keys=[...agentKeys,...moduleKeys,...workflowKeys];
+    if(!keys.length){status.dataset.state="idle";status.textContent="UVL: no component to check";}
+    else if(keys.some((key)=>failedFeatureModelChecks.has(key))){status.dataset.state="unavailable";status.textContent="UVL unavailable — restart server";status.title="Restart gear serve, then refresh Studio to enable UVL checks.";}
+    else if(keys.some((key)=>!featureModelResults.has(key))){status.dataset.state="checking";status.textContent="UVL: checking…";}
+    else{const violations=validation().filter(issueVerifiedByUVL).length;status.dataset.state=violations?"invalid":"valid";status.textContent=violations?`UVL: ${violations} violation${violations===1?"":"s"}`:"UVL: valid";}
+  };
+
+  const verifyAgentFeatureModels = () => {
+    project.agents.forEach((text)=>{
+      if(parse(text).error)return;
+      const agent=featureDocument(agentData(text));
+      const key=agentFeatureKey(text);
+      if(featureModelResults.has(key)||pendingFeatureModelChecks.has(key))return;
+      pendingFeatureModelChecks.add(key);
+      updateFeatureModelStatus();
+      fetch("/api/studio/validate-agent-features",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agent})})
+        .then(async(response)=>{const result=await response.json();if(!response.ok)throw new Error(result.error||"Feature model validation failed.");featureModelResults.set(key,Boolean(result.valid));if(currentStep==="validation"){const issues=renderValidation();renderHealth(issues);refreshStepLinks();refreshFrameworkControls();}})
+        .catch((error)=>{failedFeatureModelChecks.add(key);console.warn("Agent feature model validation unavailable.",error);})
+        .finally(()=>{pendingFeatureModelChecks.delete(key);if(currentStep==="validation")updateFeatureModelStatus();});
+    });
+  };
+
+  const verifyModuleFeatureModels = () => {
+    project.modules.forEach((text)=>{
+      if(parse(text).error)return;
+      const module=featureDocument(moduleData(text));
+      const key=moduleFeatureKey(text);
+      if(featureModelResults.has(key)||pendingFeatureModelChecks.has(key))return;
+      pendingFeatureModelChecks.add(key);
+      updateFeatureModelStatus();
+      fetch("/api/studio/validate-module-features",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({module})})
+        .then(async(response)=>{const result=await response.json();if(!response.ok)throw new Error(result.error||"Module feature model validation failed.");featureModelResults.set(key,Boolean(result.valid));if(currentStep==="validation"){const issues=renderValidation();renderHealth(issues);refreshStepLinks();refreshFrameworkControls();}})
+        .catch((error)=>{failedFeatureModelChecks.add(key);console.warn("Module feature model validation unavailable.",error);})
+        .finally(()=>{pendingFeatureModelChecks.delete(key);if(currentStep==="validation")updateFeatureModelStatus();});
+    });
+  };
+
+  const verifyWorkflowFeatureModel = () => {
+    if(parse(project.workflows[0]||defaultWorkflow).error)return;
+    const workflow=featureDocument(workflowData());
+    const key=workflowFeatureKey();
+    if(featureModelResults.has(key)||pendingFeatureModelChecks.has(key))return;
+    pendingFeatureModelChecks.add(key);
+    updateFeatureModelStatus();
+    fetch("/api/studio/validate-workflow-features",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workflow})})
+      .then(async(response)=>{const result=await response.json();if(!response.ok)throw new Error(result.error||"Workflow feature model validation failed.");featureModelResults.set(key,Boolean(result.valid));if(currentStep==="validation"){const issues=renderValidation();renderHealth(issues);refreshStepLinks();refreshFrameworkControls();}})
+      .catch((error)=>{failedFeatureModelChecks.add(key);console.warn("Workflow feature model validation unavailable.",error);})
+      .finally(()=>{pendingFeatureModelChecks.delete(key);if(currentStep==="validation")updateFeatureModelStatus();});
   };
 
   const blockingIssuesForStep = (step) => {
@@ -403,6 +525,7 @@
   };
   const canOpenStep = (targetStep) => {
     if(!experimentActive)return {ready:true,message:""};
+    if(targetStep==="validation")return {ready:true,message:""};
     const targetIndex=steps.indexOf(targetStep);
     for(let index=0;index<targetIndex;index+=1){
       const requirement=stepRequirement(steps[index]);
@@ -427,7 +550,7 @@
   const entityCard = (kind, text, index, selected) => {
     const name = kind === "agent" ? agentName(text,index) : moduleName(text,index);
     const data = kind === "agent" ? agentData(text) : moduleData(text);
-    const subtitle = kind === "agent" ? data?.TaskSpecification?.TaskName || "Task required" : data?.Strategy?.Parallel ? "Parallel" : data?.Strategy?.Loop ? "Loop" : "Strategy required";
+    const subtitle = kind === "agent" ? data?.TaskSpecification?.TaskName || "Task required" : moduleStrategySummary(data);
     const card = document.createElement("article");
     card.className = `entity-card${selected === index ? " is-selected" : ""}`; card.tabIndex = 0;
     card.innerHTML = `<span class="entity-avatar ${kind === "module" ? "entity-avatar--module" : ""}">${kind === "agent" ? "A" : "M"}</span><div><strong></strong><small></small></div><div class="entity-menu"><button class="icon-button" type="button" aria-label="Duplicate">⧉</button><button class="icon-button" type="button" aria-label="Delete">×</button></div>`;
@@ -513,13 +636,23 @@
     currentStep=issue.step||"validation";if(issue.entityKind==="agent"&&Number.isInteger(issue.entityIndex))selectedAgent=issue.entityIndex;if(issue.entityKind==="module"&&Number.isInteger(issue.entityIndex))selectedModule=issue.entityIndex;if(issue.entityKind&&issue.view)setEntityView(issue.entityKind,issue.view);render();if(issue.step==="workflow"&&issue.view==="yaml"){document.querySelector(".workflow-grid")?.classList.remove("source-hidden");const toggle=document.getElementById("toggleWorkflowSource");if(toggle){toggle.textContent="Hide YAML";toggle.setAttribute("aria-expanded","true");}}setTimeout(()=>{const target=issue.fieldId?document.getElementById(issue.fieldId):null;if(target?.focus)target.focus();else target?.querySelector("input,button")?.focus();},0);
   };
 
+  const issueVerifiedByUVL = (issue) => {
+    if(!issue.uvl)return false;
+    if(issue.step==="workflow")return featureModelResults.get(workflowFeatureKey())===false;
+    if(!Number.isInteger(issue.entityIndex))return false;
+    if(issue.entityKind==="agent")return featureModelResults.get(agentFeatureKey(project.agents[issue.entityIndex]))===false;
+    if(issue.entityKind==="module")return featureModelResults.get(moduleFeatureKey(project.modules[issue.entityIndex]))===false;
+    return false;
+  };
+
   const renderValidation = () => {
     const issues=validation();const errors=issues.filter((item)=>item.severity==="error").length;const warnings=issues.filter((item)=>item.severity==="warning").length;const infos=issues.filter((item)=>item.severity==="info").length;
+    const automaticStatus=document.getElementById("automaticValidationStatus");automaticStatus.dataset.state=errors?"invalid":warnings?"warning":"valid";automaticStatus.lastChild.textContent=errors?`Automatic validation: ${errors} error${errors===1?"":"s"}`:warnings?`Automatic validation: ${warnings} warning${warnings===1?"":"s"}`:"Automatic validation: passed";
     document.getElementById("validationSummary").innerHTML=`<div class="summary-tile ${errors?"has-errors":"is-clear"}"><b>${errors}</b><span>blocking error${errors===1?"":"s"}</span></div><div class="summary-tile"><b>${warnings}</b><span>warning${warnings===1?"":"s"}</span></div><div class="summary-tile"><b>${infos}</b><span>information</span></div>`;
     document.querySelectorAll("[data-validation-severity]").forEach((button)=>button.classList.toggle("is-active",button.dataset.validationSeverity===validationSeverity));document.getElementById("validationTarget").value=validationTarget;
     const filtered=issues.filter((issue)=>(validationSeverity==="all"||issue.severity===validationSeverity)&&(validationTarget==="all"||!issue.target||issue.target===validationTarget));const list=document.getElementById("validationIssues");list.replaceChildren();
     if(!filtered.length){const empty=document.createElement("div");empty.className="validation-empty";empty.innerHTML=`<span>✓</span><div><strong>${issues.length?"No diagnostics for this filter":"Project ready to convert"}</strong><p>${issues.length?"Change the filters to display other results.":"Project structure, references, and workflow are consistent."}</p></div>`;list.appendChild(empty);}
-    filtered.forEach((issue)=>{const row=document.createElement("article");row.className=`validation-issue severity-${issue.severity}`;row.innerHTML=`<span class="validation-severity">${issue.severity==="error"?"×":issue.severity==="warning"?"!":"i"}</span><div class="validation-issue-content"><div><strong></strong><code></code></div><p></p></div><span class="validation-target"></span><button type="button">Open</button>`;row.querySelector("strong").textContent=issue.area;row.querySelector("code").textContent=issue.code;row.querySelector("p").textContent=issue.message;const target=row.querySelector(".validation-target");target.textContent=issue.target?frameworkLabel(issue.target):"";if(!issue.target)target.hidden=true;row.querySelector("button").addEventListener("click",()=>openValidationIssue(issue));list.appendChild(row);});
+    filtered.forEach((issue)=>{const row=document.createElement("article");row.className=`validation-issue severity-${issue.severity}`;row.innerHTML=`<span class="validation-severity">${issue.severity==="error"?"×":issue.severity==="warning"?"!":"i"}</span><div class="validation-issue-content"><div><strong></strong><code></code></div><p></p></div><span class="validation-target"></span><button type="button">Open</button>`;row.querySelector("strong").textContent=issue.area;row.querySelector("code").textContent=issue.code;row.querySelector("p").textContent=issue.message;if(issueVerifiedByUVL(issue)){const badge=document.createElement("span");badge.className="uvl-violation";badge.textContent="UVL violation confirmed";row.querySelector(".validation-issue-content>div").appendChild(badge);}const target=row.querySelector(".validation-target");target.textContent=issue.target?frameworkLabel(issue.target):"";if(!issue.target)target.hidden=true;row.querySelector("button").addEventListener("click",()=>openValidationIssue(issue));list.appendChild(row);});updateFeatureModelStatus();
     return issues;
   };
 
@@ -550,12 +683,17 @@
     renderTutorialGuide();
     refreshStepLinks();
     refreshFrameworkControls();
+    if(currentStep==="validation"){verifyAgentFeatureModels();verifyModuleFeatureModels();verifyWorkflowFeatureModel();}
   };
 
   document.querySelectorAll("[data-step-link]").forEach((button)=>button.addEventListener("click",()=>{const access=canOpenStep(button.dataset.stepLink);if(!access.ready){toast(access.message);return;}currentStep=button.dataset.stepLink;persistProject();render();window.scrollTo({top:0,behavior:"smooth"});}));
   document.querySelectorAll("[data-add]").forEach((button)=>button.addEventListener("click",()=>{const kind=button.dataset.add;const values=project[`${kind}s`];const text=kind==="agent"?defaultAgent(values.length+1):defaultModule(values.length+1);values.push(text);lastReferencedNames[kind].push(declaredEntityName(kind,text));kind==="agent"?selectedAgent=values.length-1:selectedModule=values.length-1;save();render();}));
   document.querySelectorAll("[data-entity-view]").forEach((button)=>button.addEventListener("click",()=>setEntityView(button.dataset.kind,button.dataset.entityView)));
   document.getElementById("agentForm").addEventListener("input",updateAgentFromForm);document.getElementById("moduleForm").addEventListener("input",updateModuleFromForm);
+  document.getElementById("agentFieldProvider").addEventListener("change",()=>{const provider=selectedProvider("agentField");const model=provider==="openai"?modelPolicy.model:PROVIDER_MODEL_PRESETS[provider]||"";setProviderModelFields("agentField",provider,model,document.getElementById("agentFieldBaseURL").value);document.getElementById("agentModelPolicy").textContent=providerPolicyText(provider);updateAgentFromForm();});
+  document.getElementById("starterProvider").addEventListener("change",()=>{const provider=selectedProvider("starter");const model=provider==="openai"?modelPolicy.model:PROVIDER_MODEL_PRESETS[provider]||"";setProviderModelFields("starter",provider,model,document.getElementById("starterBaseURL").value);document.getElementById("starterModelPolicy").textContent=providerPolicyText(provider);});
+  document.getElementById("agentFieldProviderOther").addEventListener("input",()=>{document.getElementById("agentModelPolicy").textContent=providerPolicyText(selectedProvider("agentField"));});
+  document.getElementById("starterProviderOther").addEventListener("input",()=>{document.getElementById("starterModelPolicy").textContent=providerPolicyText(selectedProvider("starter"));});
   ["agent","module"].forEach((kind)=>document.getElementById(`${kind}Editor`).addEventListener("input",(event)=>{const index=kind==="agent"?selectedAgent:selectedModule;project[`${kind}s`][index]=event.target.value;const parsed=parse(event.target.value);if(!parsed.error)propagateEntityRename(kind,index,declaredEntityName(kind,event.target.value));document.getElementById(`${kind}EditorError`).textContent=parsed.error || "";updateLineNumbers(kind,event.target.value);const name=kind==="agent"?agentName(event.target.value,index):moduleName(event.target.value,index);document.getElementById(`${kind}EditorTitle`).textContent=name;const selected=document.querySelector(`#${kind}List .entity-card.is-selected`);if(selected)selected.querySelector("strong").textContent=name;if(kind==="agent")populateAgentForm(event.target.value,true);else populateModuleForm(event.target.value,true);scheduleSave();renderHealth(validation());}));
   document.getElementById("workflowEditor").addEventListener("input",(event)=>{project.workflows[0]=event.target.value;document.getElementById("workflowEditorError").textContent=parse(event.target.value).error || "";updateLineNumbers("workflow",event.target.value);scheduleSave();renderWorkflow();renderHealth(validation());});
   ["agent","module","workflow"].forEach((kind)=>{const editor=document.getElementById(`${kind}Editor`);const lines=document.getElementById(`${kind}LineNumbers`);editor.addEventListener("scroll",()=>{lines.scrollTop=editor.scrollTop;});editor.addEventListener("keydown",(event)=>{if(event.key!=="Tab")return;event.preventDefault();const start=editor.selectionStart;editor.setRangeText("  ",start,editor.selectionEnd,"end");editor.dispatchEvent(new Event("input",{bubbles:true}));});});

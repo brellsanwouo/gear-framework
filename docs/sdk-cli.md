@@ -97,4 +97,6 @@ dist/project_1/adk/orchestration.py
 
 GEAR validates the project and preflights every requested target before writing. A blocking error exits with status code `2`, prints the issues to the console, and creates no new files.
 
+The module strategy follows the UVL `alternative` rule: exactly one of `Parallel` or `Loop` is required. `gear validate` and `gear convert` report `GEAR-MODULE-STRATEGY` when both or neither are present. Invalid projects stop before conversion, so no `report.yml` is written. For a valid build, the conversion report records the active strategy properties and their translation status. The JavaScript conversion report also marks a conflicting or missing strategy as invalid if the conversion core receives such input directly.
+
 See the [conversion guide](/conversion) for output details, preflight behavior, and CI integration.

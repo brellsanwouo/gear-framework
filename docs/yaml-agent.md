@@ -40,7 +40,7 @@ Each item in the top-level `agents` array is an agent object. Do not wrap it in 
 
 GEAR does not maintain a fixed provider or model catalogue. The connector and installed runtime must support the selected values.
 
-In the Studio the provider is fixed to `openai`, and the model is selected from the supported OpenAI mini list unless an administrator locks it with `GEAR_STUDIO_MODEL` in `.env`. Studio builds enforce this policy; standalone YAML and CLI conversions continue to use the values declared in the project.
+In the Studio the provider is editable. The agent feature model distinguishes `openai`, `ollama`, and `OtherProvider`. OpenAI models are selected from the supported mini list. Ollama requires its installed model name and `BaseURL`, and forbids `APIKey`. Other providers accept a model name and optional `BaseURL`. Credentials for hosted providers belong in the execution environment. An administrator can lock Studio agents to OpenAI and one model with `GEAR_STUDIO_MODEL` in `.env`. Studio builds enforce these rules; standalone YAML and CLI conversions continue to use the values declared in the project.
 
 ### `ModelParameters`
 
